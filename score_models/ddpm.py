@@ -10,6 +10,7 @@ from score_models.definitions import DEVICE
 from .utils import get_activation
 from .layers import DDPMResnetBlock, SelfAttentionBlock, Conv2dSame, GaussianFourierProjection
 import functools
+from tqdm import tqdm
 
 
 def conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1):
@@ -173,7 +174,7 @@ class DDPM(nn.Module):
         dt = -1.0 / N
         t = torch.ones(size[0]).to(DEVICE)
         broadcast = [-1, 1, 1, 1]
-        for n in range(N):
+        for _ in tqdm(range(N)):
             t += dt
             drift, diffusion = self.sde.sde(x, t)
             score = self.score(x, t)

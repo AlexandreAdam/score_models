@@ -25,6 +25,7 @@ import torch.nn as nn
 import functools
 import torch
 import numpy as np
+from tqdm import tqdm
 
 
 def conv1x1(in_planes, out_planes, stride=1, bias=True, init_scale=1.):
@@ -437,7 +438,7 @@ class NCSNpp(nn.Module):
         dt = -1.0 / N
         t = torch.ones(size[0]).to(DEVICE)
         broadcast = [-1, 1, 1, 1]
-        for n in range(N):
+        for _ in tqdm(range(N)):
             t += dt
             drift, diffusion = self.sde.sde(x, t)
             score = self.score(x, t)
