@@ -170,7 +170,7 @@ class DDPM(nn.Module):
         assert N > 0
         # A simple Euler-Maruyama integration of VESDE
         x = torch.randn(size).to(device)
-        dt = -1.0 / self.N
+        dt = -1.0 / N
         t = torch.ones(size[0]).to(DEVICE)
         broadcast = [1, 1, 1, 1]
         for n in range(N):
