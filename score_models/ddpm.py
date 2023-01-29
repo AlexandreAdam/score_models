@@ -165,6 +165,7 @@ class DDPM(nn.Module):
         B, *D = x.shape
         return self.forward(x, t) / self.sde.sigma(t).view(B, *[1]*len(D))
 
+    @torch.no_grad()
     def sample(self, size, N: int = 1000, device=DEVICE):
         assert len(size) == 4
         assert size[1] == 1
