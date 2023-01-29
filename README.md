@@ -58,7 +58,7 @@ hyperparameters should be saved on a ``.json`` file, then passed to the training
 
 Usage of the training script might look like this
 ```
-python $GRAVSCOPE/scripts/train_score_model.py\
+python train_score_model.py\
   --model_architecture=ddpm\
   --dataset_path=dataset.h5\
   --dataset_key=the_h5_key\
