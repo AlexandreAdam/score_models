@@ -52,10 +52,9 @@ class DDPM(nn.Module):
     def __init__(
             self,
             channels,
-            sigma_min,
-            sigma_max,
-            sde="ve",  # for now only choice possible
             image_size=256,
+            sigma_min=1e-1,
+            sigma_max=50,
             nf=128,
             activation_type="relu",
             ch_mult=(1, 1, 2, 2, 4, 4),
