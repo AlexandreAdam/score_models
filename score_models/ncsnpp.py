@@ -436,7 +436,7 @@ class NCSNpp(nn.Module):
         x = torch.randn(size).to(device)
         dt = -1.0 / N
         t = torch.ones(size[0]).to(DEVICE)
-        broadcast = [1, 1, 1, 1]
+        broadcast = [-1, 1, 1, 1]
         for n in range(N):
             t += dt
             drift, diffusion = self.sde.sde(x, t)
