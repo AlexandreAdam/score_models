@@ -160,10 +160,12 @@ class NCSNpp(nn.Module):
             fourier_scale=16.,
             resblock_type="biggan",
             combine_method="sum",
+            attention=True,
             **kwargs
           ):
         super().__init__()
         self.act = act = get_activation(activation_type)
+        self.attention = attention
         self.sde = VESDE(sigma_min, sigma_max)
 
         self.nf = nf
@@ -256,7 +258,8 @@ class NCSNpp(nn.Module):
 
         in_ch = hs_c[-1]
         modules.append(ResnetBlock(in_ch=in_ch))
-        modules.append(AttnBlock(channels=in_ch))
+        if self.attention:
+            modules.append(AttnBlock(channels=in_ch))
         modules.append(ResnetBlock(in_ch=in_ch))
 
         pyramid_ch = 0
@@ -360,8 +363,9 @@ class NCSNpp(nn.Module):
         h = hs[-1]
         h = modules[m_idx](h, temb)
         m_idx += 1
-        h = modules[m_idx](h)
-        m_idx += 1
+        if self.attention:
+            h = modules[m_idx](h)
+            m_idx += 1
         h = modules[m_idx](h, temb)
         m_idx += 1
 

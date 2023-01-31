@@ -62,10 +62,12 @@ class DDPM(nn.Module):
             num_res_blocks=2,
             resample_with_conv=True,
             dropout=0.,
+            attention=True,
             **kwargs
     ):
         super().__init__()
         self.act = act = get_activation(activation_type=activation_type)
+        self.attention = attention
         self.nf = nf
         self.num_res_blocks = num_res_blocks
         self.num_resolutions = num_resolutions = len(ch_mult)
@@ -98,7 +100,8 @@ class DDPM(nn.Module):
 
         in_ch = hs_c[-1]
         modules.append(ResnetBlock(in_ch=in_ch))
-        modules.append(AttnBlock(channels=in_ch))
+        if self.attention:
+            modules.append(AttnBlock(channels=in_ch))
         modules.append(ResnetBlock(in_ch=in_ch))
 
         # Upsampling block
@@ -139,8 +142,9 @@ class DDPM(nn.Module):
         h = hs[-1]
         h = modules[m_idx](h, temb)
         m_idx += 1
-        h = modules[m_idx](h)
-        m_idx += 1
+        if self.attention:
+            h = modules[m_idx](h)
+            m_idx += 1
         h = modules[m_idx](h, temb)
         m_idx += 1
 
