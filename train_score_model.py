@@ -242,7 +242,7 @@ if __name__ == '__main__':
     # logs
     parser.add_argument("--logdir",             default="None",                     help="Path of logs directory. Default if None, no logs recorded.")
     parser.add_argument("--logname",            default=None,                       help="OEerwrite name of the log with this argument")
-    parser.add_argument("--logname_prefixe",    default="DDPM",                  help="If name of the log is not provided, this prefix is prepended to the date")
+    parser.add_argument("--logname_prefixe",    default="DDPM",                     help="If name of the log is not provided, this prefix is prepended to the date")
     parser.add_argument("--model_dir",          default="None",                     help="Path to the directory where to save models checkpoints.")
     parser.add_argument("--checkpoints",        default=10, type=int,               help="Save a checkpoint of the models each {%} epoch.")
     parser.add_argument("--models_to_keep",     default=10,  type=int,               help="Only keep 3 best model, on top of the last checkpoint")

@@ -66,6 +66,19 @@ class DDPM(nn.Module):
             **kwargs
     ):
         super().__init__()
+        self.hyperparameters = {
+            "channels": channels,
+            "image_size": image_size,
+            "sigma_min": sigma_min,
+            "sigma_max": sigma_max,
+            "nf": nf,
+            "activation_type": activation_type,
+            "ch_mult": ch_mult,
+            "num_res_blocks": num_res_blocks,
+            "resample_with_conv": resample_with_conv,
+            "dropout": dropout,
+            "attention": attention
+        }
         self.act = act = get_activation(activation_type=activation_type)
         self.attention = attention
         self.nf = nf

@@ -164,6 +164,28 @@ class NCSNpp(nn.Module):
             **kwargs
           ):
         super().__init__()
+        self.hyperparameters = {
+            "channels": channels,
+            "image_size": image_size,
+            "nf": nf,
+            "activation_type": activation_type,
+            "ch_mult": ch_mult,
+            "num_res_blocks": num_res_blocks,
+            "resample_with_conv": resample_with_conv,
+            "dropout": dropout,
+            "sigma_min": sigma_min,
+            "sigma_max": sigma_max,
+            "fir": fir,
+            "fir_kernel": fir_kernel,
+            "skip_rescale": skip_rescale,
+            "progressive": progressive,
+            "progressive_input": progressive_input,
+            "init_scale": init_scale,
+            "fourier_scale": fourier_scale,
+            "resblock_type": resblock_type,
+            "combine_method": combine_method,
+            "attention": attention
+        }
         self.act = act = get_activation(activation_type)
         self.attention = attention
         self.sde = VESDE(sigma_min, sigma_max)
