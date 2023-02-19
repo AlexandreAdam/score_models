@@ -8,7 +8,7 @@ import torch
 import os
 from glob import glob
 import re
-from scope.definitions import DEVICE
+from .definitions import DEVICE
 from torch_ema import ExponentialMovingAverage
 
 
