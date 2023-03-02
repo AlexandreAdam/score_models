@@ -15,11 +15,11 @@
 
 # pylint: skip-file
 
-from .layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, Conv2dSame
-from .layers.resnet_block_biggan import ResnetBlockBigGANpp, upsample_2d, Conv2d, downsample_2d
+from .layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, Conv1dSame
+from .layers.resnet_block_biggan1d import ResnetBlockBigGANpp1d, upsample_1d, Conv1d, downsample_1d
 from .utils import get_activation
-from score_models.definitions import default_init, DEVICE
-from score_models.sde import VESDE
+from .definitions import default_init, DEVICE
+from .sde import VESDE
 import torch.nn.functional as F
 import torch.nn as nn
 import functools
@@ -28,18 +28,18 @@ import numpy as np
 from tqdm import tqdm
 
 
-def conv1x1(in_planes, out_planes, stride=1, bias=True, init_scale=1.):
-    """1x1 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias)
+def conv1(in_planes, out_planes, stride=1, bias=True, init_scale=1.):
+    """1 convolution with DDPM initialization."""
+    conv = Conv1dSame(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias)
     with torch.no_grad():
         conv.conv.weight.data = default_init(init_scale)(conv.conv.weight.data.shape)
         nn.init.zeros_(conv.conv.bias)
     return conv
 
 
-def conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_scale=1.):
-    """3x3 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=3, stride=stride, dilation=dilation, bias=bias)
+def conv3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_scale=1.):
+    """3 convolution with DDPM initialization."""
+    conv = Conv1dSame(in_planes, out_planes, kernel_size=3, stride=stride, dilation=dilation, bias=bias)
     with torch.no_grad():
         conv.conv.weight.data = default_init(init_scale)(conv.conv.weight.data.shape)
         nn.init.zeros_(conv.conv.bias)
@@ -53,10 +53,10 @@ class DownsampleLayer(nn.Module):
         out_ch = out_ch if out_ch else in_ch
         if not fir:
             if with_conv:
-                self.Conv_0 = conv3x3(in_ch, out_ch, stride=2)
+                self.Conv_0 = conv3(in_ch, out_ch, stride=2)
         else:
             if with_conv:
-                self.Conv2d_0 = Conv2d(in_ch, out_ch,
+                self.Conv1d_0 = Conv1d(in_ch, out_ch,
                                         kernel=3, down=True,
                                         resample_kernel=fir_kernel,
                                         use_bias=True,
@@ -67,19 +67,18 @@ class DownsampleLayer(nn.Module):
         self.out_ch = out_ch
 
     def forward(self, x):
-        B, C, H, W = x.shape
+        B, C, D = x.shape
         if not self.fir:
             if self.with_conv:
-                x = F.pad(x, (0, 1, 0, 1))
+                x = F.pad(x, (0, 1, 0, 1, 0, 1))
                 x = self.Conv_0(x)
             else:
-                x = F.avg_pool2d(x, 2, stride=2)
+                x = F.avg_pool3d(x, 2, stride=2)
         else:
             if not self.with_conv:
-                x = downsample_2d(x, self.fir_kernel, factor=2)
+                x = downsample_1d(x, self.fir_kernel, factor=2)
             else:
-                x = self.Conv2d_0(x)
-
+                x = self.Conv1d_0(x)
         return x
 
 
@@ -90,10 +89,10 @@ class UpsampleLayer(nn.Module):
         out_ch = out_ch if out_ch else in_ch
         if not fir:
             if with_conv:
-                self.Conv_0 = conv3x3(in_ch, out_ch)
+                self.Conv_0 = conv3(in_ch, out_ch)
         else:
             if with_conv:
-                self.Conv2d_0 = Conv2d(in_ch, out_ch,
+                self.Conv1d_0 = Conv1d(in_ch, out_ch,
                                    kernel=3, up=True,
                                    resample_kernel=fir_kernel,
                                    use_bias=True,
@@ -104,17 +103,16 @@ class UpsampleLayer(nn.Module):
         self.out_ch = out_ch
 
     def forward(self, x):
-        B, C, H, W = x.shape
+        B, C, D = x.shape
         if not self.fir:
-            h = F.interpolate(x, (H * 2, W * 2), 'nearest')
+            h = F.interpolate(x, (D * 2,), 'nearest')
             if self.with_conv:
                 h = self.Conv_0(h)
         else:
             if not self.with_conv:
-                h = upsample_2d(x, self.fir_kernel, factor=2)
+                h = upsample_1d(x, self.fir_kernel, factor=2)
             else:
-                h = self.Conv2d_0(x)
-
+                h = self.Conv1d_0(x)
         return h
 
 
@@ -123,7 +121,7 @@ class Combine(nn.Module):
 
     def __init__(self, dim1, dim2, method='cat'):
         super().__init__()
-        self.Conv_0 = conv1x1(dim1, dim2)
+        self.Conv_0 = conv1(dim1, dim2)
         self.method = method
 
     def forward(self, x, y):
@@ -136,7 +134,7 @@ class Combine(nn.Module):
             raise ValueError(f'Method {self.method} not recognized.')
 
 
-class NCSNpp(nn.Module):
+class NCSNpp1d(nn.Module):
     """NCSN++ model"""
 
     def __init__(
@@ -144,8 +142,8 @@ class NCSNpp(nn.Module):
             channels=1,
             sigma_min=1e-1,
             sigma_max=50,
-            nf=128,
-            ch_mult=(1, 1, 2, 2, 2, 2, 2),
+            nf=4,
+            ch_mult=(1, 1, 2, 2, 2, 2),
             num_res_blocks=2,
             activation_type="swish",
             dropout=0.,
@@ -163,7 +161,10 @@ class NCSNpp(nn.Module):
             **kwargs
           ):
         super().__init__()
+        self.act = act = get_activation(activation_type)
+        self.attention = attention
         self.channels = channels
+        self.sde = VESDE(sigma_min, sigma_max)  # TODO refactor this to be more clear and giver user options
         self.hyperparameters = {
             "channels": channels,
             "nf": nf,
@@ -185,10 +186,6 @@ class NCSNpp(nn.Module):
             "combine_method": combine_method,
             "attention": attention
         }
-        self.act = act = get_activation(activation_type)
-        self.attention = attention
-        self.sde = VESDE(sigma_min, sigma_max)  # TODO refactor this to be more clear and giver user options
-
         self.nf = nf
         self.num_res_blocks = num_res_blocks
         self.num_resolutions = num_resolutions = len(ch_mult)
@@ -209,7 +206,7 @@ class NCSNpp(nn.Module):
             modules[2].weight.data = default_init()(modules[2].weight.shape)
             modules[2].bias.zero_()
 
-        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale)
+        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, d=1)
         Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel)
 
         if progressive == 'output_skip':
@@ -233,7 +230,7 @@ class NCSNpp(nn.Module):
                                             temb_dim=nf * 4)
 
         elif resblock_type == 'biggan':
-            ResnetBlock = functools.partial(ResnetBlockBigGANpp,
+            ResnetBlock = functools.partial(ResnetBlockBigGANpp1d,
                                             act=act,
                                             dropout=dropout,
                                             fir=fir,
@@ -248,7 +245,7 @@ class NCSNpp(nn.Module):
         # Downsampling block
         input_pyramid_ch = channels
 
-        modules.append(conv3x3(channels, nf))
+        modules.append(conv3(channels, nf))
         hs_c = [nf]
 
         in_ch = nf
@@ -296,12 +293,12 @@ class NCSNpp(nn.Module):
                     if progressive == 'output_skip':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, init_scale=init_scale))
+                        modules.append(conv3(in_ch, channels, init_scale=init_scale))
                         pyramid_ch = channels
                     elif progressive == 'residual':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, in_ch, bias=True))
+                        modules.append(conv3(in_ch, in_ch, bias=True))
                         pyramid_ch = in_ch
                     else:
                         raise ValueError(f'{progressive} is not a valid name.')
@@ -309,7 +306,7 @@ class NCSNpp(nn.Module):
                     if progressive == 'output_skip':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale))
+                        modules.append(conv3(in_ch, channels, bias=True, init_scale=init_scale))
                         pyramid_ch = channels
                     elif progressive == 'residual':
                         modules.append(pyramid_upsample(in_ch=pyramid_ch, out_ch=in_ch))
@@ -328,7 +325,7 @@ class NCSNpp(nn.Module):
         if progressive != 'output_skip':
             modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                         num_channels=in_ch, eps=1e-6))
-            modules.append(conv3x3(in_ch, channels, init_scale=1.))
+            modules.append(conv3(in_ch, channels, init_scale=1.))
 
         self.all_modules = nn.ModuleList(modules)
 
@@ -455,14 +452,14 @@ class NCSNpp(nn.Module):
 
     @torch.no_grad()
     def sample(self, size, N: int = 1000, device=DEVICE):
-        assert len(size) == 4
+        assert len(size) == 3
         assert size[1] == self.channels
         assert N > 0
         # A simple Euler-Maruyama integration of VESDE
         x = torch.randn(size).to(device)
         dt = -1.0 / N
         t = torch.ones(size[0]).to(DEVICE)
-        broadcast = [-1, 1, 1, 1]
+        broadcast = [-1, 1, 1]
         for _ in tqdm(range(N)):
             t += dt
             drift, diffusion = self.sde.sde(x, t)

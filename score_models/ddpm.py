@@ -52,8 +52,7 @@ class Upsample(nn.Module):
 class DDPM(nn.Module):
     def __init__(
             self,
-            channels,
-            image_size=256,
+            channels=1,
             sigma_min=1e-1,
             sigma_max=50,
             nf=128,
@@ -68,7 +67,6 @@ class DDPM(nn.Module):
         super().__init__()
         self.hyperparameters = {
             "channels": channels,
-            "image_size": image_size,
             "sigma_min": sigma_min,
             "sigma_max": sigma_max,
             "nf": nf,
@@ -81,10 +79,10 @@ class DDPM(nn.Module):
         }
         self.act = act = get_activation(activation_type=activation_type)
         self.attention = attention
+        self.channels = channels
         self.nf = nf
         self.num_res_blocks = num_res_blocks
         self.num_resolutions = num_resolutions = len(ch_mult)
-        self.all_resolutions = [image_size // (2 ** i) for i in range(num_resolutions)]
         self.sde = VESDE(sigma_min, sigma_max)
 
         AttnBlock = SelfAttentionBlock
@@ -185,7 +183,7 @@ class DDPM(nn.Module):
     @torch.no_grad()
     def sample(self, size, N: int = 1000, device=DEVICE):
         assert len(size) == 4
-        assert size[1] == 1
+        assert size[1] == self.channels
         assert N > 0
         # A simple Euler-Maruyama integration of VESDE
         x = torch.randn(size).to(device)

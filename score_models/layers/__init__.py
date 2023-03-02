@@ -5,3 +5,5 @@ from .ddpm_resnet_block import DDPMResnetBlock
 from .ncsn_resnet_block import NCSNResidualBlock
 from .attention_block import SelfAttentionBlock
 from .projection_embedding import GaussianFourierProjection
+from .conv1dsame import Conv1dSame
+from .conv3dsame import Conv3dSame

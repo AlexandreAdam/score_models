@@ -11,7 +11,7 @@ import torch
 import os
 from glob import glob
 import re
-from scope.definitions import DEVICE, DTYPE
+from score_models.definitions import DEVICE, DTYPE
 from torch_ema import ExponentialMovingAverage
 import h5py
 #TODO support VPSDE

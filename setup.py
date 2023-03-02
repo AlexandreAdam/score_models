@@ -7,5 +7,11 @@ setup(
 				"state of the art score model architectures that model continuously "
 				"tempered gradient of distributions over images.",
 	packages=find_packages(),
+	install_requires=[
+		'torch',
+		'numpy',
+		'tqdm',
+		'scipy'
+	],
 	python_requires=">=3.8"
 )
