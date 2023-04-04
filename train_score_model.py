@@ -1,4 +1,4 @@
-from score_models import DDPM, NCSNpp
+from score_models import DDPM, NCSNpp, NCSNpp1d, NCSNpp3d
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms as T
@@ -54,21 +54,23 @@ def main(args):
         model = torch.nn.DataParallel(DDPM(**hyperparameters).to(DEVICE), device_ids=list(range(torch.cuda.device_count())))
     elif args.model_architecture.lower() == "ncsnpp":
         model = torch.nn.DataParallel(NCSNpp(**hyperparameters).to(DEVICE), device_ids=list(range(torch.cuda.device_count())))
+    elif args.model_architecture.lower() == "ncsnpp1d":
+        model = torch.nn.DataParallel(NCSNpp1d(**hyperparameters).to(DEVICE), device_ids=list(range(torch.cuda.device_count())))
+    elif args.model_architecture.lower() == "ncsnpp3d":
+        model = torch.nn.DataParallel(NCSNpp3d(**hyperparameters).to(DEVICE), device_ids=list(range(torch.cuda.device_count())))
     else:
         raise ValueError
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     ema = ExponentialMovingAverage(model.parameters(), decay=args.ema_decay)
     dataset = Dataset(args.dataset_path, args.dataset_key, device=DEVICE)
     dataset = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
-    augment = [T.RandomVerticalFlip(), T.RandomHorizontalFlip()] if args.flip else []
-    data_augmentation = T.Compose(augment + [T.CenterCrop(size=hyperparameters["image_size"])])
-
+    
     def loss_fn(x):
         B, *D = x.shape
         broadcast = [B, *[1] * len(D)]
         mu = torch.randn_like(x)
-        t = torch.rand(B).to(DEVICE) * (model.sde.T - args.epsilon) + args.epsilon
-        mean, sigma = model.sde.marginal_prob(x, t)
+        t = torch.rand(B).to(DEVICE) * (model.module.sde.T - args.epsilon) + args.epsilon
+        mean, sigma = model.module.sde.marginal_prob(x, t)
         sigma_ = sigma.view(*broadcast)
         return torch.sum((mu + model(mean + sigma_ * mu, t)) ** 2) / B
 
@@ -136,8 +138,6 @@ def main(args):
         cost = 0
         for batch, x in enumerate(dataset):
             start = time.time()
-            # preprocessing
-            x = data_augmentation(x)
             # optimize network
             optimizer.zero_grad()
             loss = loss_fn(x)
@@ -237,7 +237,6 @@ if __name__ == '__main__':
 
     # Training set params
     parser.add_argument("--batch_size",             default=1,      type=int,       help="Number of images in a batch.")
-    parser.add_argument("--flip",                   action="store_true",            help="Data augmention, add horizontal and vertical flipx")
 
     # logs
     parser.add_argument("--logdir",             default="None",                     help="Path of logs directory. Default if None, no logs recorded.")
