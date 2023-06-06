@@ -53,6 +53,7 @@ class NCSNppLog(NCSNpp):
             **kwargs)
         self.beta0 = beta0
         self.beta1 = beta1
+
     def score(self, x, t, detrended=True):
         """
         Assumes x is coming from the trended log VESDE
@@ -66,11 +67,12 @@ class NCSNppLog(NCSNpp):
         computing a gradient of this function wrt its input.
         """
         B, *D = x.shape
+        broadcast = [-1, *[1]*len(D)]
         if not detrended:
-            x = x - torch.log(self.beta0 + self.beta1*t.view(B, *[1]*len(D)))
+            x = x - torch.log(self.beta0 + self.beta1*t.view(*broadcast))
         # We need to retrend x to compute the scale of the score.
-        w = torch.exp(x + torch.log(self.beta0 + self.beta1*t.view(B, *[1]*len(D))))
-        return self.forward(x, t) / self.sde.sigma(t).view(B, *[1]*len(D)) * w
+        w = torch.exp(x + torch.log(self.beta0 + self.beta1*t.view(*broadcast)))
+        return self.forward(x, t) / self.sde.sigma(t).view(*broadcast) * w
 
     # @torch.no_grad() # TODO chang this method
     # def sample(self, size, N: int = 1000, device=DEVICE):
