@@ -2,9 +2,6 @@ import torch
 import numpy as np
 from scipy.stats import norm
 
-DTYPE = torch.float32
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
 
 def variance_scaling(
         scale,

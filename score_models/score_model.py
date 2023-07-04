@@ -2,23 +2,20 @@ import torch
 from torch.nn import Module
 from score_models.sde import VESDE, VPSDE
 from typing import Union
-from functorch import grad, vmap
 from .utils import load_architecture
 from tqdm import tqdm
 
 class ScoreModel(Module):
-    def __init__(self, model: Union[str, Module]=None, checkpoint_directory=None):
+    def __init__(self, model: Union[str, Module]=None, checkpoint_directory=None, **hyperparameters):
+        super().__init__()
         if model is None or isinstance(model, str):
-            if checkpoint_directory is not None:
-                model, hyperparams = load_architecture(checkpoints_directory, model=model)
-            else:
-                raise ValueError("checkpoint directory must be specified")
+            model, hyperparams = load_architecture(checkpoint_directory, model=model, hyperparameters=hyperparameters)
             if "sde" not in hyperparams.keys():
                 if "sigma_min" in hyperparams.keys():
                     hyperparams["sde"] = "vesde"
                 elif "beta_min" in hyperparams.keys():
                     hyperparams["sde"] = "vpsde"
-            elif hyperparams["sde"].lower() == "vesde":
+            if hyperparams["sde"].lower() == "vesde":
                 sde = VESDE(sigma_min=hyperparams["sigma_min"], sigma_max=hyperparams["sigma_max"])
             elif hyperparams["sde"].lower() == "vpsde":
                 sde = VPSDE(beta_min=hyperparams["beta_min"], beta_max=hyperparams["beta_max"])
@@ -26,10 +23,13 @@ class ScoreModel(Module):
                 raise ValueError("sde parameters missing from hyperparameters")
         self.model = model
         self.sde = sde
+    
+    def forward(self, t, x):
+        return score(t, x)
 
     def score(self, t, x):
         _, *D = x.shape
-        return self.model(x, t) / sde.sigma(t).view(-1, *[1]*len(D))
+        return self.model(t=t, x=x) / sde.sigma(t).view(-1, *[1]*len(D))
     
     @torch.no_grad()
     def sample(self, size, N: int = 1000):

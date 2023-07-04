@@ -230,12 +230,12 @@ class NCSNpp(nn.Module):
 
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, x, time_cond):
+    def forward(self, x, t):
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
         # Gaussian Fourier features embeddings.
-        temb = modules[m_idx](time_cond)
+        temb = modules[m_idx](t)
         m_idx += 1
         temb = modules[m_idx](temb)
         m_idx += 1

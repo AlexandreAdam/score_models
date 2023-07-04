@@ -4,9 +4,11 @@ import torch.nn as nn
 import os, json, re
 from glob import glob
 import numpy as np
-from .definitions import DEVICE
 from torch.nn import Module
 from typing import Union
+
+DTYPE = torch.float32
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
 
 def get_norm_layer(norm_type='instance'):
@@ -50,24 +52,28 @@ def get_activation(activation_type="elu"):
     return activation
 
 
-def load_architecture(checkpoints_directory, model: Union[str, Module] = None, dimensions=2, device=DEVICE):
-    with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
-        hyperparameters = json.load(f)
-    if "dimensions" not in hyperparameters.keys():
-        hyperparameters["dimensions"] = dimensions
-    dimensions = hyperparameters["dimensions"]
+def load_architecture(checkpoints_directory, model: Union[str, Module] = None, dimensions=2, hyperparameters=None, device=DEVICE):
+    if hyperparameters is None:
+        hyperparameters = {}
     if model is None:
-        model = hyperparameters["model_architecture"]
+        with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
+            hparams = json.load(f)
+        hparams.update(hyperparameters)
+        model = hparams["model_architecture"]
+        if "dimensions" not in hparams.keys():
+            hparams["dimensions"] = dimensions
     if isinstance(model, str):
         if model.lower() == "ncsnpp":
             from score_models.architectures import NCSNpp
-            model = NCSNpp(**hyperparameters).to(device)
+            model = NCSNpp(**hparams).to(device)
         elif model.lower() == "ddpm":
             from score_models.architectures import DDPM
-            model = DDPM(**hyperparameters).to(DEVICE)
+            model = DDPM(**hparams).to(device)
         else:
             raise ValueError(f"{model} not supported")
+    else:
+        hparams = model.hyperparameters
     paths = glob(os.path.join(checkpoints_directory, "*.pt"))
     checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
     model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
-    return model, hyperparameters
+    return model, hparams 

@@ -7,12 +7,10 @@ from .utils import load_architecture
 from tqdm import tqdm
 
 class EnergyModel(Module):
-    def __init__(self, model: Union[str, Module]=None, checkpoint_directory=None):
+    def __init__(self, model: Union[str, Module]=None, checkpoint_directory=None, **hyperparameters):
+        super().__init__()
         if model is None or isinstance(model, str):
-            if checkpoint_directory is not None:
-                model, hyperparams = load_architecture(checkpoints_directory, model=model)
-            else:
-                raise ValueError("checkpoint directory must be specified")
+            model, hyperparams = load_architecture(checkpoint_directory, model=model, hyperparameters=hyperparameters)
             if "sde" not in hyperparams.keys():
                 if "sigma_min" in hyperparams.keys():
                     hyperparams["sde"] = "vesde"
@@ -27,9 +25,12 @@ class EnergyModel(Module):
         self.model = model
         self.sde = sde
 
+    def forward(self, t, x):
+        return self.score(t, x)
+    
     def energy(self, t, x):
         _, *D = x.shape
-        return 0.5 * torch.sum((x - self.model(t, x))**2, dim=list(range(1, 1+len(D))))
+        return 0.5 * torch.sum((x - self.modelt(t=t, x=x))**2, dim=list(range(1, 1+len(D))))
     
     def score(self, t, x):
         return vmap(grad(self.energy, argnums=1))(t, x)

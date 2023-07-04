@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from .sde import SDE
-from milex.utils import DEVICE
+from ..utils import DEVICE
 
 
 class VPSDE(SDE):
