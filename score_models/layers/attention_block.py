@@ -11,7 +11,7 @@ class SelfAttentionBlock(nn.Module):
     """
     Compute self attention over channels, with skip connection.
     """
-    def __init__(self, channels, init_scale=1e-2, d=2):
+    def __init__(self, channels, init_scale=1e-2, dimensions=2):
         """
 
         :param channels:
@@ -20,11 +20,11 @@ class SelfAttentionBlock(nn.Module):
             the output of the attention head is squashed in favor of the skip connection at the beginning of training.
         """
         super(SelfAttentionBlock, self).__init__()
-        if d == 1:
+        if dimensions == 1:
             conv = nn.Conv1d
-        elif d == 2:
+        elif dimensions == 2:
             conv = nn.Conv2d
-        elif d == 3:
+        elif dimensions == 3:
             conv = nn.Conv3d
         assert (init_scale <= 1) and (init_scale > 0)
         self.to_qkv = conv(in_channels=channels, out_channels=3*channels, kernel_size=1)
@@ -87,16 +87,3 @@ class AlternativeSelfAttentionBlock(nn.Module):
         h = self.to_out(attention).view(B, *D, C).permute(0, -1, *range(1, len(D)+1))
         x = x.permute(0, 3, 1, 2)
         return x + h
-
-
-if __name__ == '__main__':
-    x = torch.randn([10, 4, 8, 8])
-    print(x[0, 0, 0, 0], x[0, 0, 0, 1])
-    att = SelfAttentionBlock(4)
-    y = att(x)
-    print(y[0, 0, 0, 0], y[0, 0, 0, 1])
-    att = AlternativeSelfAttentionBlock(4)
-    y = att(x)
-    print(y[0, 0, 0, 0], y[0, 0, 0, 1])
-    x = torch.randn([10, 4, 8, 8, 8])
-    SelfAttentionBlock(4, d=3)(x)

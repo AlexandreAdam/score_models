@@ -5,6 +5,8 @@ import os, json, re
 from glob import glob
 import numpy as np
 from .definitions import DEVICE
+from torch.nn import Module
+from typing import Union
 
 
 def get_norm_layer(norm_type='instance'):
@@ -48,24 +50,24 @@ def get_activation(activation_type="elu"):
     return activation
 
 
-def load_model(checkpoints_directory, model: str, eval=True):
+def load_architecture(checkpoints_directory, model: Union[str, Module] = None, dimensions=2, device=DEVICE):
     with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
         hyperparameters = json.load(f)
-    if model.lower() == "ncsnpp1d":
-        from score_models import NCSNpp1d
-        model = NCSNpp1d(**hyperparameters).to(DEVICE)
-    elif model.lower() in ["ncsnpp", "ncsnpp2d"]:
-        from score_models import NCSNpp
-        model = NCSNpp(**hyperparameters).to(DEVICE)
-    elif model.lower() == "ncsnpp3d":
-        from score_models import NCSNpp3d
-        model = NCSNpp3d(**hyperparameters).to(DEVICE)
-    elif model.lower() == "ddpm":
-        from score_models import DDPM
-        model = DDPM(**hyperparameters).to(DEVICE)
+    if "dimensions" not in hyperparameters.keys():
+        hyperparameters["dimensions"] = dimensions
+    dimensions = hyperparameters["dimensions"]
+    if model is None:
+        model = hyperparameters["model_architecture"]
+    if isinstance(model, str):
+        if model.lower() == "ncsnpp":
+            from score_models.architectures import NCSNpp
+            model = NCSNpp(**hyperparameters).to(device)
+        elif model.lower() == "ddpm":
+            from score_models.architectures import DDPM
+            model = DDPM(**hyperparameters).to(DEVICE)
+        else:
+            raise ValueError(f"{model} not supported")
     paths = glob(os.path.join(checkpoints_directory, "*.pt"))
     checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-    model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=DEVICE))
-    if eval:
-        model.eval()
-    return model
+    model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
+    return model, hyperparameters

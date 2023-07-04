@@ -59,7 +59,7 @@ class Conv3dSame(nn.Module):
         return x
 
 
-class Conv3TransposedSame(nn.Module):
+class ConvTransposed3dSame(nn.Module):
     def __init__(
             self,
             in_channels: int,
@@ -75,7 +75,7 @@ class Conv3TransposedSame(nn.Module):
             device=None,
             dtype=None
     ):
-        super(Conv3TransposedSame, self).__init__()
+        super(ConvTransposed3dSame, self).__init__()
         if spectral_norm:
             sp_norm = SpectralNorm
         else:

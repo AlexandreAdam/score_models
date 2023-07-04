@@ -1,46 +1,16 @@
-import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import numpy as np
 from .upfirdn3d import upfirdn3d
 
-
-class Conv3d(nn.Module):
-    """Conv3d layer with optimal upsampling and downsampling (StyleGAN2)."""
-    def __init__(self, in_ch, out_ch, kernel, up=False, down=False,
-                 resample_kernel=(1, 3, 3, 1),
-                 use_bias=True,
-                 kernel_init=None):
-        super().__init__()
-        assert not (up and down)
-        assert kernel >= 1 and kernel % 2 == 1
-        self.weight = nn.Parameter(torch.zeros(out_ch, in_ch, kernel, kernel, kernel))
-        if kernel_init is not None:
-            self.weight.data = kernel_init(self.weight.data.shape)
-        if use_bias:
-            self.bias = nn.Parameter(torch.zeros(out_ch))
-
-        self.up = up
-        self.down = down
-        self.resample_kernel = resample_kernel
-        self.kernel = kernel
-        self.use_bias = use_bias
-
-    def forward(self, x):
-        if self.up:
-            x = upsample_conv_3d(x, self.weight, k=self.resample_kernel)
-        elif self.down:
-            x = conv_downsample_3d(x, self.weight, k=self.resample_kernel)
-        else:
-            x = F.conv3d(x, self.weight, stride=1, padding=self.kernel // 2)
-
-        if self.use_bias:
-            x = x + self.bias.reshape(1, -1, 1, 1)
-
-        return x
+__all__ = ["naive_upsample_3d", "naive_downsample_3d", 
+           "upsample_3d", "downsample_3d",
+           "conv_downsample_3d", "upsample_conv_3d"
+           ]
 
 
 def naive_upsample_3d(x, factor=2):
+    print("hello")
     _N, C, H, W, D = x.shape
     x = torch.reshape(x, (-1, C, H, 1, W, 1, D, 1))
     x = x.repeat(1, 1, 1, factor, 1, factor, 1, factor)
@@ -197,8 +167,3 @@ def downsample_3d(x, k=None, factor=2, gain=1):
     return upfirdn3d(x, torch.tensor(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2))
 
 
-if __name__ == '__main__':
-    x = torch.randn(1, 1, 5, 5, 5)
-    print(Conv3d(1, 1, kernel=3, up=True)(x).shape)
-    Conv3d(1, 1, kernel=3)(x)
-    print(Conv3d(1, 1, kernel=3, down=True)(x).shape)

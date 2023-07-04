@@ -1,152 +1,44 @@
-# coding=utf-8
-# Copyright 2020 The Google Research Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# pylint: skip-file
-
-from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, Conv2dSame
-from score_models.layers.resnet_block_biggan import ResnetBlockBigGANpp, upsample_2d, Conv2d, downsample_2d
+from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, \
+        UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3
 from score_models.utils import get_activation
-from score_models.definitions import default_init, DEVICE
-from score_models.sde import VESDE
-import torch.nn.functional as F
+from score_models.definitions import default_init
 import torch.nn as nn
 import functools
 import torch
 import numpy as np
-from tqdm import tqdm
-from functorch import vjp
 
 
-def conv1x1(in_planes, out_planes, stride=1, bias=True, init_scale=1.):
-    """1x1 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias)
-    with torch.no_grad():
-        conv.conv.weight.data = default_init(init_scale)(conv.conv.weight.data.shape)
-        nn.init.zeros_(conv.conv.bias)
-    return conv
+class NCSNpp(nn.Module):
+    """
+    NCSN++ model
 
+    Args:
+        channels (int): Number of input channels. Default is 1.
+        dimensions (int): Number of dimensions of the input data. Default is 2.
+        nf (int): Number of filters in the first layer. Default is 128.
+        ch_mult (tuple): Channel multiplier for each layer. Default is (2, 2, 2, 2).
+        num_res_blocks (int): Number of residual blocks in each layer. Default is 2.
+        activation_type (str): Type of activation function. Default is "swish".
+        dropout (float): Dropout probability. Default is 0.
+        resample_with_conv (bool): Whether to use convolutional resampling. Default is True.
+        fir (bool): Whether to use finite impulse response filtering. Default is True.
+        fir_kernel (tuple): FIR filter kernel. Default is (1, 3, 3, 1).
+        skip_rescale (bool): Whether to rescale skip connections. Default is True.
+        progressive (str): Type of progressive training. Default is "output_skip".
+        progressive_input (str): Type of progressive
+        init_scale (float): The initial scale for the function. Default is 1e-2.
+        fourier_scale (float): The Fourier scale for the function. Default is 16.
+        resblock_type (str): The type of residual block to use. Default is "biggan".
+        combine_method (str): The method to use for combining the results. Default is "sum".
+        attention (bool): Whether or not to use attention. Default is True.
 
-def conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_scale=1.):
-    """3x3 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=3, stride=stride, dilation=dilation, bias=bias)
-    with torch.no_grad():
-        conv.conv.weight.data = default_init(init_scale)(conv.conv.weight.data.shape)
-        nn.init.zeros_(conv.conv.bias)
-    return conv
-
-
-class DownsampleLayer(nn.Module):
-    def __init__(self, in_ch=None, out_ch=None, with_conv=False, fir=False,
-                 fir_kernel=(1, 3, 3, 1)):
-        super().__init__()
-        out_ch = out_ch if out_ch else in_ch
-        if not fir:
-            if with_conv:
-                self.Conv_0 = conv3x3(in_ch, out_ch, stride=2)
-        else:
-            if with_conv:
-                self.Conv2d_0 = Conv2d(in_ch, out_ch,
-                                        kernel=3, down=True,
-                                        resample_kernel=fir_kernel,
-                                        use_bias=True,
-                                        kernel_init=default_init())
-        self.fir = fir
-        self.fir_kernel = fir_kernel
-        self.with_conv = with_conv
-        self.out_ch = out_ch
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        if not self.fir:
-            if self.with_conv:
-                x = F.pad(x, (0, 1, 0, 1))
-                x = self.Conv_0(x)
-            else:
-                x = F.avg_pool2d(x, 2, stride=2)
-        else:
-            if not self.with_conv:
-                x = downsample_2d(x, self.fir_kernel, factor=2)
-            else:
-                x = self.Conv2d_0(x)
-
-        return x
-
-
-class UpsampleLayer(nn.Module):
-    def __init__(self, in_ch=None, out_ch=None, with_conv=False, fir=False,
-                 fir_kernel=(1, 3, 3, 1)):
-        super().__init__()
-        out_ch = out_ch if out_ch else in_ch
-        if not fir:
-            if with_conv:
-                self.Conv_0 = conv3x3(in_ch, out_ch)
-        else:
-            if with_conv:
-                self.Conv2d_0 = Conv2d(in_ch, out_ch,
-                                   kernel=3, up=True,
-                                   resample_kernel=fir_kernel,
-                                   use_bias=True,
-                                   kernel_init=default_init())
-        self.fir = fir
-        self.with_conv = with_conv
-        self.fir_kernel = fir_kernel
-        self.out_ch = out_ch
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        if not self.fir:
-            h = F.interpolate(x, (H * 2, W * 2), 'nearest')
-            if self.with_conv:
-                h = self.Conv_0(h)
-        else:
-            if not self.with_conv:
-                h = upsample_2d(x, self.fir_kernel, factor=2)
-            else:
-                h = self.Conv2d_0(x)
-
-        return h
-
-
-class Combine(nn.Module):
-    """Combine information from skip connections."""
-
-    def __init__(self, dim1, dim2, method='cat'):
-        super().__init__()
-        self.Conv_0 = conv1x1(dim1, dim2)
-        self.method = method
-
-    def forward(self, x, y):
-        h = self.Conv_0(x)
-        if self.method == 'cat':
-            return torch.cat([h, y], dim=1)
-        elif self.method == 'sum':
-            return h + y
-        else:
-            raise ValueError(f'Method {self.method} not recognized.')
-
-
-class NCSNppEnergy(nn.Module):
-    """NCSN++ energy model"""
-
+    """
     def __init__(
             self,
             channels=1,
-            sigma_min=1e-1,
-            sigma_max=50,
+            dimensions=2,
             nf=128,
-            ch_mult=(1, 1, 2, 2, 2, 2, 2),
+            ch_mult=(2, 2, 2, 2),
             num_res_blocks=2,
             activation_type="swish",
             dropout=0.,
@@ -164,6 +56,8 @@ class NCSNppEnergy(nn.Module):
             **kwargs
           ):
         super().__init__()
+        assert dimensions in [1, 2, 3]
+        self.dimensions = dimensions
         self.channels = channels
         self.hyperparameters = {
             "channels": channels,
@@ -173,8 +67,6 @@ class NCSNppEnergy(nn.Module):
             "num_res_blocks": num_res_blocks,
             "resample_with_conv": resample_with_conv,
             "dropout": dropout,
-            "sigma_min": sigma_min,
-            "sigma_max": sigma_max,
             "fir": fir,
             "fir_kernel": fir_kernel,
             "skip_rescale": skip_rescale,
@@ -184,11 +76,11 @@ class NCSNppEnergy(nn.Module):
             "fourier_scale": fourier_scale,
             "resblock_type": resblock_type,
             "combine_method": combine_method,
-            "attention": attention
+            "attention": attention,
+            "dimensions": dimensions
         }
         self.act = act = get_activation(activation_type)
         self.attention = attention
-        self.sde = VESDE(sigma_min, sigma_max)  # TODO refactor this to be more clear and giver user options
 
         self.nf = nf
         self.num_res_blocks = num_res_blocks
@@ -200,7 +92,7 @@ class NCSNppEnergy(nn.Module):
         self.resblock_type = resblock_type
         assert progressive in ['none', 'output_skip', 'residual']
         assert progressive_input in ['none', 'input_skip', 'residual']
-        combiner = functools.partial(Combine, method=combine_method.lower())
+        combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
 
         # Condition on continuous time
         modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), nn.Linear(nf, nf * 4), nn.Linear(nf * 4, nf * 4)]
@@ -210,20 +102,21 @@ class NCSNppEnergy(nn.Module):
             modules[2].weight.data = default_init()(modules[2].weight.shape)
             modules[2].bias.zero_()
 
-        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale)
-        Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel)
+        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
+        Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
 
         if progressive == 'output_skip':
             self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
         elif progressive == 'residual':
-            pyramid_upsample = functools.partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True)
+            pyramid_upsample = functools.partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True, dimensions=self.dimensions)
 
-        Downsample = functools.partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel)
+        Downsample = functools.partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
 
         if progressive_input == 'input_skip':
             self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
         elif progressive_input == 'residual':
             pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
+            
 
         if resblock_type == 'ddpm':
             ResnetBlock = functools.partial(DDPMResnetBlock,
@@ -231,7 +124,9 @@ class NCSNppEnergy(nn.Module):
                                             dropout=dropout,
                                             init_scale=init_scale,
                                             skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4)
+                                            temb_dim=nf * 4,
+                                            dimensions=self.dimensions
+                                            )
 
         elif resblock_type == 'biggan':
             ResnetBlock = functools.partial(ResnetBlockBigGANpp,
@@ -241,7 +136,9 @@ class NCSNppEnergy(nn.Module):
                                             fir_kernel=fir_kernel,
                                             init_scale=init_scale,
                                             skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4)
+                                            temb_dim=nf * 4,
+                                            dimensions=self.dimensions
+                                            )
 
         else:
             raise ValueError(f'resblock type {resblock_type} unrecognized.')
@@ -249,7 +146,7 @@ class NCSNppEnergy(nn.Module):
         # Downsampling block
         input_pyramid_ch = channels
 
-        modules.append(conv3x3(channels, nf))
+        modules.append(conv3x3(channels, nf, dimensions=dimensions))
         hs_c = [nf]
 
         in_ch = nf
@@ -268,7 +165,7 @@ class NCSNppEnergy(nn.Module):
                     modules.append(ResnetBlock(down=True, in_ch=in_ch))
 
                 if progressive_input == 'input_skip':
-                    modules.append(combiner(dim1=input_pyramid_ch, dim2=in_ch))
+                    modules.append(combiner(in_ch=input_pyramid_ch, out_ch=in_ch))
                     if combine_method == 'cat':
                         in_ch *= 2
 
@@ -297,12 +194,12 @@ class NCSNppEnergy(nn.Module):
                     if progressive == 'output_skip':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, init_scale=init_scale))
+                        modules.append(conv3x3(in_ch, channels, init_scale=init_scale, dimensions=dimensions))
                         pyramid_ch = channels
                     elif progressive == 'residual':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, in_ch, bias=True))
+                        modules.append(conv3x3(in_ch, in_ch, bias=True, dimensions=dimensions))
                         pyramid_ch = in_ch
                     else:
                         raise ValueError(f'{progressive} is not a valid name.')
@@ -310,7 +207,7 @@ class NCSNppEnergy(nn.Module):
                     if progressive == 'output_skip':
                         modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                                     num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale))
+                        modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale, dimensions=dimensions))
                         pyramid_ch = channels
                     elif progressive == 'residual':
                         modules.append(pyramid_upsample(in_ch=pyramid_ch, out_ch=in_ch))
@@ -329,7 +226,7 @@ class NCSNppEnergy(nn.Module):
         if progressive != 'output_skip':
             modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
                                         num_channels=in_ch, eps=1e-6))
-            modules.append(conv3x3(in_ch, channels, init_scale=1.))
+            modules.append(conv3x3(in_ch, channels, init_scale=1., dimensions=dimensions))
 
         self.all_modules = nn.ModuleList(modules)
 
@@ -450,31 +347,3 @@ class NCSNppEnergy(nn.Module):
 
         return h
 
-    def energy(self, x, t):
-        # We define a functional going from R^d -> R_+
-        return 0.5 * torch.sum((x - self.forward(x, t))**2, dim=(1, 2, 3)) / self.sde.sigma(t)
-
-    def score(self, x, t):
-        # From the definition of the score and the Gibbs measure, score = - grad(E(x))
-        energy, vjpfunc = vjp(lambda x: self.energy(x, t), x)
-        return - vjpfunc(torch.ones_like(energy))
-
-    @torch.no_grad()
-    def sample(self, size, N: int = 1000, device=DEVICE):
-        assert len(size) == 4
-        assert size[1] == self.channels
-        assert N > 0
-        # A simple Euler-Maruyama integration of VESDE
-        x = torch.randn(size).to(device)
-        dt = -1.0 / N
-        t = torch.ones(size[0]).to(DEVICE)
-        broadcast = [-1, 1, 1, 1]
-        for _ in tqdm(range(N)):
-            t += dt
-            drift, diffusion = self.sde.sde(x, t)
-            score = self.score(x, t)
-            drift = drift - diffusion.view(*broadcast)**2 * score
-            z = torch.randn_like(x)
-            x_mean = x + drift * dt
-            x = x_mean + diffusion.view(*broadcast) * (-dt)**(1/2) * z
-        return x_mean
