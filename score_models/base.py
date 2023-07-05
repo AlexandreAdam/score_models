@@ -1,5 +1,6 @@
 import torch
 from torch.nn import Module
+from .utils import DEVICE
 from score_models.sde import VESDE, VPSDE
 from typing import Union
 from .utils import load_architecture
@@ -14,7 +15,7 @@ from torch.utils.data import DataLoader
 
 # TODO support data parallel
 class ScoreModelBase(Module, ABC):
-    def __init__(self, model: Union[str, Module]=None, checkpoints_directory=None, **hyperparameters):
+    def __init__(self, model: Union[str, Module]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, hyperparameters=hyperparameters)
@@ -33,6 +34,7 @@ class ScoreModelBase(Module, ABC):
         self.checkpoints_directory = checkpoints_directory
         self.model = model
         self.sde = sde
+        self.device = device
 
     def forward(self, t, x):
         return self.score(t, x)
@@ -186,7 +188,7 @@ class ScoreModelBase(Module, ABC):
             if model_id.lower() != "none" and checkpoint_indices:
                 if model_checkpoint is not None:
                     checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
-                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
+                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.model.device))
                     optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
                     print(f"Loaded checkpoint {model_checkpoint} of {model_id}")
                     latest_checkpoint = model_checkpoint
@@ -208,7 +210,7 @@ class ScoreModelBase(Module, ABC):
             B, *D = x.shape
             broadcast = [B, *[1] * len(D)]
             z = torch.randn_like(x)
-            t = torch.rand(B).to(self.device) * (self.sde.T - epsilon) + epsilon
+            t = torch.rand(B).to(self.device) * (1. - epsilon) + epsilon
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
             return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
@@ -235,15 +237,15 @@ class ScoreModelBase(Module, ABC):
                 except StopIteration:
                     data_iter = iter(dataloader)
                     x = next(data_iter)
-
+                if isinstance(x, tuple) or isinstance(x, list): # wrapper for tensor dataset
+                    x = x[0]
                 if preprocessing_fn is not None:
                     x = preprocessing_fn(x)
-
                 optimizer.zero_grad()
                 loss = loss_fn(x)
                 loss.backward()
 
-                if step <= warmup:
+                if step < warmup:
                     for g in optimizer.param_groups:
                         g['lr'] = learning_rate * np.minimum(step / warmup, 1.0)
 
@@ -308,5 +310,5 @@ class ScoreModelBase(Module, ABC):
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         # Save EMA weights in the model
-        ema.copy_to(self)
+        ema.copy_to(self.model.parameters())
         return losses

@@ -48,7 +48,7 @@ class SDE(ABC):
         _, *D = x.shape
         m_t, sigma_t = self.marginal_prob_scalars(t)
         mean = m_t.view(-1, *[1]*len(D)) * x
-        std = sigma_t.view(-1, *[1]*len(D)) * torch.ones_like(x)
+        std = sigma_t.view(-1, *[1]*len(D))
         return mean, std
 
 

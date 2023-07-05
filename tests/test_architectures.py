@@ -35,4 +35,9 @@ def test_mlp():
     t = torch.randn([10])
     model = MLP(input_dimensions=100, units=100, layers=3, time_embedding_dimensions=32, time_branch_layers=2, bottleneck=10, attention=True)
     model(x=x, t=t)
+
+    x = torch.randn(size=[1, 10]) * 100
+    t = torch.randn([1])
+    model = MLP(input_dimensions=10, units=10, layers=2, time_embedding_dimensions=32, time_branch_layers=1)
+    model(x=x, t=t)
     

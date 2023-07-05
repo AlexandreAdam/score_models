@@ -46,8 +46,8 @@ class MLP(nn.Module):
             self.bottleneck_out = nn.Linear(bottleneck, units)
         else:
             self.bottleneck = 0
-        if attention:
-            self.attention = True
+        self.attention = attention
+        if self.attention:
             self.attention_layer = SelfAttentionBlock(bottleneck, dimensions=1)
         for _ in range(layers):
             modules.append(nn.Linear(units, units))
