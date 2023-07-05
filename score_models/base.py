@@ -292,13 +292,13 @@ class ScoreModelBase(Module, ABC):
 
             time_per_step_epoch_mean /= len(dataloader)
             cost /= len(dataloader)
-            pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost} |")
+            pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost:.1e} |")
             losses.append(cost)
             if verbose >= 2:
-                print(f"epoch {epoch} | cost {cost:.3e} | time per step {time_per_step_epoch_mean:.2e} s")
+                print(f"epoch {epoch} | cost {cost:.2e} | time per step {time_per_step_epoch_mean:.2e} s")
             elif verbose == 1:
                 if (epoch + 1) % checkpoints == 0:
-                    print(f"epoch {epoch} | cost {cost:.3e}")
+                    print(f"epoch {epoch} | cost {cost:.1e}")
 
             if np.isnan(cost):
                 print("Model exploded and returns NaN")
