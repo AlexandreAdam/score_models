@@ -292,7 +292,7 @@ class ScoreModelBase(Module, ABC):
 
             time_per_step_epoch_mean /= len(dataloader)
             cost /= len(dataloader)
-            pbar.set_description("Epoch {epoch + 1:d} | Cost: {cost} |")
+            pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost} |")
             losses.append(cost)
             if verbose >= 2:
                 print(f"epoch {epoch} | cost {cost:.3e} | time per step {time_per_step_epoch_mean:.2e} s")
