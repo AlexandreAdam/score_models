@@ -45,7 +45,7 @@ def get_activation(activation_type="elu"):
         activation = nn.ELU()
     elif activation_type == "tanh":
         activation = nn.Tanh()
-    elif activation_type == "swish":
+    elif activation_type in ["swish", "silu"]:
         activation = nn.SiLU()
     else:
         raise NotImplementedError('activation layer [%s] is not found' % activation_type)
@@ -64,7 +64,7 @@ def load_architecture(
         with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
             hparams = json.load(f)
         hparams.update(hyperparameters)
-        model = hparams["model_architecture"]
+        model = hparams.get("model_architecture", "ncsnpp")
         if "dimensions" not in hparams.keys():
             hparams["dimensions"] = dimensions
     if isinstance(model, str):
@@ -74,6 +74,8 @@ def load_architecture(
         elif model.lower() == "ddpm":
             from score_models.architectures import DDPM
             model = DDPM(**hparams).to(device)
+        elif model.lower() == "mlp":
+            model = MLP(**hparams).to(device)
         else:
             raise ValueError(f"{model} not supported")
     else:

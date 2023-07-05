@@ -90,7 +90,7 @@ class DDPM(nn.Module):
         modules.append(conv3x3(in_ch, channels))
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, x, t):
+    def forward(self, t, x):
         modules = self.all_modules
         m_idx = 0
         temb = t

@@ -230,7 +230,7 @@ class NCSNpp(nn.Module):
 
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, x, t):
+    def forward(self, t, x):
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
