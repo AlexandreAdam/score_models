@@ -175,8 +175,10 @@ class ScoreModelBase(Module, ABC):
             logname = logname
         else:
             logname = logname_prefixe + "_" + datetime.now().strftime("%y%m%d%H%M%S")
-        
+
+        save_checkpoint = False
         if checkpoints_directory is not None:
+            save_checkpoint = True
             if not os.path.isdir(checkpoints_directory):
                 os.mkdir(checkpoints_directory)
                 with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
@@ -210,7 +212,6 @@ class ScoreModelBase(Module, ABC):
                     )
                 with open(os.path.join(checkpoints_directory, "model_hparams.json"), "w") as f:
                     json.dump(hyperparameters, f, indent=4)
-            save_checkpoint = True
 
             # ======= Load model if model_id is provided ===============================================================
             paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
@@ -232,8 +233,6 @@ class ScoreModelBase(Module, ABC):
                     latest_checkpoint = checkpoint_indices[max_checkpoint_index]
             else:
                 latest_checkpoint = 0
-        else:
-            save_checkpoint = False
 
         if seed is not None:
             torch.manual_seed(seed)
@@ -315,7 +314,7 @@ class ScoreModelBase(Module, ABC):
                 out_of_time = True
 
             if save_checkpoint:
-                if epoch % checkpoints == 0 or patience == 0 or epoch == epochs - 1 or out_of_time:
+                if (epoch + 1) % checkpoints == 0 or patience == 0 or epoch == epochs - 1 or out_of_time:
                     latest_checkpoint += 1
                     with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
                         f.write(f"{latest_checkpoint} {cost}\n")
@@ -325,9 +324,8 @@ class ScoreModelBase(Module, ABC):
                     paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
                     checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
                     scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
-
-                    if len(checkpoint_indices) >= models_to_keep + 1:
-                        index_to_delete = np.argmax(scores[:-1])
+                    if len(checkpoint_indices) > 2*models_to_keep: # has to be twice since we also save optimizer states
+                        index_to_delete = np.argmin(checkpoint_indices)
                         os.remove(os.path.join(checkpoints_directory, f"checkpoint_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
                         os.remove(os.path.join(checkpoints_directory, f"optimizer_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
                         del scores[index_to_delete]
