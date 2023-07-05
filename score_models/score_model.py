@@ -6,7 +6,7 @@ class ScoreModel(ScoreModelBase):
 
     def score(self, t, x):
         _, *D = x.shape
-        return self.model(t=t, x=x) / sde.sigma(t).view(-1, *[1]*len(D))
+        return self.model(t=t, x=x) / self.sde.sigma(t).view(-1, *[1]*len(D))
 
 
 class EnergyModel(ScoreModelBase):
@@ -18,5 +18,5 @@ class EnergyModel(ScoreModelBase):
         return 0.5 * torch.sum((x - self.model(t=t, x=x))**2, dim=list(range(1, 1+len(D))))
     
     def score(self, t, x):
-        return vmap(grad(self.energy, argnums=1))(t, x)
+        return vmap(grad(self.energy, argnums=1))(t, x) / self.sde.sigma(t).view(-1, *[1]*len(D))
     

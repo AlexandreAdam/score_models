@@ -1,6 +1,7 @@
 import torch
 from score_models.utils import load_architecture
 from score_models import ScoreModel, EnergyModel
+from score_models.architectures import MLP
 
 
 def test_loading_model():
@@ -13,4 +14,10 @@ def test_loading_model():
     x = torch.randn(1, 1, 256, 256)
     t = torch.ones(1)
     score(t, x)
+
+def test_init_score():
+    net = MLP(10)
+    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    
+
     

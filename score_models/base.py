@@ -18,15 +18,16 @@ class ScoreModelBase(Module, ABC):
         super().__init__()
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, hyperparameters=hyperparameters)
-            if "sde" not in hyperparams.keys():
-                if "sigma_min" in hyperparams.keys():
-                    hyperparams["sde"] = "vesde"
-                elif "beta_min" in hyperparams.keys():
-                    hyperparams["sde"] = "vpsde"
-        if hyperparams["sde"].lower() == "vesde":
-            sde = VESDE(sigma_min=hyperparams["sigma_min"], sigma_max=hyperparams["sigma_max"])
-        elif hyperparams["sde"].lower() == "vpsde":
-            sde = VPSDE(beta_min=hyperparams["beta_min"], beta_max=hyperparams["beta_max"])
+            hyperparameters.update(hyperparams)
+        if "sde" not in hyperparameters.keys():
+            if "sigma_min" in hyperparameters.keys():
+                hyperparameters["sde"] = "vesde"
+            elif "beta_min" in hyperparameters.keys():
+                hyperparameters["sde"] = "vpsde"
+        if hyperparameters["sde"].lower() == "vesde":
+            sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"])
+        elif hyperparameters["sde"].lower() == "vpsde":
+            sde = VPSDE(beta_min=hyperparameters["beta_min"], beta_max=hyperparameters["beta_max"])
         else:
             raise ValueError("sde parameters missing from hyperparameters")
         self.checkpoints_directory = checkpoints_directory
@@ -128,12 +129,12 @@ class ScoreModelBase(Module, ABC):
         hyperparameters = self.model.hyperparameters
         if isinstance(self.sde, VPSDE):
             hyperparameters["sde"] = "vpsde"
-            hyperparameters["beta_min"] = sde.beta_min
-            hyperparameters["beta_max"] = sde.beta_max
+            hyperparameters["beta_min"] = self.sde.beta_min
+            hyperparameters["beta_max"] = self.sde.beta_max
         elif isinstance(self.sde, VESDE):
             hyperparameters["sde"] = "vesde"
-            hyperparameters["sigma_min"] = sde.sigma_min
-            hyperparameters["sigma_max"] = sde.sigma_max
+            hyperparameters["sigma_min"] = self.sde.sigma_min
+            hyperparameters["sigma_max"] = self.sde.sigma_max
 
        # ==== Take care of where to write checkpoints and stuff =================================================================
         if model_id is not None:
@@ -210,7 +211,7 @@ class ScoreModelBase(Module, ABC):
             t = torch.rand(B).to(self.device) * (self.sde.T - epsilon) + epsilon
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
-            return torch.sum((z + sigma_ * wself(t=t, x=mean + sigma_ * z)) ** 2) / B
+            return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
 
         best_loss = float('inf')
         losses = []
