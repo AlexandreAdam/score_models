@@ -30,7 +30,7 @@ class Dataset(torch.utils.data.Dataset):
         return self.size
 
     def __getitem__(self, index):
-        return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)n
+        return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)
 
 
 # TODO support data parallel
