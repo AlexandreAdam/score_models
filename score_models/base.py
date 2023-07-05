@@ -340,5 +340,5 @@ class ScoreModelBase(Module, ABC):
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         # Save EMA weights in the model
-        ema.copy_to(self.model)
+        ema.copy_to(self.parameters())
         return losses
