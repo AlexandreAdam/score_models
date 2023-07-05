@@ -2,8 +2,8 @@ from .base import ScoreModelBase
 
 
 class ScoreModel(ScoreModelBase):
-    def __init__(self, model: Union[str, Module] = None, checkpoint_directory=None, **hyperparameters):
-        super().__init__(model, checkpoint_directory, **hyperparameters)
+    def __init__(self, model: Union[str, Module] = None, checkpoints_directory=None, **hyperparameters):
+        super().__init__(model, checkpoints_directory, **hyperparameters)
 
     def score(self, t, x):
         _, *D = x.shape
@@ -11,8 +11,8 @@ class ScoreModel(ScoreModelBase):
 
 
 class EnergyModel(ScoreModelBase):
-    def __init__(self, model: Union[str, Module] = None, checkpoint_directory=None, **hyperparameters):
-        super().__init__(model, checkpoint_directory, **hyperparameters)
+    def __init__(self, model: Union[str, Module] = None, checkpoints_directory=None, **hyperparameters):
+        super().__init__(model, checkpoints_directory, **hyperparameters)
     
     def energy(self, t, x):
         _, *D = x.shape
