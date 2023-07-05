@@ -33,7 +33,7 @@ class VPSDE(SDE):
         _, *D = x.shape
         return torch.sqrt(self.beta(t)).view(-1, *[1]*len(D))
 
-    def drift_f(self, t: Tensor, x: Tensor) -> Tensor:
+    def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
         return -0.5 * self.beta(t).view(-1, *[1]*len(D)) * x
 

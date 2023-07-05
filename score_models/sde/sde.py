@@ -27,7 +27,7 @@ class SDE(ABC):
         ...
 
     @abstractmethod
-    def drift_f(self, t, x) -> Tensor:
+    def drift(self, t, x) -> Tensor:
         ...
     
     @abstractmethod

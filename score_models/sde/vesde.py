@@ -42,7 +42,7 @@ class VESDE(SDE):
         _, *D = x.shape # broadcast diffusion coefficient to x shape
         return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2 * (np.log(self.sigma_max) - np.log(self.sigma_min)))
 
-    def drift_f(self, t: Tensor, x: Tensor) -> Tensor:
+    def drift(self, t: Tensor, x: Tensor) -> Tensor:
         return torch.zeros_like(x)
 
 

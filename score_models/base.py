@@ -38,7 +38,7 @@ class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
         if model is None or isinstance(model, str):
-            model, hyperparams = load_architecture(checkpoints_directory, model=model, hyperparameters=hyperparameters)
+            model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
             hyperparameters.update(hyperparams)
         if "sde" not in hyperparameters.keys():
             if "sigma_min" in hyperparameters.keys():
@@ -53,6 +53,7 @@ class ScoreModelBase(Module, ABC):
             raise ValueError("sde parameters missing from hyperparameters")
         self.checkpoints_directory = checkpoints_directory
         self.model = model
+        self.model.to(device)
         self.sde = sde
         self.device = device
 
