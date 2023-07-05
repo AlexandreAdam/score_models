@@ -23,12 +23,12 @@ class ScoreModelBase(Module, ABC):
                     hyperparams["sde"] = "vesde"
                 elif "beta_min" in hyperparams.keys():
                     hyperparams["sde"] = "vpsde"
-            if hyperparams["sde"].lower() == "vesde":
-                sde = VESDE(sigma_min=hyperparams["sigma_min"], sigma_max=hyperparams["sigma_max"])
-            elif hyperparams["sde"].lower() == "vpsde":
-                sde = VPSDE(beta_min=hyperparams["beta_min"], beta_max=hyperparams["beta_max"])
-            else:
-                raise ValueError("sde parameters missing from hyperparameters")
+        if hyperparams["sde"].lower() == "vesde":
+            sde = VESDE(sigma_min=hyperparams["sigma_min"], sigma_max=hyperparams["sigma_max"])
+        elif hyperparams["sde"].lower() == "vpsde":
+            sde = VPSDE(beta_min=hyperparams["beta_min"], beta_max=hyperparams["beta_max"])
+        else:
+            raise ValueError("sde parameters missing from hyperparameters")
         self.checkpoints_directory = checkpoints_directory
         self.model = model
         self.sde = sde
@@ -210,7 +210,7 @@ class ScoreModelBase(Module, ABC):
             t = torch.rand(B).to(self.device) * (self.sde.T - epsilon) + epsilon
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
-            return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
+            return torch.sum((z + sigma_ * wself(t=t, x=mean + sigma_ * z)) ** 2) / B
 
         best_loss = float('inf')
         losses = []
