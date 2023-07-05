@@ -215,7 +215,7 @@ class ScoreModelBase(Module, ABC):
             opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
             checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
             scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
-            if model_id.lower() != "none" and checkpoint_indices:
+            if model_id is not None and checkpoint_indices:
                 if model_checkpoint is not None:
                     checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.model.device))
