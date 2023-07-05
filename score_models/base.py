@@ -181,8 +181,8 @@ class ScoreModelBase(Module, ABC):
             save_checkpoint = True
 
             # ======= Load model if model_id is provided ===============================================================
-            paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
-            opt_paths = glob(os.path.join(checkpoints_dir, "optimizer*.pt"))
+            paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
+            opt_paths = glob.glob(os.path.join(checkpoints_dir, "optimizer*.pt"))
             checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
             scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
             if model_id.lower() != "none" and checkpoint_indices:
@@ -310,5 +310,5 @@ class ScoreModelBase(Module, ABC):
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         # Save EMA weights in the model
-        ema.copy_to(self.model.parameters())
+        ema.copy_to(self.model)
         return losses
