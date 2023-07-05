@@ -73,7 +73,10 @@ class Dataset(torch.utils.data.Dataset):
         return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)
 
 
-def train_score_model(preprocessing_fn=None, **kwargs):
+def train_score_model(
+        dataset=None,
+        preprocessing_fn=None,  
+        **kwargs):
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict.update(kwargs)
@@ -85,27 +88,26 @@ def train_score_model(preprocessing_fn=None, **kwargs):
     if args.seed is not None:
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
-    if "hyperparameters" in kwargs.keys():
-        args_dict.update({"hyperparameters": kwargs["hyperparameters"]})
     if isinstance(args.model_parameters, str):
         with open(args.model_parameters, "r") as f:
             hyperparameters = json.load(f)
-        args_dict["hyperparameters"].update(hyperparameters)
+        args_dict.update(hyperparameters)
     
     if args.model_type == "score":
-        model = DataParallel(ScoreModel(checkpoint_directory=args.model_checkpoint, hyperparameters=args.hyperparameters).to(DEVICE),
+        model = DataParallel(ScoreModel(checkpoint_directory=args.model_checkpoint, hyperparameters=args_dict).to(DEVICE),
                              device_ids=list(range(torch.cuda.device_count())))
     elif args.model_type == "energy":
-        model = DataParallel(EnergyModel(checkpoint_directory=args.model_checkpoint, hyperparameters=args.hyperparameters).to(DEVICE)
+        model = DataParallel(EnergyModel(checkpoint_directory=args.model_checkpoint, hyperparameters=args_dict).to(DEVICE)
                              device_ids=list(range(torch.cuda.device_count())))
     else:
         raise ValueError(f"{args.model_type} should be either 'score' or 'energy'")
     sde = model.module.sde
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     ema = ExponentialMovingAverage(model.parameters(), decay=args.ema_decay)
-    if args.dataset_extension is None:
-        raise ValueError("Specify dataset_extension")
-    dataset = Dataset(path=args.dataset_path, key=args.dataset_key, extension=args.dataset_extension, device=DEVICE)
+    if dataset is None:
+        if args.dataset_extension is None:
+            raise ValueError("Specify dataset_extension, either 'h5' or 'npy'")
+        dataset = Dataset(path=args.dataset_path, key=args.dataset_key, extension=args.dataset_extension, device=DEVICE)
     dataset = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
     
     def loss_fn(x):

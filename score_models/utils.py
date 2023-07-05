@@ -52,7 +52,12 @@ def get_activation(activation_type="elu"):
     return activation
 
 
-def load_architecture(checkpoints_directory, model: Union[str, Module] = None, dimensions=2, hyperparameters=None, device=DEVICE):
+def load_architecture(
+        checkpoints_directory, 
+        model: Union[str, Module] = None, 
+        dimensions=2, 
+        hyperparameters=None, 
+        device=DEVICE) -> list[Module, dict]:
     if hyperparameters is None:
         hyperparameters = {}
     if model is None:

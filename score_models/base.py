@@ -2,11 +2,12 @@ import torch
 from torch.nn import Module
 from score_models.sde import VESDE, VPSDE
 from typing import Union
-from functorch import grad, vmap
 from .utils import load_architecture
+from abc import ABC, abstractmethod
 from tqdm import tqdm
 
-class EnergyModel(Module):
+
+class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, checkpoint_directory=None, **hyperparameters):
         super().__init__()
         if model is None or isinstance(model, str):
@@ -16,7 +17,7 @@ class EnergyModel(Module):
                     hyperparams["sde"] = "vesde"
                 elif "beta_min" in hyperparams.keys():
                     hyperparams["sde"] = "vpsde"
-            elif hyperparams["sde"].lower() == "vesde":
+            if hyperparams["sde"].lower() == "vesde":
                 sde = VESDE(sigma_min=hyperparams["sigma_min"], sigma_max=hyperparams["sigma_max"])
             elif hyperparams["sde"].lower() == "vpsde":
                 sde = VPSDE(beta_min=hyperparams["beta_min"], beta_max=hyperparams["beta_max"])
@@ -27,13 +28,13 @@ class EnergyModel(Module):
 
     def forward(self, t, x):
         return self.score(t, x)
-    
+   
+    @abstractmethod
+    def score(self, t, x):
+        ...
 
     @torch.no_grad()
-    def sample(self, size, N: int = 1000):
-        assert size[1] == self.model.channels
-        assert len(size) == self.model.dimensions + 2
-        assert N > 0
+    def sample(self, size, N: int):
         # A simple Euler-Maruyama integration of VESDE
         x = self.sde.prior(size).to(self.device)
         dt = -1.0 / N
@@ -48,4 +49,6 @@ class EnergyModel(Module):
             x_mean = x + drift * dt
             x = x_mean + diffusion * (-dt)**(1/2) * z
         return x_mean
-
+    
+    def fit(dataset,):
+        return loss
