@@ -2,16 +2,26 @@ from setuptools import setup, find_packages
 
 setup(
 	name="score_models",
-	version="0.1",
-	description="Package intended to implement general purpose, "
-				"state of the art score model architectures that model continuously "
-				"tempered gradient of distributions over images.",
-	packages=find_packages(),
-	install_requires=[
-		'torch',
-		'numpy',
-		'tqdm',
-		'scipy'
-	],
-	python_requires=">=3.8"
+	version="0.2.0",
+    description="A simple pytorch interface for score model and basic diffusion.",
+    author="Alexandre Adam",
+    author_email="alexandre.adam@umontreal.ca",
+    url="https://github.com/AlexandreAdam/torch_score_models",
+    packages=find_packages(),
+    install_requires=[
+        "torch",
+        "scipy",
+        "torch_ema",
+        "h5py",
+        "numpy",
+        "tqdm"
+    ],
+	python_requires=">=3.8",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.8",
+    ],
 )
+
