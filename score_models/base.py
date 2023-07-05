@@ -106,7 +106,8 @@ class ScoreModelBase(Module, ABC):
         model_id=None,
         logname=None,
         n_iterations_in_epoch=None,
-        logname_prefixe="score_model"
+        logname_prefixe="score_model",
+        verbose=0
     ):
         """
         Train the model on the provided dataset.
@@ -252,14 +253,13 @@ class ScoreModelBase(Module, ABC):
         estimated_time_for_epoch = 0
         out_of_time = False
 
-        for epoch in tqdm(range(epochs)):
+        for epoch in (pbar := tqdm(range(epochs))):
             if (time.time() - global_start) > max_time * 3600 - estimated_time_for_epoch:
                 break
             epoch_start = time.time()
             time_per_step_epoch_mean = 0
             cost = 0
             data_iter = iter(dataloader)
-
             for _ in range(n_iterations_in_epoch):
                 start = time.time()
                 try:
@@ -292,11 +292,16 @@ class ScoreModelBase(Module, ABC):
 
             time_per_step_epoch_mean /= len(dataloader)
             cost /= len(dataloader)
+            pbar.set_description("Epoch {epoch + 1:d} | Cost: {cost} |")
             losses.append(cost)
-            print(f"epoch {epoch} | cost {cost:.3e} | time per step {time_per_step_epoch_mean:.2e} s")
+            if verbose >= 2:
+                print(f"epoch {epoch} | cost {cost:.3e} | time per step {time_per_step_epoch_mean:.2e} s")
+            elif verbose == 1:
+                if (epoch + 1) % checkpoints == 0:
+                    print(f"epoch {epoch} | cost {cost:.3e}")
 
             if np.isnan(cost):
-                print("Training broke the Universe")
+                print("Model exploded and returns NaN")
                 break
 
             if cost < (1 - tolerance) * best_loss:
