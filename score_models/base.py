@@ -323,7 +323,7 @@ class ScoreModelBase(Module, ABC):
                     if len(checkpoint_indices) >= models_to_keep + 1:
                         index_to_delete = np.argmax(scores[:-1])
                         os.remove(os.path.join(checkpoints_directory, f"checkpoint_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
-                        os.remove(os.path.join(checkpoints_directory, f"optimizer_{scores[index_to_delete]:.4e}_{checkpoints[index_to_delete]:03d}.pt"))
+                        os.remove(os.path.join(checkpoints_directory, f"optimizer_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
                         del scores[index_to_delete]
                         del checkpoint_indices[index_to_delete]
 

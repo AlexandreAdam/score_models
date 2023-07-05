@@ -4,8 +4,9 @@
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
 - Simple initialisation of 2 state of the art architecture (NCSN++ and DDPM)
-- A fit method to train the score model on a dataset using denoising score matching.
-- A sampling method based on an Euler-Maruyam discretisation of an SDE. 
+- A fit method to train the score model on a dataset using Denoising Score Matching (DSM).
+- A sampling method based on an Euler-Maruyama discretisation of an SDE. 
+- A simple interface to train an energy model using DSM
 
 This repository is mainly intended for personal use. 
 You might also want to refer to the original implementation at [https://github.com/yang-song/score_sde](https://github.com/yang-song/score_sde).
@@ -23,10 +24,17 @@ pip install torch-score-models
 
 ### ScoreModel
 
-The `ScoreModel` class is the main interface for training and using score models. It extends the `torch.nn.Module` class. Example usage:
+The `ScoreModel` class is the main interface for training and using score models, defined as
+$$
+    \mathbf{s}_\theta(t, \mathbf{x}) = \frac{1}{\sigma(t)} \nabla_\mathbf{x} \log p_t(\mathbf{x})
+$$
+where $\sigma(t)$ is the standard deviation of the perturbation kernel $p_t(\mathbf{x} \mid \mathbf{x}_0)$ 
+of an SDE.
+
+The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
 
 ```python
-from score_models import ScoreModel, NCSNpp
+from score_models import ScoreModel, EnergyModel, NCSNpp, MLP, DDPM
 
 # Create a ScoreModelBase instance with Yang Song's NCSN++ architecture and the VESDE
 net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2])
@@ -51,6 +59,9 @@ samples = model.sample(size=[batch_size, channels, pixels, pixels], N=1000)
 
 # Compute the score for a given input
 score = model.score(t, x)
+
+# Initialise the score model and its neural network from a path to a checkpoint directory 
+score = ScoreModel(checkpoint_directory)
 ```
 
 ### EnergyModel
