@@ -13,6 +13,26 @@ import numpy as np
 from datetime import datetime
 from torch.utils.data import DataLoader
 
+
+class Dataset(torch.utils.data.Dataset):
+    def __init__(self, path, key, extension="h5", device=DEVICE):
+        self.device = device
+        self.key = key
+        if extension in ["h5", "hdf5"]:
+            self._data = h5py.File(self.filepath, "r")
+            self.data = lambda index: self._data[self.key][index]
+            self.size = self._data[self.key].shape[0]
+        elif extension == "npy":
+            self.data = np.load(path)
+            self.size = self.data.shape[0]
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)n
+
+
 # TODO support data parallel
 class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
@@ -62,13 +82,16 @@ class ScoreModelBase(Module, ABC):
     
     def fit(
         self,
-        dataset,
+        dataset=None,
+        dataset_path=None,
+        dataset_extension="h5",
+        dataset_key=None,
         preprocessing_fn=None,
+        epochs=100,
         learning_rate=1e-4,
         ema_decay=0.9999,
         batch_size=1,
         shuffle=False,
-        epochs=100,
         patience=float('inf'),
         tolerance=0,
         max_time=float('inf'),
@@ -90,6 +113,9 @@ class ScoreModelBase(Module, ABC):
 
         Parameters:
             dataset (torch.utils.data.Dataset): The training dataset.
+            dataset_path (str, optional): The path to the dataset file. If not provided, the function will assume a default path. Default is None.
+            dataset_extension (str, optional): The extension of the dataset file. Default is "h5".
+            dataset_key (str, optional): The key or identifier for the specific dataset within the file. If not provided, the function will assume a default key. Defaul
             preprocessing_fn (function, optional): A function to preprocess the input data. Default is None.
             learning_rate (float, optional): The learning rate for optimizer. Default is 1e-4.
             ema_decay (float, optional): The decay rate for Exponential Moving Average. Default is 0.9999.
@@ -116,6 +142,8 @@ class ScoreModelBase(Module, ABC):
         """
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         ema = ExponentialMovingAverage(self.parameters(), decay=ema_decay)
+        if dataset is None:
+            dataset = Dataset(dataset_path, dataset_key, dataset_extension, device=self.device)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
         if n_iterations_in_epoch is None:
             n_iterations_in_epoch = len(dataloader)
@@ -152,7 +180,9 @@ class ScoreModelBase(Module, ABC):
                 with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
                     json.dump(
                         {
-                            "dataset": dataset,
+                            "dataset_path": dataset_path,
+                            "dataset_extension": dataset_extension,
+                            "dataset_key": dataset_extension,
                             "preprocessing": preprocessing_name,
                             "learning_rate": learning_rate,
                             "ema_decay": ema_decay,
