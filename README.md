@@ -17,7 +17,7 @@ You might also want to refer to the original implementation at [https://github.c
 To install the package, you can use pip:
 
 ```bash
-pip install torch-score-models
+pip install score_models
 ```
 
 ## Usage
