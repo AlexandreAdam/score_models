@@ -1,11 +1,11 @@
-# Score Models for Torch
+# Score Models for Pytorch
 
 [![PyPI version](https://badge.fury.io/py/your-package-name.svg)](https://badge.fury.io/py/your-package-name)
 [![Coverage Status](https://img.shields.io/badge/Coverage-85%25-brightgreen)](https://your-coverage-report-url)
 0
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
-- Simple initialisation of 2 state of the art architecture (NCSN++ and DDPM)
+- Simple initialisation of MLP, NCSN++ and DDPM neural network architectures
 - A fit method to train the score model on a dataset using Denoising Score Matching (DSM).
 - A sampling method based on an Euler-Maruyama discretisation of an SDE. 
 - A simple interface to train an energy model using DSM
@@ -57,7 +57,7 @@ net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
 model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4)
 
 # Generate samples from the trained model
-samples = model.sample(size=[batch_size, channels, pixels, pixels], N=1000)
+samples = model.sample(size=[batch_size, *dimensions], N=1000)
 
 # Compute the score for a given input
 score = model.score(t, x)
@@ -71,7 +71,7 @@ score = ScoreModel(checkpoint_directory)
 The `EnergyModel` class works in pretty much the same way as `ScoreModel`, but implements the score via the 
 automatic differentation of an energy model
 $$
-    E_\theta(t, \mathbf{x}) = \frac{1}{2} \lVert \mathbf{x} - \mathrm{net}_\theta(t, \mathbf{x}) \rVert_2^ 2
+    E_\theta(t, \mathbf{x}) = \frac{1}{2 \sigma(t)} \lVert \mathbf{x} - f_\theta(t, \mathbf{x}) \rVert_2^ 2
 $$
 This is to say that the score is defined as
 $$
@@ -79,7 +79,8 @@ $$
 $$
 
 **Note**: When using the MLP architecture, the energy model can be constructed more efficiently as the output of the
-neural network by specifying `nn_is_energy` in the hyperparameters of the MLP. An `output_activation` like `relu` 
+neural network by specifying `nn_is_energy` in the hyperparameters of the MLP, which will modify the neural network 
+architecture to be a function $f_\theta: \mathbb{R}^d \to \mathbb{R}$ instead of $f_\theta: \mathbb{R}^d \to \mathbb{R}^d$. An `output_activation` like `relu` 
 can also be specified to make the energy positive or bounded from below.
 
 

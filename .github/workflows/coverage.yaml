@@ -51,18 +51,9 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           pwd
-          pytest --cov-report=xml --cov=caustic tests/
+          pytest --cov-report=xml --cov=score_models tests/
         shell: bash
 
-      - name: Run tests with coverage
-        run: |
-          cd $GITHUB_WORKSPACE
-          pwd
-          ls -R   # List all files and directories recursively
-          echo "coverage.xml exists? $(test -e coverage.xml && echo 'yes' || echo 'no')"
-          cat coverage.xml
-        shell: bash
-          
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v3
         with:
