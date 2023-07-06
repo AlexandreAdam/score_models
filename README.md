@@ -1,7 +1,8 @@
 # Score Models for Pytorch
 
-[![PyPI version](https://badge.fury.io/py/your-package-name.svg)](https://badge.fury.io/py/your-package-name)
-[![Coverage Status](https://img.shields.io/badge/Coverage-85%25-brightgreen)](https://your-coverage-report-url)
+[![PyPI version](https://badge.fury.io/py/torch_score_models.svg)](https://badge.fury.io/py/torch_score_models)
+[![codecov](https://codecov.io/gh/AlexandreAdam/torch_score_models/branch/dev/graph/badge.svg)](https://codecov.io/gh/AlexandreAdam/torch_score_models)
+
 0
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
