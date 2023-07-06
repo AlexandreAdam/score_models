@@ -7,6 +7,7 @@ from .utils import load_architecture
 from abc import ABC, abstractmethod
 from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
+import h5py
 import time
 import os, glob, re, json
 import numpy as np
