@@ -1,0 +1,56 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+          
+      - name: Record State
+        run: |
+          pwd
+          echo github.ref is: ${{ github.ref }}
+          echo GITHUB_SHA is: $GITHUB_SHA
+          echo github.event_name is: ${{ github.event_name }}
+          echo github workspace: ${{ github.workspace }}
+          pip --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov torch
+          # Install deps
+          cd $GITHUB_WORKSPACE
+          pip install -r requirements.txt
+
+      - name: Install score_models
+        run: |
+          cd $GITHUB_WORKSPACE
+          pip install -e .
+          pip show score_models
+
+      - name: Run tests with coverage
+        run: |
+          cd $GITHUB_WORKSPACE
+          pwd
+          pytest --cov-report=xml --cov=caustic test/
+          cat coverage.xml
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ${{ github.workspace }}/coverage.xml
+          fail_ci_if_error: true
+
