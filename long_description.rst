@@ -58,7 +58,7 @@ The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
    # ... or 3D convolutions for videos/voxels
    net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], attention=False, dimensions=3)
    # You can also use a simpler MLP architecture
-   net = MLP(input_dimensions=dim, layers=4, units=100)
+   net = MLP(dimensions=dim, layers=4, units=100)
    # ... or Jonathan Ho's DDPM architecture
    net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
 
