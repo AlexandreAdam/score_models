@@ -23,7 +23,7 @@ class EnergyModel(ScoreModelBase):
         super().__init__(model, checkpoints_directory, **hyperparameters)
         nn_is_energy = model.hyperparameters.get("nn_is_energy", False)
         if nn_is_energy:
-            # TODO give MLP theoption of an output activation to make energy positive
+            # TODO give MLP the option of an output activation to make energy positive
             self.energy = lambda t, x: self.model(t, x).squeeze(1) # remove nn feature dim
         else:
             self.energy = self._unet_energy
@@ -40,7 +40,7 @@ class EnergyModel(ScoreModelBase):
     
     def score_and_control_variate(self, t, x, z):
         """
-        Method used for training 
+        Method used for training an energy based model
         
         See Song & Kingma (2021): How to train your Energy-Based Model (https://arxiv.org/abs/2101.03288)
         and reference therein. This avoids loss explosion when sigma -> 0. 

@@ -75,8 +75,12 @@ $$
 $$
 This is to say that the score is defined as
 $$
-    \mathbf{s}_\theta(t, \mathbf{x}) = \frac{1}{\sigma(t)} \nabla_\mathbf{x} E_\theta(t, \mathbf{x})
+    \mathbf{s}_\theta(t, \mathbf{x}) = - \nabla_\mathbf{x} E_\theta(t, \mathbf{x})
 $$
+
+**Note**: When using the MLP architecture, the energy model can be constructed more efficiently as the output of the
+neural network by specifying `nn_is_energy` in the hyperparameters of the MLP. An `output_activation` like `relu` 
+can also be specified to make the energy positive or bounded from below.
 
 
 ### Training Parameters

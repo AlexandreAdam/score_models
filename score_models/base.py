@@ -251,7 +251,9 @@ class ScoreModelBase(Module, ABC):
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
             score, control_variate = self.score_and_control_variate(t=t, x=mean + sigma_ * z, z=z)
-            return torch.sum((z + sigma_ * score) ** 2 - control_variate) / B
+            dsm_loss = torch.sum(((z + sigma_ * score) ** 2).flatten(1), dim=1)
+            # see equation 14 of Song & Kingma, (https://arxiv.org/abs/2101.03288), control variate used to train EBM
+            return torch.sum(dsm_loss - control_variate) / B
 
         best_loss = float('inf')
         losses = []
