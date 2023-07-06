@@ -16,6 +16,7 @@ class MLP(nn.Module):
             time_branch_layers=1,
             bottleneck=None,
             attention=False,
+            nn_is_energy=False, # TODO
             **kwargs
             ):
         super().__init__()

@@ -65,6 +65,10 @@ class ScoreModelBase(Module, ABC):
     @abstractmethod
     def score(self, t, x):
         ...
+    
+    def score_and_control_variate(self, t, x, z):
+        # Used mainly by energy model, and used internally in the fit method 
+        return self.score(t, x), 0.
 
     @torch.no_grad()
     def sample(self, size, N: int):
@@ -246,7 +250,8 @@ class ScoreModelBase(Module, ABC):
             t = torch.rand(B).to(self.device) * (1. - epsilon) + epsilon
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
-            return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
+            score, control_variate = self.score_and_control_variate(t=t, x=mean + sigma_ * z, z=z)
+            return torch.sum((z + sigma_ * score) ** 2 - control_variate) / B
 
         best_loss = float('inf')
         losses = []
