@@ -1,28 +1,11 @@
 import torch
 from torch import nn
-from .conv2dsame import Conv2dSame
 from score_models.definitions import default_init
-from .up_or_downsampling import upsample_2d, naive_upsample_2d, downsample_2d, naive_downsample_2d, Conv2d
+from .conv_layers import conv1x1, conv3x3
+from .up_or_downsampling import *
 
 
 SQRT2 = 1.41421356237
-
-
-def conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_scale=1.):
-    """3x3 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=3, stride=stride, dilation=dilation, bias=bias)
-    conv.conv.weight.data *= init_scale
-    conv.conv.bias.data *= init_scale
-    return conv
-
-
-def conv1x1(in_planes, out_planes, stride=1, bias=True, init_scale=1.):
-    """1x1 convolution with DDPM initialization."""
-    conv = Conv2dSame(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias)
-    with torch.no_grad():
-        conv.conv.weight.data = default_init(init_scale)(conv.conv.weight.data.shape)
-        nn.init.zeros_(conv.conv.bias)
-    return conv
 
 
 class ResnetBlockBigGANpp(nn.Module):
@@ -38,18 +21,24 @@ class ResnetBlockBigGANpp(nn.Module):
             fir=False,
             fir_kernel=(1, 3, 3, 1),
             skip_rescale=True,
-            init_scale=0.
+            init_scale=0.,
+            dimensions=2
     ):
         super().__init__()
-
-        out_ch = out_ch if out_ch else in_ch
-        self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
+        assert dimensions in [1, 2, 3]
+        self.dimensions = dimensions
+        out_ch = out_ch if out_ch is not None else in_ch
         self.up = up
         self.down = down
         self.fir = fir
         self.fir_kernel = fir_kernel
+        self.skip_rescale = skip_rescale
+        self.act = act
+        self.in_ch = in_ch
+        self.out_ch = out_ch
 
-        self.Conv_0 = conv3x3(in_ch, out_ch)
+        self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
+        self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
         if temb_dim is not None:
             self.Dense_0 = nn.Linear(temb_dim, out_ch)
             with torch.no_grad():
@@ -58,37 +47,36 @@ class ResnetBlockBigGANpp(nn.Module):
 
         self.GroupNorm_1 = nn.GroupNorm(num_groups=min(out_ch // 4, 32), num_channels=out_ch, eps=1e-6)
         self.Dropout_0 = nn.Dropout(dropout)
-        self.Conv_1 = conv3x3(out_ch, out_ch, init_scale=init_scale)
+        # suppress skip connection at initialization
+        self.Conv_1 = conv3x3(out_ch, out_ch, init_scale=init_scale, dimensions=dimensions)
         if in_ch != out_ch or up or down:
-            self.Conv_2 = conv1x1(in_ch, out_ch)
+            self.Conv_2 = conv1x1(in_ch, out_ch, dimensions=dimensions)
 
-        self.skip_rescale = skip_rescale
-        self.act = act
-        self.in_ch = in_ch
-        self.out_ch = out_ch
 
     def forward(self, x, temb=None):
+        B, *_ = x.shape
         h = self.act(self.GroupNorm_0(x))
 
         if self.up:
             if self.fir:
-                h = upsample_2d(h, self.fir_kernel, factor=2)
-                x = upsample_2d(x, self.fir_kernel, factor=2)
+                h = upsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
+                x = upsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:
-                h = naive_upsample_2d(h, factor=2)
-                x = naive_upsample_2d(x, factor=2)
+                print("hello")
+                h = naive_upsample(h, factor=2, dimensions=self.dimensions)
+                x = naive_upsample(x, factor=2, dimensions=self.dimensions)
         elif self.down:
             if self.fir:
-                h = downsample_2d(h, self.fir_kernel, factor=2)
-                x = downsample_2d(x, self.fir_kernel, factor=2)
+                h = downsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
+                x = downsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:
-                h = naive_downsample_2d(h, factor=2)
-                x = naive_downsample_2d(x, factor=2)
+                h = naive_downsample(h, factor=2, dimensions=self.dimensions)
+                x = naive_downsample(x, factor=2, dimensions=self.dimensions)
 
         h = self.Conv_0(h)
         # Add bias to each feature map conditioned on the time embedding
         if temb is not None:
-            h += self.Dense_0(self.act(temb))[:, :, None, None]
+            h += self.Dense_0(self.act(temb)).view(B, -1, *[1]*self.dimensions)
         h = self.act(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)
@@ -100,3 +88,4 @@ class ResnetBlockBigGANpp(nn.Module):
             return x + h
         else:
             return (x + h) / SQRT2
+

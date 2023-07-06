@@ -2,17 +2,6 @@ import torch
 import numpy as np
 from scipy.stats import norm
 
-DTYPE = torch.float32
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
-# def load_model(path_to_checkoint_dir, model: str):
-#     """
-#
-#     :param path_to_checkoint_dir:
-#     :param model:
-#     :return: score model
-#     """
-
 
 def variance_scaling(
         scale,

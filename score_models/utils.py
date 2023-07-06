@@ -4,7 +4,11 @@ import torch.nn as nn
 import os, json, re
 from glob import glob
 import numpy as np
-from .definitions import DEVICE
+from torch.nn import Module
+from typing import Union
+
+DTYPE = torch.float32
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
 
 def get_norm_layer(norm_type='instance'):
@@ -35,37 +39,54 @@ def get_norm_layer(norm_type='instance'):
 
 
 def get_activation(activation_type="elu"):
-    if activation_type == "relu":
+    if activation_type is None:
+        return nn.Identity()
+    elif activation_type.lower() == "none":
+        return nn.Identity()
+    elif activation_type == "relu":
         activation = nn.ReLU()
     elif activation_type == "elu":
         activation = nn.ELU()
     elif activation_type == "tanh":
         activation = nn.Tanh()
-    elif activation_type == "swish":
+    elif activation_type in ["swish", "silu"]:
         activation = nn.SiLU()
     else:
         raise NotImplementedError('activation layer [%s] is not found' % activation_type)
     return activation
 
 
-def load_model(checkpoints_directory, model: str, eval=True):
-    with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
-        hyperparameters = json.load(f)
-    if model.lower() == "ncsnpp1d":
-        from score_models import NCSNpp1d
-        model = NCSNpp1d(**hyperparameters).to(DEVICE)
-    elif model.lower() in ["ncsnpp", "ncsnpp2d"]:
-        from score_models import NCSNpp
-        model = NCSNpp(**hyperparameters).to(DEVICE)
-    elif model.lower() == "ncsnpp3d":
-        from score_models import NCSNpp3d
-        model = NCSNpp3d(**hyperparameters).to(DEVICE)
-    elif model.lower() == "ddpm":
-        from score_models import DDPM
-        model = DDPM(**hyperparameters).to(DEVICE)
-    paths = glob(os.path.join(checkpoints_directory, "*.pt"))
+def load_architecture(
+        checkpoints_directory, 
+        model: Union[str, Module] = None, 
+        dimensions=2, 
+        hyperparameters=None, 
+        device=DEVICE) -> list[Module, dict]:
+    if hyperparameters is None:
+        hyperparameters = {}
+    if model is None:
+        with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
+            hparams = json.load(f)
+        hparams.update(hyperparameters)
+        model = hparams.get("model_architecture", "ncsnpp")
+        if "dimensions" not in hparams.keys():
+            hparams["dimensions"] = dimensions
+    if isinstance(model, str):
+        if model.lower() == "ncsnpp":
+            from score_models.architectures import NCSNpp
+            model = NCSNpp(**hparams).to(device)
+        elif model.lower() == "ddpm":
+            from score_models.architectures import DDPM
+            model = DDPM(**hparams).to(device)
+        elif model.lower() == "mlp":
+            from score_models import MLP
+            model = MLP(**hparams).to(device)
+        else:
+            raise ValueError(f"{model} not supported")
+    else:
+        hparams = model.hyperparameters
+    paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
     checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-    model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=DEVICE))
-    if eval:
-        model.eval()
-    return model
+    if paths:
+        model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
+    return model, hparams 
