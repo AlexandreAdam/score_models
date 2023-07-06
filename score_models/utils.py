@@ -39,7 +39,11 @@ def get_norm_layer(norm_type='instance'):
 
 
 def get_activation(activation_type="elu"):
-    if activation_type == "relu":
+    if activation_type is None:
+        return nn.Identity()
+    elif activation_type.lower() == "none":
+        return nn.Identity()
+    elif activation_type == "relu":
         activation = nn.ReLU()
     elif activation_type == "elu":
         activation = nn.ELU()

@@ -23,8 +23,8 @@ class EnergyModel(ScoreModelBase):
         super().__init__(model, checkpoints_directory, **hyperparameters)
         nn_is_energy = model.hyperparameters.get("nn_is_energy", False)
         if nn_is_energy:
-            # With this option, the model should be made with a ReLU activation function
-            self.energy = self.model
+            # TODO give MLP theoption of an output activation to make energy positive
+            self.energy = lambda t, x: self.model(t, x).squeeze(1) # remove nn feature dim
         else:
             self.energy = self._unet_energy
     

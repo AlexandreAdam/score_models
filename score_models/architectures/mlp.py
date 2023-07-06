@@ -16,7 +16,8 @@ class MLP(nn.Module):
             time_branch_layers=1,
             bottleneck=None,
             attention=False,
-            nn_is_energy=False, # TODO
+            nn_is_energy=False,
+            output_activation="relu",
             **kwargs
             ):
         super().__init__()
@@ -27,10 +28,14 @@ class MLP(nn.Module):
                 "time_embedding_dimensions": time_embedding_dimensions,
                 "embedding_scale": embedding_scale,
                 "activation": activation,
-                "time_branch_layers": time_branch_layers
+                "time_branch_layers": time_branch_layers,
+                "nn_is_energy": nn_is_energy
                 }
+        if nn_is_energy:
+            self.hyperparameters.update({"output_activation": output_activation})
         self.time_branch_layers = time_branch_layers
         self.layers = layers
+        self.nn_is_energy = nn_is_energy
         t_dim = time_embedding_dimensions
         if layers % 2 == 1:
             layers += 1
@@ -53,7 +58,11 @@ class MLP(nn.Module):
             self.attention_layer = ScaledAttentionLayer(bottleneck)
         for _ in range(layers):
             modules.append(nn.Linear(units, units))
-        self.output_layer = nn.Linear(units, dimensions)
+        if nn_is_energy:
+            self.output_layer = nn.Linear(units, 1)
+            self.output_act = get_activation(output_activation)
+        else:
+            self.output_layer = nn.Linear(units, dimensions)
         self.act = get_activation(activation)
         self.all_modules = nn.ModuleList(modules)
     
@@ -82,5 +91,8 @@ class MLP(nn.Module):
         for _ in range(self.layers//2):
             x = self.act(modules[i](x))
             i += 1
-        return self.output_layer(x)
+        out = self.output_layer(x)
+        if self.nn_is_energy:
+            out = self.output_act(out)
+        return out
 

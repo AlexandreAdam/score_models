@@ -31,6 +31,13 @@ def test_loading_with_nn():
     t = torch.ones(1)
     score(t, x)
 
+    net = MLP(dimensions=2, nn_is_energy=True)
+    score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
+    print(score.sde)
+    x = torch.randn(1, 2)
+    t = torch.ones(1)
+    score(t, x)
+
     net = NCSNpp(nf=32)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
