@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Module
-from .utils import DEVICE
+from .utils import DEVICE, DTYPE
 from score_models.sde import VESDE, VPSDE, SDE
 from typing import Union
 from .utils import load_architecture
