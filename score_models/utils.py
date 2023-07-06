@@ -80,7 +80,8 @@ def load_architecture(
             raise ValueError(f"{model} not supported")
     else:
         hparams = model.hyperparameters
-    paths = glob(os.path.join(checkpoints_directory, "*.pt"))
+    paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
     checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-    model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
+    if paths:
+        model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
     return model, hparams 

@@ -1,6 +1,6 @@
 import torch
 from score_models.layers import StyleGANConv, UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp
-from score_models.layers.attention_block import SelfAttentionBlock, AlternativeSelfAttentionBlock
+from score_models.layers.attention_block import SelfAttentionBlock, ScaledAttentionLayer
 from score_models.definitions import default_init
 from score_models.utils import get_activation
 import numpy as np
@@ -14,13 +14,20 @@ def test_attention():
     att = SelfAttentionBlock(4)
     y = att(x)
     print(y[0, 0, 0, 0], y[0, 0, 0, 1])
-    att = AlternativeSelfAttentionBlock(4)
-    y = att(x)
-    print(y[0, 0, 0, 0], y[0, 0, 0, 1])
     x = torch.randn([10, 4, 8, 8, 8])
     SelfAttentionBlock(4, dimensions=3)(x)
     x = torch.randn([10, 4, 8])
     SelfAttentionBlock(4, dimensions=1)(x)
+    
+    x = torch.randn(10, 5) * 100
+    B, D = x.shape
+    temb = torch.randn(B, D)
+    context = torch.stack([x, temb], dim=1)
+    print("context shape", context.shape)
+    att = ScaledAttentionLayer(dimensions=5)
+    out = att(x.view(B, 1, D), context)
+    print("shape",out.shape)
+    print("out", out)
 
 
 def test_resnet_biggan():

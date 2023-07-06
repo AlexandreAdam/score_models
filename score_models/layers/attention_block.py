@@ -54,36 +54,36 @@ class SelfAttentionBlock(nn.Module):
         return self.to_out(attention) + x
 
 
-# This completely equivalent formulation might be very useful
-# when we consider conditioning this layer on the noise level.
-class AlternativeSelfAttentionBlock(nn.Module):
-    def __init__(self, channels, scale_init=1e-2):
-        super(AlternativeSelfAttentionBlock, self).__init__()
-        self.query = nn.Linear(in_features=channels, out_features=channels)
-        self.key = nn.Linear(in_features=channels, out_features=channels)
-        self.value = nn.Linear(in_features=channels, out_features=channels)
-        self.to_out = nn.Linear(in_features=channels, out_features=channels)
+class ScaledAttentionLayer(nn.Module):
+    """
+    Simple self attention mechanism, with MLP and no skip connections for MLP network
+    """
+    def __init__(self, dimensions):
+        super().__init__()
+        self.query = nn.Linear(in_features=dimensions, out_features=dimensions)
+        self.key = nn.Linear(in_features=dimensions, out_features=dimensions)
+        self.value = nn.Linear(in_features=dimensions, out_features=dimensions)
+        self.to_out = nn.Linear(in_features=dimensions, out_features=dimensions)
 
         # Initialization
         with torch.no_grad():
-            bound = 1 / channels ** (1 / 2)
+            bound = 1 / dimensions ** (1 / 2)
             for layer in (self.query, self.key, self.value):
                 layer.weight.uniform_(-bound, bound)
                 layer.bias.zero_()
-            bound = scale_init / channels ** (1 / 2)
+            bound = 1 / dimensions ** (1 / 2)
             self.to_out.weight.uniform_(-bound, bound)
             self.to_out.bias.zero_()
 
-    def __call__(self, x):
-        B, C, *D = x.shape
-        x = x.permute(0, 2, 3, 1)
-        q = self.query(x).view(B, np.prod(D), C)
-        k = self.key(x).view(B, np.prod(D), C).permute(0, 2, 1)
-        v = self.value(x).view(B, np.prod(D), C)
-
-        w = torch.bmm(q, k) / C**(0.5)  # scaled attention matrix, QK^T / sqrt(d)
-        w = torch.softmax(w, dim=-1)
-        attention = torch.bmm(w, v)
-        h = self.to_out(attention).view(B, *D, C).permute(0, -1, *range(1, len(D)+1))
-        x = x.permute(0, 3, 1, 2)
-        return x + h
+    def __call__(self, query, context):
+        B, C_out, D = query.shape
+        B, C_in, D = context.shape
+       
+        query = query.view(B * C_out, D)
+        query = self.query(query).view(B, C_out, D)
+        value = self.value(context.view(B * C_in, D)).view(B, C_in, D)
+        scores = torch.bmm(query, context.transpose(1, 2)) / D**(0.5)  # scaled attention matrix, QK^T / sqrt(d)
+        scores = torch.softmax(scores, dim=-1)
+        attention = torch.bmm(scores, value)
+        h = self.to_out(attention)
+        return h

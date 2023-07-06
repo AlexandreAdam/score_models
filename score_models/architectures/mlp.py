@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from score_models.layers import GaussianFourierProjection, SelfAttentionBlock
+from score_models.layers import GaussianFourierProjection, ScaledAttentionLayer
 from score_models.utils import get_activation
 
 
@@ -34,7 +34,7 @@ class MLP(nn.Module):
         if layers % 2 == 1:
             layers += 1
         # time embedding branch
-        modules = [GaussianFourierProjection(time_embedding_dimensions, scale=embedding_scale)]
+        modules = [GaussianFourierProjection(t_dim, scale=embedding_scale)]
         for _ in range(time_branch_layers):
             modules.append(nn.Linear(t_dim, t_dim))
         # main branch
@@ -48,7 +48,8 @@ class MLP(nn.Module):
             self.bottleneck = 0
         self.attention = attention
         if self.attention:
-            self.attention_layer = SelfAttentionBlock(bottleneck, dimensions=1)
+            self.temb_to_bottleneck = nn.Linear(t_dim, bottleneck)
+            self.attention_layer = ScaledAttentionLayer(bottleneck)
         for _ in range(layers):
             modules.append(nn.Linear(units, units))
         self.output_layer = nn.Linear(units, input_dimensions)
@@ -72,7 +73,9 @@ class MLP(nn.Module):
         if self.bottleneck:
             x = self.act(self.bottleneck_in(x))
         if self.attention:
-            x = self.attention_layer(x.view(B, self.bottleneck, 1)).view(B, self.bottleneck)
+            temb = self.temb_to_bottleneck(temb)
+            context = torch.stack([x, temb], dim=1)
+            x = self.attention_layer(x.view(B, 1, -1), context).view(B, -1)
         if self.bottleneck:
             x = self.act(self.bottleneck_out(x))
         for _ in range(self.layers//2):
