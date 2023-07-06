@@ -24,5 +24,5 @@ class EnergyModel(ScoreModelBase):
         _, *D = x.shape
         # small wrapper to account for input without batch dim from vmap
         energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0)).squeeze(0)
-        return vmap(grad(energy, argnums=1))(t, x) / self.sde.sigma(t).view(-1, *[1]*len(D))
+        return - vmap(grad(energy, argnums=1))(t, x) / self.sde.sigma(t).view(-1, *[1]*len(D))
     
