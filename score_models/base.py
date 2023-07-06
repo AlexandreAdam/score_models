@@ -66,10 +66,6 @@ class ScoreModelBase(Module, ABC):
     def score(self, t, x):
         ...
     
-    def score_and_control_variate(self, t, x, z):
-        # Used mainly by energy model, and used internally in the fit method 
-        return self.score(t, x), 0.
-
     @torch.no_grad()
     def sample(self, size, N: int):
         # A simple Euler-Maruyama integration of the model SDE
@@ -250,10 +246,7 @@ class ScoreModelBase(Module, ABC):
             t = torch.rand(B).to(self.device) * (1. - epsilon) + epsilon
             mean, sigma = self.sde.marginal_prob(t=t, x=x)
             sigma_ = sigma.view(*broadcast)
-            score, control_variate = self.score_and_control_variate(t=t, x=mean + sigma_ * z, z=z)
-            dsm_loss = torch.sum(((z + sigma_ * score) ** 2).flatten(1), dim=1)
-            # see equation 14 of Song & Kingma, (https://arxiv.org/abs/2101.03288), control variate used to train EBM
-            return torch.sum(dsm_loss - control_variate) / B
+            return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
 
         best_loss = float('inf')
         losses = []
@@ -332,7 +325,7 @@ class ScoreModelBase(Module, ABC):
                     torch.save(optimizer.state_dict(), os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.pt"))
                     paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
                     checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-                    scores = [float(re.findall('(-*[0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
+                    scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
                     if len(checkpoint_indices) > 2*models_to_keep: # has to be twice since we also save optimizer states
                         index_to_delete = np.argmin(checkpoint_indices)
                         os.remove(os.path.join(checkpoints_directory, f"checkpoint_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
