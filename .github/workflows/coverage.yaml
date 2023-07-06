@@ -35,6 +35,15 @@ jobs:
           # Install deps
           cd $GITHUB_WORKSPACE
           pip install -r requirements.txt
+        steps:
+          
+      - name: Print current directory
+        cd $GITHUB_WORKSPACE
+        run: echo $(pwd)
+      
+      - name: List files in directory
+        cd $GITHUB_WORKSPACE
+        run: ls -a
 
       - name: Install score_models
         run: |
