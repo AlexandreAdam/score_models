@@ -38,12 +38,14 @@ jobs:
         steps:
           
       - name: Print current directory
-        cd $GITHUB_WORKSPACE
-        run: echo $(pwd)
+        run: |
+          cd $GITHUB_WORKSPACE
+          echo $(pwd)
       
       - name: List files in directory
-        cd $GITHUB_WORKSPACE
-        run: ls -a
+        run: |
+          cd $GITHUB_WORKSPACE
+          ls -a
 
       - name: Install score_models
         run: |
