@@ -79,6 +79,7 @@ def load_architecture(
             from score_models.architectures import DDPM
             model = DDPM(**hparams).to(device)
         elif model.lower() == "mlp":
+            from score_models import MLP
             model = MLP(**hparams).to(device)
         else:
             raise ValueError(f"{model} not supported")
