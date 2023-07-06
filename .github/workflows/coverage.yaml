@@ -39,16 +39,6 @@ jobs:
           cd $GITHUB_WORKSPACE
           pip install -r requirements.txt
           
-      - name: Print current directory
-        run: |
-          cd $GITHUB_WORKSPACE
-          echo $(pwd)
-      
-      - name: List files in directory
-        run: |
-          cd $GITHUB_WORKSPACE
-          ls -a
-
       - name: Install score_models
         run: |
           cd $GITHUB_WORKSPACE
@@ -59,7 +49,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           pwd
-          pytest --cov-report=xml --cov=caustic test/
+          pytest --cov-report=xml --cov=caustic tests/
           cat coverage.xml
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v3
