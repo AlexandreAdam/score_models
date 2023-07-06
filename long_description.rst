@@ -1,6 +1,6 @@
-==============
+=========================
 Score Models for Pytorch
-==============
+=========================
 
 .. image:: https://badge.fury.io/py/score_models.svg
    :target: https://badge.fury.io/py/score_models

@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 # Read the contents of the README file
-with open("long_description.rst", "r", encoding="utf-8") as fh:
+with open("long_description.rst", "r") as fh:
     long_description = fh.read()
 
 setup(
