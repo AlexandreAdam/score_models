@@ -69,9 +69,14 @@ score = ScoreModel(checkpoint_directory)
 
 The `EnergyModel` class works in pretty much the same way as `ScoreModel`, but implements the score via the 
 automatic differentation of an energy model
+
 $$E_\theta(t, \mathbf{x}) = \frac{1}{2 \sigma(t)} \lVert \mathbf{x} - f_\theta(t, \mathbf{x}) \rVert_2^ 2$$
+
 This is to say that the score is defined as
+
 $$\mathbf{s}_\theta(t, \mathbf{x}) = - \nabla_\mathbf{x} E_\theta(t, \mathbf{x})$$
+
+
 **Note**: When using the MLP architecture, the energy model can be constructed more efficiently as the output of the
 neural network by specifying `nn_is_energy` in the hyperparameters of the MLP, which will modify the neural network 
 architecture to be a function $f_\theta: \mathbb{R}^d \to \mathbb{R}$ instead of $f_\theta: \mathbb{R}^d \to \mathbb{R}^d$. An `output_activation` like `relu` 
