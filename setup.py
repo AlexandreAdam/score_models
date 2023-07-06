@@ -9,7 +9,7 @@ setup(
     url="https://github.com/AlexandreAdam/torch_score_models",
     packages=find_packages(),
     install_requires=[
-        "torch",
+        "torch>=2.0",
         "scipy",
         "torch_ema",
         "h5py",

@@ -11,7 +11,7 @@ def test_training():
     dataset = TensorDataset(X)
 
     hyperparameters = {
-        "input_dimensions": 10,
+        "dimensions": 10,
         "units": 10,
         "layers": 2,
         "time_embedding_dimensions": 32,

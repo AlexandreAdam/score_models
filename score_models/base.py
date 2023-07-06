@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Module
 from .utils import DEVICE
-from score_models.sde import VESDE, VPSDE
+from score_models.sde import VESDE, VPSDE, SDE
 from typing import Union
 from .utils import load_architecture
 from abc import ABC, abstractmethod
@@ -36,22 +36,23 @@ class Dataset(torch.utils.data.Dataset):
 
 # TODO support data parallel
 class ScoreModelBase(Module, ABC):
-    def __init__(self, model: Union[str, Module]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
+    def __init__(self, model: Union[str, Module]=None, sde:SDE=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
             hyperparameters.update(hyperparams)
-        if "sde" not in hyperparameters.keys():
+        if sde is None:
             if "sigma_min" in hyperparameters.keys():
                 hyperparameters["sde"] = "vesde"
             elif "beta_min" in hyperparameters.keys():
                 hyperparameters["sde"] = "vpsde"
-        if hyperparameters["sde"].lower() == "vesde":
-            sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"])
-        elif hyperparameters["sde"].lower() == "vpsde":
-            sde = VPSDE(beta_min=hyperparameters["beta_min"], beta_max=hyperparameters["beta_max"])
-        else:
-            raise ValueError("sde parameters missing from hyperparameters")
+            else:
+                raise KeyError("SDE parameters are missing, please specify `sigma_min` and `sigma_max`"
+                               "or `beta_min` and `beta_max`. Alternatively, you may provide your own SDE")
+            if hyperparameters["sde"].lower() == "vesde":
+                sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"])
+            elif hyperparameters["sde"].lower() == "vpsde":
+                sde = VPSDE(beta_min=hyperparameters["beta_min"], beta_max=hyperparameters["beta_max"])
         self.checkpoints_directory = checkpoints_directory
         self.model = model
         self.model.to(device)

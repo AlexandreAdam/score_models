@@ -7,7 +7,7 @@ from score_models.utils import get_activation
 class MLP(nn.Module):
     def __init__(
             self, 
-            input_dimensions, 
+            dimensions, 
             units=100, 
             layers=2, 
             time_embedding_dimensions=32, 
@@ -20,7 +20,7 @@ class MLP(nn.Module):
             ):
         super().__init__()
         self.hyperparameters = {
-                "input_dimensions": input_dimensions,
+                "dimensions": dimensions,
                 "units": units,
                 "layers": layers,
                 "time_embedding_dimensions": time_embedding_dimensions,
@@ -38,7 +38,7 @@ class MLP(nn.Module):
         for _ in range(time_branch_layers):
             modules.append(nn.Linear(t_dim, t_dim))
         # main branch
-        modules.append(nn.Linear(input_dimensions+t_dim, units))
+        modules.append(nn.Linear(dimensions+t_dim, units))
         if bottleneck is not None:
             assert isinstance(bottleneck, int)
             self.bottleneck = bottleneck
@@ -52,7 +52,7 @@ class MLP(nn.Module):
             self.attention_layer = ScaledAttentionLayer(bottleneck)
         for _ in range(layers):
             modules.append(nn.Linear(units, units))
-        self.output_layer = nn.Linear(units, input_dimensions)
+        self.output_layer = nn.Linear(units, dimensions)
         self.act = get_activation(activation)
         self.all_modules = nn.ModuleList(modules)
     
