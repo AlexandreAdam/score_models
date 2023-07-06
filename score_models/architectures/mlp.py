@@ -17,7 +17,7 @@ class MLP(nn.Module):
             bottleneck=None,
             attention=False,
             nn_is_energy=False,
-            output_activation="relu",
+            output_activation=None,
             **kwargs
             ):
         super().__init__()
