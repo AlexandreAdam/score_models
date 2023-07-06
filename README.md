@@ -1,6 +1,8 @@
 # Score Models for Torch
 
 [![PyPI version](https://badge.fury.io/py/your-package-name.svg)](https://badge.fury.io/py/your-package-name)
+[![Coverage Status](https://img.shields.io/badge/Coverage-85%25-brightgreen)](https://your-coverage-report-url)
+0
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
 - Simple initialisation of 2 state of the art architecture (NCSN++ and DDPM)
