@@ -42,7 +42,7 @@ class VPSDE(SDE):
         """
         See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
         """
-        log_coeff = torch.exp(-0.25 * t ** 2 * (self.beta_max - self.beta_min) - 0.5 * t * self.beta_min)
+        log_coeff = -0.25 * t ** 2 * (self.beta_max - self.beta_min) - 0.5 * t * self.beta_min
         std = torch.sqrt(1. - torch.exp(2. * log_coeff))
         return torch.exp(log_coeff), std
 

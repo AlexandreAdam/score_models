@@ -51,14 +51,23 @@ def test_init_score():
     with pytest.raises(KeyError):
         score = ScoreModel(net)
 
-
 def test_log_likelihood():
     net = MLP(dimensions=2)
-    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
-    x = torch.randn(1, 2)
-    print(score.log_likelihood(x, ode_steps=10, verbose=1))
-    assert 0 == 1
+    x = torch.randn(3, 2)
+    ll = score.log_likelihood(x, ode_steps=10, verbose=1, epsilon=1e-5)
+    print(ll)
+    assert ll.shape == torch.Size([3])
+
+def test_score_at_zero_t():
+    net = MLP(dimensions=2)
+    score = ScoreModel(net, beta_min=1e-2, beta_max=10)
+    print(score.sde)
+    x = torch.randn(3, 2)
+    ll, vjp_func = torch.func.vjp(lambda x: score.log_likelihood(x, ode_steps=10, epsilon=1e-5), x)
+    grad = vjp_func(torch.ones_like(ll))
+    print(grad)
 
 def test_sample_fn():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
