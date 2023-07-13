@@ -1,7 +1,7 @@
 import torch
+from torch.distributions import Independent, Normal
 from torch import Tensor
 from .sde import SDE
-from ..utils import DEVICE
 
 
 class VPSDE(SDE):
@@ -20,10 +20,11 @@ class VPSDE(SDE):
     def sigma(self, t: Tensor) -> Tensor:
         return self.marginal_prob_scalars(t)[1]
         
-    def prior(self, dimensions: list):
-        return torch.randn(dimensions)
+    def prior(self, shape):
+        mu = torch.zeros(shape)
+        return Independent(Normal(loc=mu, scale=1., validate_args=False), 1)
 
-    def marginal(self, x0: Tensor, t: Tensor) -> Tensor:
+    def marginal(self, t: Tensor, x0: Tensor) -> Tensor:
         _, *D = x0.shape
         z = torch.randn_like(x0)
         mu_t, sigma_t = self.marginal_prob_scalars(t)

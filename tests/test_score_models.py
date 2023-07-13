@@ -1,3 +1,4 @@
+from score_models.architectures.ddpm import DDPM
 import torch
 from score_models.utils import load_architecture
 from score_models import ScoreModel, EnergyModel
@@ -5,7 +6,7 @@ from score_models.architectures import MLP, NCSNpp
 import pytest
 
 
-def local_test_loading_model():
+def local_test_loading_model_and_score_fn():
     # local test only
     path = "/home/alexandre/Desktop/Projects/data/score_models/ncsnpp_ct_g_220912024942"
     model, hparams = load_architecture(path)
@@ -49,7 +50,24 @@ def test_init_score():
     net = MLP(10)
     with pytest.raises(KeyError):
         score = ScoreModel(net)
-    
+
+
+def test_log_likelihood():
+    net = MLP(dimensions=2)
+    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    print(score.sde)
+    x = torch.randn(1, 2)
+    print(score.log_likelihood(x, ode_steps=10, verbose=1))
+    assert 0 == 1
+
+def test_sample_fn():
+    net = NCSNpp(1, nf=8, ch_mult=(2, 2))
+    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    score.sample(5, shape=[1, 16, 16], steps=10)
+
+    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    score = ScoreModel(net, beta_min=1e-2, beta_max=10)
+    score.sample(5, shape=[1, 16, 16], steps=10)
 
     
 

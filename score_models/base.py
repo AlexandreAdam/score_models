@@ -1,5 +1,7 @@
 import torch
+from torch import Tensor
 from torch.nn import Module
+from torch.func import vjp
 from .utils import DEVICE, DTYPE
 from score_models.sde import VESDE, VPSDE, SDE
 from typing import Union
@@ -34,6 +36,68 @@ class Dataset(torch.utils.data.Dataset):
         return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)
 
 
+# Kept here for reference, but not currently used
+def sliced_score_matching_loss(model, samples, t, lambda_t, n_cotangent_vectors=1,  noise_type="rademacher"):
+    """
+    Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of
+    Hyvärinen (2005). Estimation of Non-Normalized Statistical Models by Score Matching,
+    (https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf).
+
+    We implement an unbiased estimator of this loss with reduced variance reported in
+    Y. Song et al. (2019). A Scalable Approach to Density and Score Estimation
+    (https://arxiv.org/abs/1905.07088).
+
+    Inspired from the official implementation of Sliced Score Matching at https://github.com/ermongroup/sliced_score_matching
+    We also implement the weighting scheme for NCSN (Song & Ermon 2019 https://arxiv.org/abs/1907.05600)
+    """
+    if noise_type not in ["gaussian", "rademacher"]:
+        raise ValueError("noise_type has to be either 'gaussian' or 'rademacher'")
+    B, *D = samples.shape
+    # duplicate noisy samples across the number of particle for the Hutchinson trace estimator
+    samples = torch.tile(samples, [n_cotangent_vectors, *[1]*len(D)])
+    t = torch.tile(t, [n_cotangent_vectors])
+
+    # sample cotangent vectors
+    vectors = torch.randn_like(samples)
+    if noise_type == 'rademacher':
+        vectors = vectors.sign()
+    score, vjp_func = vjp(lambda x: model(t, x), samples)
+    trace_estimate = vectors * vjp_func(vectors)[0]
+    trace_estimate = torch.sum(trace_estimate.flatten(1), dim=1)
+    loss = (lambda_t(samples, t) * (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate)).mean()
+    return loss
+
+# Kept here for reference, but not currently used
+def sliced_score_matching_loss(model, samples, n_cotangent_vectors=1,  noise_type="rademacher"):
+    """
+    Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of
+    Hyvärinen (2005). Estimation of Non-Normalized Statistical Models by Score Matching,
+    (https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf).
+
+    We implement an unbiased estimator of this loss with reduced variance reported in
+    Y. Song et al. (2019). A Scalable Approach to Density and Score Estimation
+    (https://arxiv.org/abs/1905.07088).
+
+    Inspired from the official implementation of Sliced Score Matching at https://github.com/ermongroup/sliced_score_matching
+    We also implement the weighting scheme for NCSN (Song & Ermon 2019 https://arxiv.org/abs/1907.05600)
+    """
+    if noise_type not in ["gaussian", "rademacher"]:
+        raise ValueError("noise_type has to be either 'gaussian' or 'rademacher'")
+    B, *D = samples.shape
+    # duplicate noisy samples across the number of particle for the Hutchinson trace estimator
+    samples = torch.tile(samples, [n_cotangent_vectors, *[1]*len(D)])
+    t = torch.tile(t, [n_cotangent_vectors])
+
+    # sample cotangent vectors
+    vectors = torch.randn_like(samples)
+    if noise_type == 'rademacher':
+        vectors = vectors.sign()
+    score, vjp_func = vjp(model, samples)
+    trace_estimate = (vectors * vjp_func(vectors)[0]).flatten(0).sum(dim=1)
+    loss = (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate).mean()
+    return loss
+ 
+
 # TODO support data parallel
 class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, sde:SDE=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
@@ -59,20 +123,66 @@ class ScoreModelBase(Module, ABC):
         self.sde = sde
         self.device = device
 
-    def forward(self, t, x):
+    def forward(self, t, x) -> Tensor:
         return self.score(t, x)
    
     @abstractmethod
-    def score(self, t, x):
+    def score(self, t, x) -> Tensor:
         ...
     
+    def drift_divergence(self, t, x, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
+        B, *D = x.shape
+        # duplicate noisy samples for for the Hutchinson trace estimator
+        samples = torch.tile(x, [n_cotangent_vectors, *[1]*len(D)])
+        t = torch.tile(t, [n_cotangent_vectors])
+        # sample cotangent vectors
+        vectors = torch.randn_like(samples)
+        if noise_type == 'rademacher':
+            vectors = vectors.sign()
+        f = lambda x: self.sde.drift(t, x)
+        g = self.sde.diffusion(t, x) # we make the assumption that g(t, x) = g(t)!!
+        f_tilde = lambda x: f(x) - g**2 * self.model(t, x)
+        
+        _, vjp_func = vjp(f_tilde, samples)
+        divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
+        return divergence
+       
     @torch.no_grad()
-    def sample(self, size, N: int):
+    def log_likelihood(self, x, ode_steps: int, n_cotangent_vectors: int = 1, noise_type="rademacher", verbose=0):
+        """
+        ode_steps: Number of steps to perform in the ODE
+        hutchinsons_samples: Number of samples to draw to compute the trace of the Jacobian (divergence)
+        
+        Note that this estimator only compute the likelihood for one trajectory. 
+        For more precise log likelihood estimation, tile x along the batch dimension
+        and averge the results. You can also increase the number of ode steps and increase
+        the number of cotangent vector for the Hutchinson estimator.
+        
+        Using the instantaneous change of variable formula
+        (Chen et al. 2018,https://arxiv.org/abs/1806.07366)
+        See also Song et al. 2020, https://arxiv.org/abs/2011.13456)
+        """
+        B, *D = x.shape
+        log_p = self.sde.prior(D).log_prob(x)
+        dt = 1 / ode_steps
+        t = torch.zeros(B).to(x.device)
+        disable = False if verbose else True 
+        for _ in tqdm(range(ode_steps), disable=disable):
+            log_p += self.drift_divergence(t, x) * dt
+        return log_p
+        
+    @torch.no_grad()
+    def sample(self, n, shape, steps):
+        """
+        n: Number of samples to draw
+        shape: Shape of the tensor to sample, except batch dimension.
+        steps: Number of Euler-Maruyam steps to perform
+        """
         # A simple Euler-Maruyama integration of the model SDE
-        x = self.sde.prior(size).to(self.device)
-        dt = -1.0 / N
-        t = torch.ones(size[0]).to(self.device)
-        for _ in tqdm(range(N)):
+        x = self.sde.prior(shape).sample([n]).to(self.device)
+        dt = -1.0 / steps
+        t = torch.ones(n).to(self.device)
+        for _ in tqdm(range(steps)):
             t += dt
             drift = self.sde.drift(t, x)
             diffusion = self.sde.diffusion(t, x)
@@ -82,6 +192,7 @@ class ScoreModelBase(Module, ABC):
             x_mean = x + drift * dt
             x = x_mean + diffusion * (-dt)**(1/2) * z
         return x_mean
+
     
     def fit(
         self,
@@ -231,6 +342,7 @@ class ScoreModelBase(Module, ABC):
                     max_checkpoint_index = np.argmax(checkpoint_indices)
                     checkpoint_path = paths[max_checkpoint_index]
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
+                    optimizer.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
                     print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {model_id}")
                     latest_checkpoint = checkpoint_indices[max_checkpoint_index]
             else:

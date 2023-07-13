@@ -4,8 +4,7 @@ from score_models import ScoreModel, EnergyModel, MLP
 
 def test_training_score():
     # Create a dummy dataset
-    # Assuming you have input features 'X' and target values 'y'
-    X = torch.randn(10, 10)  # Replace with your input features
+    X = torch.randn(10, 10)
 
     # Convert the data into a TensorDataset
     dataset = TensorDataset(X)
@@ -56,8 +55,7 @@ def test_training_score():
 
 def test_training_energy():
     # Create a dummy dataset
-    # Assuming you have input features 'X' and target values 'y'
-    X = torch.randn(10, 10)  # Replace with your input features
+    X = torch.randn(10, 10)
 
     # Convert the data into a TensorDataset
     dataset = TensorDataset(X)

@@ -2,6 +2,7 @@ import torch
 from .sde import SDE
 from torch import Tensor
 import numpy as np
+from torch.distributions import Normal, Independent
 
 
 class VESDE(SDE):
@@ -26,10 +27,19 @@ class VESDE(SDE):
     def sigma(self, t: Tensor) -> Tensor:
         return self.sigma_min * (self.sigma_max / self.sigma_min) ** t
     
-    def prior(self, dimensions):
-        return torch.randn(dimensions) * self.sigma_max
+    def prior(self, shape, mu=None):
+        """
+        Technically, VESDE does not change the mean of the 0 temperature distribution, 
+        so I give the option to provide for more accuracy. In practice, 
+        sigma_max is chosen large enough to make this choice irrelevant
+        """
+        if mu is None:
+            mu = torch.zeros(shape)
+        else:
+            assert mu.shape == shape 
+        return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), 1)
     
-    def marginal(self, x0: Tensor, t: Tensor) -> Tensor:
+    def marginal(self, t: Tensor, x0: Tensor) -> Tensor:
         _, *D = x0.shape
         z = torch.randn_like(x0)
         _, sigma_t = self.marginal_prob_scalars(t)

@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import torch
+from torch.distributions import Normal, Independent
+from torch.distributions import Distribution
 from torch import Tensor
 
 class SDE(ABC):
@@ -16,12 +17,12 @@ class SDE(ABC):
         ...
     
     @abstractmethod
-    def prior(self, dimensions) -> Tensor:
+    def prior(self, shape) -> Distribution:
         """
-        Sample from the high temperature prior
+        High temperature distribution
         """
         ...
-
+    
     @abstractmethod
     def diffusion(self, t:Tensor, x: Tensor) -> Tensor:
         ...
@@ -31,7 +32,7 @@ class SDE(ABC):
         ...
     
     @abstractmethod
-    def marginal(self, x0: Tensor, t: Tensor) -> Tensor:
+    def marginal(self, t: Tensor, x0: Tensor) -> Tensor:
         """
         Sample from the marginal at time t given some initial condition x0
         """

@@ -86,7 +86,7 @@ class DDPM(nn.Module):
                 modules.append(Upsample(in_ch=in_ch, with_conv=resample_with_conv))
 
         assert not hs_c
-        modules.append(nn.GroupNorm(num_channels=in_ch, num_groups=32, eps=1e-6))
+        modules.append(nn.GroupNorm(num_channels=in_ch, num_groups=min(in_ch // 4, 32), eps=1e-6))
         modules.append(conv3x3(in_ch, channels))
         self.all_modules = nn.ModuleList(modules)
 
