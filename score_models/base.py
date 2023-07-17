@@ -44,6 +44,8 @@ class ScoreModelBase(Module, ABC):
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
             hyperparameters.update(hyperparams)
+        elif hasattr(model, "hyperparameters"):
+            hyperparameters.update(model.hyperparameters)
         if sde is None:
             if "sigma_min" in hyperparameters.keys():
                 hyperparameters["sde"] = "vesde"
