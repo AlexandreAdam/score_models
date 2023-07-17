@@ -1,4 +1,5 @@
 from .base import ScoreModelBase, Union, Module
+from .sde import SDE
 from torch.func import grad
 from torch import vmap
 import torch
