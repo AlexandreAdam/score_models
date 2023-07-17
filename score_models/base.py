@@ -39,6 +39,8 @@ class Dataset(torch.utils.data.Dataset):
 class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, sde:SDE=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
+        if model is None and checkpoints_directory is None:
+            raise ValueError("Must provide one of 'model'i or 'checkpoints_directory'")
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
             hyperparameters.update(hyperparams)
