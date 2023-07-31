@@ -14,26 +14,8 @@ import time
 import os, glob, re, json
 import numpy as np
 from datetime import datetime
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, path, key, extension="h5", device=DEVICE):
-        self.device = device
-        self.key = key
-        if extension in ["h5", "hdf5"]:
-            self._data = h5py.File(self.filepath, "r")
-            self.data = lambda index: self._data[self.key][index]
-            self.size = self._data[self.key].shape[0]
-        elif extension == "npy":
-            self.data = np.load(path)
-            self.size = self.data.shape[0]
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, index):
-        return torch.tensor(self.data[[index]], dtype=DTYPE).to(self.device)
 
 # TODO support data parallel
 class ScoreModelBase(Module, ABC):
@@ -54,10 +36,20 @@ class ScoreModelBase(Module, ABC):
             else:
                 raise KeyError("SDE parameters are missing, please specify `sigma_min` and `sigma_max`"
                                "or `beta_min` and `beta_max`. Alternatively, you may provide your own SDE")
+            if "T" not in hyperparameters.keys():
+                hyperparameters["T"] = 1.
             if hyperparameters["sde"].lower() == "vesde":
-                sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"])
+                sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"], T=hyperparameters["T"])
             elif hyperparameters["sde"].lower() == "vpsde":
-                sde = VPSDE(beta_min=hyperparameters["beta_min"], beta_max=hyperparameters["beta_max"])
+                if "epsilon" not in hyperparameters.keys():
+                    hyperparameters["epsilon"] = 1e-5
+                sde = VPSDE(
+                        beta_min=hyperparameters["beta_min"], 
+                        beta_max=hyperparameters["beta_max"], 
+                        T=hyperparameters["T"],
+                        epsilon=hyperparameters["epsilon"]
+                        )
+        self.hyperparameters = hyperparameters
         self.checkpoints_directory = checkpoints_directory
         self.model = model
         self.model.to(device)
@@ -158,8 +150,6 @@ class ScoreModelBase(Module, ABC):
         if return_ll:
             return score, ll
         return score
-        
-
     
     @torch.no_grad()
     def sample(self, n, shape, steps):
@@ -170,26 +160,29 @@ class ScoreModelBase(Module, ABC):
         """
         # A simple Euler-Maruyama integration of the model SDE
         x = self.sde.prior(shape).sample([n]).to(self.device)
-        dt = -1.0 / steps
-        t = torch.ones(n).to(self.device)
+        dt = -self.sde.T / steps
+        t = torch.ones(n).to(self.device) * self.sde.T
         for _ in tqdm(range(steps)):
+            g = self.sde.diffusion(t, x)
+            f = self.sde.drift(t, x) - g**2 * self.score(t, x)
+            dw = torch.randn_like(x) * (-dt)**(1/2)
+            x_mean = x + f * dt
+            x = x_mean + g * dw 
             t += dt
-            drift = self.sde.drift(t, x)
-            diffusion = self.sde.diffusion(t, x)
-            score = self.score(t, x)
-            drift = drift - diffusion**2 * score
-            z = torch.randn_like(x)
-            x_mean = x + drift * dt
-            x = x_mean + diffusion * (-dt)**(1/2) * z
         return x_mean
 
+    def loss_fn(self, x, *args, **kwargs):
+        B, *D = x.shape
+        broadcast = [B, *[1] * len(D)]
+        z = torch.randn_like(x)
+        t = torch.rand(B).to(self.device) * (self.sde.T - self.sde.epsilon) + self.sde.epsilon
+        mean, sigma = self.sde.marginal_prob(t=t, x=x)
+        sigma_ = sigma.view(*broadcast)
+        return torch.sum((z + sigma_ * self.score(t=t, x=mean + sigma_ * z)) ** 2) / B
     
     def fit(
         self,
-        dataset=None,
-        dataset_path=None,
-        dataset_extension="h5",
-        dataset_key=None,
+        dataset: Dataset,
         preprocessing_fn=None,
         epochs=100,
         learning_rate=1e-4,
@@ -207,7 +200,6 @@ class ScoreModelBase(Module, ABC):
         checkpoints=10,
         models_to_keep=2,
         seed=None,
-        model_id=None,
         logname=None,
         n_iterations_in_epoch=None,
         logname_prefixe="score_model",
@@ -238,17 +230,14 @@ class ScoreModelBase(Module, ABC):
             checkpoints (int, optional): The interval for saving model checkpoints. Default is 10 epochs.
             models_to_keep (int, optional): The number of best models to keep. Default is 3.
             seed (int, optional): The random seed for numpy and torch. Default is None.
-            model_id (str, optional): The ID for the model. Default is None.
             logname (str, optional): The logname for saving checkpoints. Default is None.
             logname_prefixe (str, optional): The prefix for the logname. Default is "score_model".
 
         Returns:
             list: List of loss values during training.
         """
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        ema = ExponentialMovingAverage(self.parameters(), decay=ema_decay)
-        if dataset is None:
-            dataset = Dataset(dataset_path, dataset_key, dataset_extension, device=self.device)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
         if n_iterations_in_epoch is None:
             n_iterations_in_epoch = len(dataloader)
@@ -270,12 +259,13 @@ class ScoreModelBase(Module, ABC):
             hyperparameters["sde"] = "vesde"
             hyperparameters["sigma_min"] = self.sde.sigma_min
             hyperparameters["sigma_max"] = self.sde.sigma_max
+        hyperparameters["epsilon"] = self.sde.epsilon
+        hyperparameters["T"] = self.sde.T
 
        # ==== Take care of where to write checkpoints and stuff =================================================================
-        if model_id is not None:
-            logname = model_id
-        elif logname is not None:
-            logname = logname
+        if checkpoints_directory is not None:
+            if os.path.isdir(checkpoints_directory):
+                logname = os.path.split(checkpoints_directory)[-1]
         else:
             logname = logname_prefixe + "_" + datetime.now().strftime("%y%m%d%H%M%S")
 
@@ -306,7 +296,6 @@ class ScoreModelBase(Module, ABC):
                             "checkpoints": checkpoints,
                             "models_to_keep": models_to_keep,
                             "seed": seed,
-                            "model_id": model_id,
                             "logname": logname,
                             "logname_prefixe": logname_prefixe,
                         },
@@ -321,34 +310,26 @@ class ScoreModelBase(Module, ABC):
             opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
             checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
             scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
-            if model_id is not None and checkpoint_indices:
+            if checkpoint_indices:
                 if model_checkpoint is not None:
                     checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.model.device))
                     optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
-                    print(f"Loaded checkpoint {model_checkpoint} of {model_id}")
+                    print(f"Loaded checkpoint {model_checkpoint} of {logname}")
                     latest_checkpoint = model_checkpoint
                 else:
                     max_checkpoint_index = np.argmax(checkpoint_indices)
                     checkpoint_path = paths[max_checkpoint_index]
+                    opt_path = opt_paths[max_checkpoint_index]
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    optimizer.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {model_id}")
+                    optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
+                    print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
                     latest_checkpoint = checkpoint_indices[max_checkpoint_index]
-            else:
                 latest_checkpoint = 0
 
         if seed is not None:
             torch.manual_seed(seed)
 
-        def loss_fn(x):
-            B, *D = x.shape
-            broadcast = [B, *[1] * len(D)]
-            z = torch.randn_like(x)
-            t = torch.rand(B).to(self.device) * (1. - epsilon) + epsilon
-            mean, sigma = self.sde.marginal_prob(t=t, x=x)
-            sigma_ = sigma.view(*broadcast)
-            return torch.sum((z + sigma_ * self(t=t, x=mean + sigma_ * z)) ** 2) / B
 
         best_loss = float('inf')
         losses = []
@@ -368,15 +349,14 @@ class ScoreModelBase(Module, ABC):
                 start = time.time()
                 try:
                     x = next(data_iter)
+                    x, *args = next(data_iter)
                 except StopIteration:
                     data_iter = iter(dataloader)
-                    x = next(data_iter)
-                if isinstance(x, tuple) or isinstance(x, list): # wrapper for tensor dataset
-                    x = x[0]
+                    x, *args = next(data_iter)
                 if preprocessing_fn is not None:
                     x = preprocessing_fn(x)
                 optimizer.zero_grad()
-                loss = loss_fn(x)
+                loss = self.loss_fn(x, *args)
                 loss.backward()
 
                 if step < warmup:
@@ -384,7 +364,7 @@ class ScoreModelBase(Module, ABC):
                         g['lr'] = learning_rate * np.minimum(step / warmup, 1.0)
 
                 if clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clip)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=clip)
 
                 optimizer.step()
                 ema.update()
@@ -423,7 +403,7 @@ class ScoreModelBase(Module, ABC):
                     with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
                         f.write(f"{latest_checkpoint} {cost}\n")
                     with ema.average_parameters():
-                        torch.save(self.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
+                        torch.save(self.model.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
                     torch.save(optimizer.state_dict(), os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.pt"))
                     paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
                     checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]

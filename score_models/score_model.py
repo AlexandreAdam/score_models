@@ -1,3 +1,5 @@
+from typing import Callable
+
 from .base import ScoreModelBase, Union, Module
 from .sde import SDE
 from torch.func import grad
@@ -11,6 +13,37 @@ class ScoreModel(ScoreModelBase):
     def score(self, t, x):
         _, *D = x.shape
         return self.model(t=t, x=x) / self.sde.sigma(t).view(-1, *[1]*len(D))
+
+# class SLIC(ScoreModelBase):
+    # def __init__(
+            # self, 
+            # forward_model: Callable, # need to be differentiable
+            # model: Union[str, Module] = None, 
+            # sde: SDE=None, 
+            # checkpoints_directory=None, 
+            # **hyperparameters
+            # ):
+        # super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
+        # self.forward_model = forward_model
+
+    # def score(self, t, x):
+        # """
+        # Score of the noise, or residuals
+        # """
+        # _, *D = x.shape
+        # return self.model(t=t, x=x) / self.sde.sigma(t).view(-1, *[1]*len(D))
+    
+    # Actually, I should write an SDE taking the forward model, and give an option to use that SDE
+    # def likelihood_score(self, t, x):
+        # # Implement VJP here
+    
+    # def loss_fn()
+        # Implement loss fn including forward model, should be optional for training
+    
+    # def sampling
+    # Reimplemnt sampling with loss fn in case it is use
+
+
     
 
 class EnergyModel(ScoreModelBase):

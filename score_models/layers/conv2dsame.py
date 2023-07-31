@@ -24,7 +24,7 @@ class Conv2dSame(nn.Module):
             device=None,
             dtype=None
     ):
-        super(Conv2dSame, self).__init__()
+        super().__init__()
         if spectral_norm:
             sp_norm = SpectralNorm
         else:
@@ -58,7 +58,7 @@ class Conv2dSame(nn.Module):
         return x
 
 
-class ConvTranspose2dSame(nn.Module):
+class ConvTransposed2dSame(nn.Module):
     def __init__(
             self,
             in_channels: int,
@@ -74,7 +74,7 @@ class ConvTranspose2dSame(nn.Module):
             device=None,
             dtype=None
     ):
-        super(ConvTranspose2dSame, self).__init__()
+        super().__init__()
         if spectral_norm:
             sp_norm = SpectralNorm
         else:

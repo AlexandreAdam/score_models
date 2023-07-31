@@ -9,8 +9,13 @@ class SDE(ABC):
     """
     Abstract class for some SDE info important for the score models
     """
-    def __init__(self):
+    def __init__(self, T=1.0, epsilon=0.):
+        """
+        The time index in the diffusion is defined in the range [epsilon, T]. 
+        """
         super().__init__()
+        self.T = T
+        self.epsilon = epsilon
     
     @abstractmethod
     def sigma(self, t) -> Tensor:

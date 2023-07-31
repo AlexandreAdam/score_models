@@ -58,3 +58,4 @@ def sliced_score_matching_loss(model, samples, n_cotangent_vectors=1,  noise_typ
     trace_estimate = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
     loss = (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate).mean()
     return loss
+

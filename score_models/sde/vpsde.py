@@ -9,8 +9,10 @@ class VPSDE(SDE):
         self,
         beta_min: float = 0.1,
         beta_max: float = 20,
+        T: float = 1.0,
+        epsilon: float = 1e-5
     ):
-        super().__init__()
+        super().__init__(T, epsilon)
         self.beta_min = beta_min
         self.beta_max = beta_max
     

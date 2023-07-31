@@ -175,3 +175,26 @@ def test_stylegan_conv_resample_kernel():
     print(out)
     assert np.all(out.detach().numpy()[..., 1:-1, 1:-1] == 9.)
 
+def test_transposed_conv():
+    # Test that we can downsample and upsample odd numbered images with correct padding
+    from score_models.layers import ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame
+    from score_models.layers import Conv1dSame, Conv2dSame, Conv3dSame
+    
+    B = 10
+    D = 15
+    C = 16
+    K = 3
+    for dim in [1, 2, 3]:
+        x = torch.randn(B, C, *[D]*dim)
+        layer_ = [Conv1dSame, Conv2dSame, Conv3dSame][dim-1]
+        layer = layer_(C, C, K, stride=2)
+        x_down= layer(x)
+        print("Down", x_down.shape)
+        assert x_down.shape == torch.Size([B, C, *[D//2]*dim])
+        
+        layer_ = [ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame][dim-1]
+        layer = layer_(C, C, K, stride=2)
+        y = layer(x_down)
+        print("Up", x.shape)
+        assert x.shape == torch.Size([B, C, *[D]*dim])
+        

@@ -10,6 +10,8 @@ class VESDE(SDE):
             self,
             sigma_min: float,
             sigma_max: float,
+            T:float=1.0,
+            epsilon:float=0.0
     ):
         """
         Variance Exploding stochastic differential equation 
@@ -20,12 +22,12 @@ class VESDE(SDE):
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
-        super().__init__()
+        super().__init__(T, epsilon)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
 
     def sigma(self, t: Tensor) -> Tensor:
-        return self.sigma_min * (self.sigma_max / self.sigma_min) ** t
+        return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t/self.T)
     
     def prior(self, shape, mu=None):
         """

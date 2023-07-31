@@ -24,7 +24,7 @@ class Conv3dSame(nn.Module):
             device=None,
             dtype=None
     ):
-        super(Conv3dSame, self).__init__()
+        super().__init__()
         if spectral_norm:
             sp_norm = SpectralNorm
         else:
@@ -53,7 +53,7 @@ class Conv3dSame(nn.Module):
             h_o, w_o, d_o = h // self.stride, w // self.stride, d // self.stride
             p0 = ((h_o - 1) * self.stride + 1 + self.dilation * (self.kernel_size - 1) - h) // 2
             p1 = ((w_o - 1) * self.stride + 1 + self.dilation * (self.kernel_size - 1) - w) // 2
-            p2 = ((d_o - 1) * self.stride + 1 + self.dilation * (self.kernel_size - 1) - c) // 2
+            p2 = ((d_o - 1) * self.stride + 1 + self.dilation * (self.kernel_size - 1) - d) // 2
             x = F.pad(x, (p0, p0+1, p1, p1+1, p2, p2+1))
         x = self.conv(x)
         return x
@@ -75,7 +75,7 @@ class ConvTransposed3dSame(nn.Module):
             device=None,
             dtype=None
     ):
-        super(ConvTransposed3dSame, self).__init__()
+        super().__init__()
         if spectral_norm:
             sp_norm = SpectralNorm
         else:
