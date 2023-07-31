@@ -87,7 +87,7 @@ class ConvTransposed2dSame(nn.Module):
             dilation=dilation,
             groups=groups,
             bias=bias,
-            padding=dilation * (kernel_size - 1) // 2,
+            padding=dilation * (kernel_size - 1) // 2 + padding,
             output_padding=stride - 1,
             padding_mode=padding_mode,
             device=device,
