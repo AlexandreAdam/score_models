@@ -12,7 +12,3 @@ def denoising_score_matching(score_model: Union[ScoreModel, EnergyModel], sample
     mean, sigma = sde.marginal_prob(t, x)
     return torch.sum((z + sigma * self(t, mean + sigma * z)) ** 2) / B
 
-
-# def sliced_score_matching(score_model: SLIC
-
-
