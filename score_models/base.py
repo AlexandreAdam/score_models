@@ -230,9 +230,6 @@ class ScoreModelBase(Module, ABC):
 
         Parameters:
             dataset (torch.utils.data.Dataset): The training dataset.
-            dataset_path (str, optional): The path to the dataset file. If not provided, the function will assume a default path. Default is None.
-            dataset_extension (str, optional): The extension of the dataset file. Default is "h5".
-            dataset_key (str, optional): The key or identifier for the specific dataset within the file. If not provided, the function will assume a default key. Defaul
             preprocessing_fn (function, optional): A function to preprocess the input data. Default is None.
             learning_rate (float, optional): The learning rate for optimizer. Default is 1e-4.
             ema_decay (float, optional): The decay rate for Exponential Moving Average. Default is 0.9999.
@@ -298,9 +295,6 @@ class ScoreModelBase(Module, ABC):
                 with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
                     json.dump(
                         {
-                            "dataset_path": dataset_path,
-                            "dataset_extension": dataset_extension,
-                            "dataset_key": dataset_extension,
                             "preprocessing": preprocessing_name,
                             "learning_rate": learning_rate,
                             "ema_decay": ema_decay,
