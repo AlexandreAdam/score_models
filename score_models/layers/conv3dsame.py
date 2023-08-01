@@ -86,6 +86,7 @@ class ConvTransposed3dSame(nn.Module):
             kernel_size=kernel_size,
             stride=stride,
             padding=dilation * (kernel_size - 1) // 2 + padding,
+            output_padding=stride - 1,
             dilation=dilation,
             groups=groups,
             bias=bias,
