@@ -169,19 +169,25 @@ class ScoreModelBase(Module, ABC):
         likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
         guidance_factor: Multiplicative factor for the likelihood drift
         """
+        sampling_from = "prior" if likelihood_score_fn is None else "posterior"
         if likelihood_score_fn is None:
             likelihood_score_fn = lambda t, x: 0.
         # A simple Euler-Maruyama integration of the model SDE
         x = self.sde.prior(shape).sample([n]).to(self.device)
         dt = -self.sde.T / steps
         t = torch.ones(n).to(self.device) * self.sde.T
-        for _ in tqdm(range(steps)):
+        for _ in (pbar := tqdm(range(steps))):
+            pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
+                                 f"| scale ~ {x.max().item():.1e}")
             g = self.sde.diffusion(t, x)
             f = self.sde.drift(t, x) - g**2 * (self.score(t, x) + guidance_factor * likelihood_score_fn(t, x))
             dw = torch.randn_like(x) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 
             t += dt
+            if torch.any(torch.isnan(x)):
+                print("Diffusion is not stable, NaN were produced. Stopped sampling.")
+                break
         return x_mean
 
     def loss_fn(self, x, *args, **kwargs):
