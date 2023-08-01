@@ -203,7 +203,7 @@ class ScoreModelBase(Module, ABC):
         logname=None,
         logdir=None,
         n_iterations_in_epoch=None,
-        logname_prefixe="score_model",
+        logname_prefix="score_model",
         verbose=0
     ):
         """
@@ -233,7 +233,7 @@ class ScoreModelBase(Module, ABC):
             seed (int, optional): The random seed for numpy and torch. Default is None.
             logname (str, optional): The logname for saving checkpoints. Default is None.
             logdir (str, optional): The path to the directory in which to create the new checkpoint_directory with logname.
-            logname_prefixe (str, optional): The prefix for the logname. Default is "score_model".
+            logname_prefix (str, optional): The prefix for the logname. Default is "score_model".
 
         Returns:
             list: List of loss values during training.
@@ -269,7 +269,7 @@ class ScoreModelBase(Module, ABC):
             if os.path.isdir(checkpoints_directory):
                 logname = os.path.split(checkpoints_directory)[-1]
         elif logname is None:
-            logname = logname_prefixe + "_" + datetime.now().strftime("%y%m%d%H%M%S")
+            logname = logname_prefix + "_" + datetime.now().strftime("%y%m%d%H%M%S")
 
         save_checkpoint = False
         if checkpoints_directory is not None or logdir is not None:
@@ -299,7 +299,7 @@ class ScoreModelBase(Module, ABC):
                             "models_to_keep": models_to_keep,
                             "seed": seed,
                             "logname": logname,
-                            "logname_prefixe": logname_prefixe,
+                            "logname_prefix": logname_prefix,
                         },
                         f,
                         indent=4
