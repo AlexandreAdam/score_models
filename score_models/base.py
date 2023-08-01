@@ -201,6 +201,7 @@ class ScoreModelBase(Module, ABC):
         models_to_keep=2,
         seed=None,
         logname=None,
+        logdir=None,
         n_iterations_in_epoch=None,
         logname_prefixe="score_model",
         verbose=0
@@ -231,6 +232,7 @@ class ScoreModelBase(Module, ABC):
             models_to_keep (int, optional): The number of best models to keep. Default is 3.
             seed (int, optional): The random seed for numpy and torch. Default is None.
             logname (str, optional): The logname for saving checkpoints. Default is None.
+            logdir (str, optional): The path to the directory in which to create the new checkpoint_directory with logname.
             logname_prefixe (str, optional): The prefix for the logname. Default is "score_model".
 
         Returns:
@@ -266,14 +268,14 @@ class ScoreModelBase(Module, ABC):
         if checkpoints_directory is not None:
             if os.path.isdir(checkpoints_directory):
                 logname = os.path.split(checkpoints_directory)[-1]
-        else:
+        elif logname is None:
             logname = logname_prefixe + "_" + datetime.now().strftime("%y%m%d%H%M%S")
 
         save_checkpoint = False
-        if checkpoints_directory is not None:
+        if checkpoints_directory is not None or logdir is not None:
             save_checkpoint = True
-            if not os.path.isdir(checkpoints_directory):
-                os.mkdir(checkpoints_directory)
+            if checkpoints_directory is None: # the way to create a new directory is using logdir
+                checkpoints_directory = os.path.join(logdir, logname)
                 with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
                     json.dump(
                         {
