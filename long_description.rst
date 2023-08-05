@@ -24,7 +24,7 @@ To install the package, you can use pip:
 
 .. code-block:: bash
 
-   pip install torch-score-models
+    pip install torch-score-models
 
 Usage
 -----
@@ -36,7 +36,7 @@ The `ScoreModel` class is the main interface for training and using score models
 
 .. math::
 
-   \mathbf{s}_\theta(t, \mathbf{x}) = \frac{1}{\sigma(t)} \nabla_\mathbf{x} \log p_t(\mathbf{x})
+    \mathbf{s}_\theta(t, \mathbf{x}) = \frac{1}{\sigma(t)} \nabla_\mathbf{x} \log p_t(\mathbf{x})
 
 where :math:`\sigma(t)` is the standard deviation of the perturbation kernel :math:`p_t(\mathbf{x} \mid \mathbf{x}_0)`
 of an SDE.
@@ -45,34 +45,41 @@ The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
 
 .. code-block:: python
 
-   from score_models import ScoreModel, EnergyModel, NCSNpp, MLP, DDPM
+    from score_models import ScoreModel, EnergyModel, NCSNpp, MLP, DDPM
 
-   # Create a ScoreModelBase instance with Yang Song's NCSN++ architecture and the VESDE
-   net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2])
-   model = ScoreModelBase(model=net, sigma_min=1e-2, sigma_max=50, device="cuda")
-   # ... or the VPSDE
-   model = ScoreModelBase(model=net, beta_min=1e-2, beta_max=20, device="cuda")
+    # B is the batch size
+    # C is the input channels
+    # dimensions are the spatial dimensions (e.g. [28, 28] for MNIST)
 
-   # NN Architectures support a Unet with 1D convolutions for time series input data
-   net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], dimensions=1)
-   # ... or 3D convolutions for videos/voxels
-   net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], attention=False, dimensions=3)
-   # You can also use a simpler MLP architecture
-   net = MLP(dimensions=dim, layers=4, units=100)
-   # ... or Jonathan Ho's DDPM architecture
-   net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
+    # Create a ScoreModel instance with Yang Song's NCSN++ architecture and the VESDE
+    net = NCSNpp(channels=C, dimensions=len(dimensions), nf=128, ch_mult=[2, 2, 2, 2])
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=50, device="cuda")
+    # ... or the VPSDE
+    model = ScoreModel(model=net, beta_min=1e-2, beta_max=20, device="cuda")
 
-   # Train the model
-   model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4)
+    # NN Architectures support a Unet with 1D convolutions for time series input data
+    net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], dimensions=1)
+    # ... or 3D convolutions for videos/voxels
+    net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], attention=False, dimensions=3)
+    # You can also use a simpler MLP architecture (dimensions=0)
+    net = MLP(dimensions=C, layers=4, units=100)
+    # ... or Jonathan Ho's DDPM architecture
+    net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
 
-   # Generate samples from the trained model
-   samples = model.sample(size=[batch_size, *dimensions], N=1000)
+    # Train the model
+    model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4)
 
-   # Compute the score for a given input
-   score = model.score(t, x)
+    # Generate samples from the trained model
+    samples = model.sample(shape=[B, *dimensions], N=1000)
 
-   # Initialize the score model and its neural network from a path to a checkpoint directory
-   score = ScoreModel(checkpoint_directory)
+    # Generate posterior samples given a likelihood score function (with a specified guidance factor, defaults to 1.)
+    samples = model.sample([B, *dimensions], N, likelihood_score_fn, guidance_factor)
+
+    # Compute the score for a given input
+    score = model.score(t, x)
+
+    # Initialize the score model and its neural network from a path to a checkpoint directory
+    score = ScoreModel(checkpoints_directory=checkpoints_directory)
 
 EnergyModel
 ~~~~~~~~~~~
@@ -82,13 +89,13 @@ automatic differentiation of an energy model
 
 .. math::
 
-   E_\theta(t, \mathbf{x}) = \frac{1}{2 \sigma(t)} \lVert \mathbf{x} - f_\theta(t, \mathbf{x}) \rVert_2^2
+    E_\theta(t, \mathbf{x}) = \frac{1}{2 \sigma(t)} \lVert \mathbf{x} - f_\theta(t, \mathbf{x}) \rVert_2^2
 
 This is to say that the score is defined as
 
 .. math::
 
-   \mathbf{s}_\theta(t, \mathbf{x}) = - \nabla_\mathbf{x} E_\theta(t, \mathbf{x})
+    \mathbf{s}_\theta(t, \mathbf{x}) = - \nabla_\mathbf{x} E_\theta(t, \mathbf{x})
 
 **Note**: When using the MLP architecture, the energy model can be constructed more efficiently as the output of the
 neural network by specifying `nn_is_energy` in the hyperparameters of the MLP, which will modify the neural network
@@ -116,16 +123,16 @@ If you use this package in your research, please consider citing the following p
 
 .. code-block:: bibtex
 
-   @inproceedings{NEURIPS2020_4c5bcfec,
-       author      = {Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
-       booktitle   = {Advances in Neural Information Processing Systems},
-       editor      = {H. Larochelle and M. Ranzato and R. Hadsell and M.F. Balcan and H. Lin},
-       pages       = {6840--6851},
-       publisher   = {Curran Associates, Inc.},
-       title       = {Denoising Diffusion Probabilistic Models},
-       url         = {https://proceedings.neurips.cc/paper/2020/file/4c5bcfec8584af0d967f1ab10179ca4b-Paper.pdf},
-       volume      = {33},
-       year        = {2020}
+    @inproceedings{NEURIPS2020_4c5bcfec,
+        author      = {Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
+        booktitle   = {Advances in Neural Information Processing Systems},
+        editor      = {H. Larochelle and M. Ranzato and R. Hadsell and M.F. Balcan and H. Lin},
+        pages       = {6840--6851},
+        publisher   = {Curran Associates, Inc.},
+        title       = {Denoising Diffusion Probabilistic Models},
+        url         = {https://proceedings.neurips.cc/paper/2020/file/4c5bcfec8584af0d967f1ab10179ca4b-Paper.pdf},
+        volume      = {33},
+        year        = {2020}
    }
 
    @inproceedings{song2021scorebased,
