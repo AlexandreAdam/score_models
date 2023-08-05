@@ -62,7 +62,6 @@ class ResnetBlockBigGANpp(nn.Module):
                 h = upsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
                 x = upsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:
-                print("hello")
                 h = naive_upsample(h, factor=2, dimensions=self.dimensions)
                 x = naive_upsample(x, factor=2, dimensions=self.dimensions)
         elif self.down:

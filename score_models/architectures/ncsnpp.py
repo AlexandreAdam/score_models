@@ -53,10 +53,23 @@ class NCSNpp(nn.Module):
             resblock_type="biggan",
             combine_method="sum",
             attention=True,
+            conditioning:list[str,...]=["None"],
+            conditioning_channels:list[int,...]=None,
             **kwargs
           ):
         super().__init__()
-        assert dimensions in [1, 2, 3]
+        if dimensions not in [1, 2, 3]:
+            raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
+        self.conditioned = False
+        for c in conditioning:
+            if c.lower() not in ["none", "time", "input"]:
+                raise ValueError(f"Conditioning must be in ['None', 'Time', 'Input'], received {c}")
+            if c.lower() != "none":
+                self.conditioned = True
+                if conditioning_channels is not None:
+                    raise ValueError("conditioning_channels must be provided when the network is conditioned")
+            elif c.lower() == "none" and self.conditioned:
+                raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
         self.dimensions = dimensions
         self.channels = channels
         self.hyperparameters = {
@@ -77,7 +90,8 @@ class NCSNpp(nn.Module):
             "resblock_type": resblock_type,
             "combine_method": combine_method,
             "attention": attention,
-            "dimensions": dimensions
+            "dimensions": dimensions,
+            "conditioning": conditioning
         }
         self.act = act = get_activation(activation_type)
         self.attention = attention
@@ -145,10 +159,8 @@ class NCSNpp(nn.Module):
 
         # Downsampling block
         input_pyramid_ch = channels
-
         modules.append(conv3x3(channels, nf, dimensions=dimensions))
         hs_c = [nf]
-
         in_ch = nf
         for i_level in range(num_resolutions):
             # Residual blocks for this resolution
@@ -157,7 +169,6 @@ class NCSNpp(nn.Module):
                 modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch))
                 in_ch = out_ch
                 hs_c.append(in_ch)
-
             if i_level != num_resolutions - 1:
                 if resblock_type == 'ddpm':
                     modules.append(Downsample(in_ch=in_ch))
@@ -230,18 +241,24 @@ class NCSNpp(nn.Module):
 
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x):
+    def forward(self, t, x, *args):
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
         # Gaussian Fourier features embeddings.
         temb = modules[m_idx](t)
         m_idx += 1
+        # if self.conditioned:
+            # if self.conditioning.lower() == "time":
+                # temb = torch.cat([temb, *args], dim=1)
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
-
+        
+        # if self.conditioning.lower() == "input":
+            # x = torch.cat([x, *args], dim=1)
+        
         # Downsampling block
         input_pyramid = None
         if self.progressive_input != 'none':

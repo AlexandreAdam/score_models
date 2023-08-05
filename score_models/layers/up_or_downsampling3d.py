@@ -10,7 +10,6 @@ __all__ = ["naive_upsample_3d", "naive_downsample_3d",
 
 
 def naive_upsample_3d(x, factor=2):
-    print("hello")
     _N, C, H, W, D = x.shape
     x = torch.reshape(x, (-1, C, H, 1, W, 1, D, 1))
     x = x.repeat(1, 1, 1, factor, 1, factor, 1, factor)

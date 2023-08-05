@@ -7,20 +7,32 @@ from score_models.utils import get_activation
 class MLP(nn.Module):
     def __init__(
             self, 
-            dimensions, 
-            units=100, 
-            layers=2, 
-            time_embedding_dimensions=32, 
-            embedding_scale=30,
-            activation="swish",
-            time_branch_layers=1,
-            bottleneck=None,
-            attention=False,
-            nn_is_energy=False,
-            output_activation=None,
+            dimensions:int, 
+            units:int=100, 
+            layers:int=2, 
+            time_embedding_dimensions:int =32, 
+            embedding_scale:int=30,
+            activation:int="swish",
+            time_branch_layers:int=1,
+            bottleneck:int=None,
+            attention:bool=False,
+            nn_is_energy:bool=False,
+            output_activation:str=None,
+            conditioning:list[str,...]=["none"],
+            conditioning_channels:list[int,...]=None,
             **kwargs
             ):
         super().__init__()
+        self.conditioned = False
+        for c in conditioning:
+            if c.lower() not in ["none", "input"]:
+                raise ValueError(f"Conditioning must be in ['None', 'Input'], received {c}")
+            if c.lower() != "none":
+                self.conditioned = True
+                if conditioning_channels is not None:
+                    raise ValueError("conditioning_channels must be provided when the network is conditioned")
+            elif c.lower() == "none" and self.conditioned:
+                raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
         self.hyperparameters = {
                 "dimensions": dimensions,
                 "units": units,
@@ -29,7 +41,8 @@ class MLP(nn.Module):
                 "embedding_scale": embedding_scale,
                 "activation": activation,
                 "time_branch_layers": time_branch_layers,
-                "nn_is_energy": nn_is_energy
+                "nn_is_energy": nn_is_energy,
+                "conditioning": conditioning
                 }
         if nn_is_energy:
             self.hyperparameters.update({"output_activation": output_activation})

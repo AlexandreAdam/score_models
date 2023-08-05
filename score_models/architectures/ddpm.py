@@ -13,18 +13,33 @@ import functools
 class DDPM(nn.Module):
     def __init__(
             self,
-            channels=1,
-            dimensions=2,
-            nf=128,
-            activation_type="relu",
-            ch_mult=(1, 1, 2, 2, 4, 4),
-            num_res_blocks=2,
-            resample_with_conv=True,
-            dropout=0.,
-            attention=True,
+            channels:int=1,
+            dimensions:int=2,
+            nf:int=128,
+            activation_type:str="relu",
+            ch_mult:list[int,...]=(1, 1, 2, 2, 4, 4),
+            num_res_blocks:int =2,
+            resample_with_conv:bool=True,
+            dropout:float=0.,
+            attention:bool=True,
+            conditioning:list[str,...]=["None"],
+            conditioning_channels:list[int,...]=None,
             **kwargs
     ):
         super().__init__()
+        if dimensions not in [1, 2, 3]:
+            raise ValueError(f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}.")
+        self.conditioned = False
+        for c in conditioning:
+            if c.lower() not in ["none", "time", "input"]:
+                raise ValueError(f"Conditioning must be in ['None', 'Time', 'Input'], received {c}")
+            if c.lower() != "none":
+                self.conditioned = True
+                if conditioning_channels is not None:
+                    raise ValueError("conditioning_channels must be provided when the network is conditioned")
+            elif c.lower() == "none" and self.conditioned:
+                raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
+        
         self.hyperparameters = {
             "channels": channels,
             "nf": nf,
@@ -34,7 +49,8 @@ class DDPM(nn.Module):
             "resample_with_conv": resample_with_conv,
             "dropout": dropout,
             "attention": attention,
-            "dimensions": dimensions
+            "dimensions": dimensions,
+            "conditioning": conditioning
         }
         self.dimensions = dimensions
         self.act = act = get_activation(activation_type=activation_type)
@@ -60,8 +76,8 @@ class DDPM(nn.Module):
         in_ch = nf
         for i_level in range(num_resolutions):
             # Residual blocks for this resolution
+            out_ch = nf * ch_mult[i_level]
             for i_block in range(num_res_blocks):
-                out_ch = nf * ch_mult[i_level]
                 modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch))
                 in_ch = out_ch
                 hs_c.append(in_ch)
