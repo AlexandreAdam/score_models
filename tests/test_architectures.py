@@ -8,13 +8,17 @@ def test_ddpm():
     model = DDPM(1, nf=64, ch_mult=(1, 1, 2, 2))
     model(x=x, t=t)
 
+def test_ddpm_smallnf():
+    x = torch.randn(size=[1, 1, 32, 32]) * 230
+    t = torch.randn([1])
+    model = DDPM(1, nf=8, ch_mult=(1, 1, 2, 2))
+    model(x=x, t=t)
 
 def test_ncsnpp():
     x = torch.randn(size=[1, 1, 32, 32]) * 500
     t = torch.randn([1])
-    model = NCSNpp(1, dimensions=2, nf=8, ch_mult=(1, 1, 2, 2))
+    model = NCSNpp(1, dimensions=2, nf=8, ch_mult=(2, 2, 2, 2), num_res_blocks=3)
     model(x=x, t=t)
-
 
 def test_ncsnpp1d():
     x = torch.randn(size=[1, 1, 256]) * 500

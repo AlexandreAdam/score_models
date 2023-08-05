@@ -39,32 +39,42 @@ The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
 ```python
 from score_models import ScoreModel, EnergyModel, NCSNpp, MLP, DDPM
 
-# Create a ScoreModelBase instance with Yang Song's NCSN++ architecture and the VESDE
-net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2])
-model = ScoreModelBase(model=net, sigma_min=1e-2, sigma_max=50, device="cuda")
+# B is the batch size
+# C is the input channels
+# dimensions are the spatial dimensions (e.g. [28, 28] for MNIST)
+
+# Create a ScoreModel instance with Yang Song's NCSN++ architecture and the VESDE
+net = NCSNpp(channels=C, dimensions=len(dimensions), nf=128, ch_mult=[2, 2, 2, 2])
+model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=50, device="cuda")
 # ... or the VPSDE
-model = ScoreModelBase(model=net, beta_min=1e-2, beta_max=20, device="cuda")
+model = ScoreModel(model=net, beta_min=1e-2, beta_max=20, device="cuda")
 
 # NN Architectures support a Unet with 1D convolutions for time series input data
-net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], dimensions=1)
+net = NCSNpp(channels=C, nf=128, ch_mult=[2, 2, 2, 2], dimensions=1)
 # ... or 3D convolutions for videos/voxels
 net = NCSNpp(channels=1, nf=128, ch_mult=[2, 2, 2, 2], attention=False, dimensions=3)
-# You can also use a simpler MLP architecture 
-net = MLP(dimensions=dim, layers=4, units=100)
+# You can also use a simpler MLP architecture (dimensions=0)
+net = MLP(dimensions=C, layers=4, units=100)
 # ... or Jonathan Ho's DDPM architecture
-net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
+net = DDPM(channels=1, nf=128, ch_mult=[2, 2, 2, 2])
 
 # Train the model
 model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4)
 
-# Generate samples from the trained model
-samples = model.sample(size=[batch_size, *dimensions], N=1000)
+# Generate samples from the trained model (N is the number of Euler-Maruyam steps)
+samples = model.sample(shape=[B, *dimensions], N=N)
+
+# Generate posterior samples given a likelihood score function (with a specified guidance factor, defaults to 1.)
+samples = model.sample([B, *dimensions], N, likelihood_score_fn, guidance_factor)
 
 # Compute the score for a given input
 score = model.score(t, x)
 
+# Compute the likelihood for a given input
+score = model.likelihood(t, x)
+
 # Initialise the score model and its neural network from a path to a checkpoint directory 
-score = ScoreModel(checkpoint_directory)
+score = ScoreModel(checkpoints_directory=checkpoint_directory)
 ```
 
 ### EnergyModel

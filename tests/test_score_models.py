@@ -56,7 +56,8 @@ def test_log_likelihood():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = torch.randn(3, 2)
-    ll = score.log_likelihood(x, ode_steps=10, verbose=1, epsilon=1e-5)
+    t = torch.rand(3)
+    ll = score.log_likelihood(t, x, ode_steps=10, verbose=1)
     print(ll)
     assert ll.shape == torch.Size([3])
 
@@ -65,19 +66,20 @@ def test_score_at_zero_t():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = torch.randn(3, 2)
-    ll, vjp_func = torch.func.vjp(lambda x: score.log_likelihood(x, ode_steps=10, epsilon=1e-5), x)
+    t = torch.rand(3)
+    ll, vjp_func = torch.func.vjp(lambda x: score.log_likelihood(t, x, ode_steps=10), x)
     grad = vjp_func(torch.ones_like(ll))
     print(grad)
 
 def test_sample_fn():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
-    score.sample(5, shape=[1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], steps=10)
 
     net = DDPM(1, nf=32, ch_mult=(2, 2))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
-    score.sample(5, shape=[1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], steps=10)
 
     
-
-    
+if __name__ == "__main__":
+    local_test_loading_model_and_score_fn()

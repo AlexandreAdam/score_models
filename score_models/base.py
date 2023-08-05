@@ -4,14 +4,13 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.func import vjp
-from .utils import DEVICE, DTYPE
+from .utils import DEVICE
 from score_models.sde import VESDE, VPSDE, SDE
 from typing import Union
 from .utils import load_architecture
 from abc import ABC, abstractmethod
 from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
-import h5py
 import time
 import os, glob, re, json
 import numpy as np
@@ -19,12 +18,11 @@ from datetime import datetime
 from torch.utils.data import DataLoader, Dataset
 
 
-# TODO support data parallel
 class ScoreModelBase(Module, ABC):
     def __init__(self, model: Union[str, Module]=None, sde:SDE=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
         if model is None and checkpoints_directory is None:
-            raise ValueError("Must provide one of 'model'i or 'checkpoints_directory'")
+            raise ValueError("Must provide one of 'model' or 'checkpoints_directory'")
         if model is None or isinstance(model, str):
             model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
             hyperparameters.update(hyperparams)
@@ -51,6 +49,7 @@ class ScoreModelBase(Module, ABC):
                         T=hyperparameters["T"],
                         epsilon=hyperparameters["epsilon"]
                         )
+        hyperparameters["model_architecture"] = model.__class__.__name__
         self.hyperparameters = hyperparameters
         self.checkpoints_directory = checkpoints_directory
         self.model = model
@@ -91,11 +90,11 @@ class ScoreModelBase(Module, ABC):
     
     def log_likelihood(
             self, 
+            t,
             x,
             ode_steps: int, 
             n_cotangent_vectors: int = 1, 
             noise_type="rademacher", 
-            epsilon=0.,
             verbose=0
             ) -> Tensor:
         """
@@ -118,11 +117,11 @@ class ScoreModelBase(Module, ABC):
         disable = False if verbose else True  
         B, *D = x.shape
         log_p = 0.
-        dt = 1 / ode_steps
-        t = torch.zeros(B).to(x.device) + epsilon
+        dt = t / ode_steps
         for _ in tqdm(range(ode_steps), disable=disable):
-            x = x + self.ode_drift(t, x) * dt
+            x = x + self.ode_drift(t, x) * dt.view(-1, *[1]*len(D))
             log_p += self.divergence(self.ode_drift, t, x, **kwargs) * dt
+            t = t + dt
         log_p = self.sde.prior(D).log_prob(x)
         return log_p
     
@@ -156,26 +155,25 @@ class ScoreModelBase(Module, ABC):
     @torch.no_grad()
     def sample(
             self, 
-            n, 
             shape, 
             steps, 
             likelihood_score_fn:Callable=None,
             guidance_factor=1.
             ):
         """
-        n: Number of samples to draw
-        shape: Shape of the tensor to sample, except batch dimension.
+        shape: Shape of the tensor to sample (including batch size)
         steps: Number of Euler-Maruyam steps to perform
         likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
         guidance_factor: Multiplicative factor for the likelihood drift
         """
+        B, *D = shape
         sampling_from = "prior" if likelihood_score_fn is None else "posterior"
         if likelihood_score_fn is None:
             likelihood_score_fn = lambda t, x: 0.
         # A simple Euler-Maruyama integration of the model SDE
-        x = self.sde.prior(shape).sample([n]).to(self.device)
+        x = self.sde.prior(D).sample([B]).to(self.device)
         dt = -self.sde.T / steps
-        t = torch.ones(n).to(self.device) * self.sde.T
+        t = torch.ones(B).to(self.device) * self.sde.T
         for _ in (pbar := tqdm(range(steps))):
             pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
                                  f"| scale ~ {x.max().item():.1e}")
@@ -230,9 +228,6 @@ class ScoreModelBase(Module, ABC):
 
         Parameters:
             dataset (torch.utils.data.Dataset): The training dataset.
-            dataset_path (str, optional): The path to the dataset file. If not provided, the function will assume a default path. Default is None.
-            dataset_extension (str, optional): The extension of the dataset file. Default is "h5".
-            dataset_key (str, optional): The key or identifier for the specific dataset within the file. If not provided, the function will assume a default key. Defaul
             preprocessing_fn (function, optional): A function to preprocess the input data. Default is None.
             learning_rate (float, optional): The learning rate for optimizer. Default is 1e-4.
             ema_decay (float, optional): The decay rate for Exponential Moving Average. Default is 0.9999.
@@ -270,19 +265,7 @@ class ScoreModelBase(Module, ABC):
         else:
             preprocessing_name = None
             preprocessing_fn = lambda x: x
-        
-        hyperparameters = self.model.hyperparameters
-        if isinstance(self.sde, VPSDE):
-            hyperparameters["sde"] = "vpsde"
-            hyperparameters["beta_min"] = self.sde.beta_min
-            hyperparameters["beta_max"] = self.sde.beta_max
-        elif isinstance(self.sde, VESDE):
-            hyperparameters["sde"] = "vesde"
-            hyperparameters["sigma_min"] = self.sde.sigma_min
-            hyperparameters["sigma_max"] = self.sde.sigma_max
-        hyperparameters["epsilon"] = self.sde.epsilon
-        hyperparameters["T"] = self.sde.T
-
+         
        # ==== Take care of where to write checkpoints and stuff =================================================================
         if checkpoints_directory is not None:
             if os.path.isdir(checkpoints_directory):
@@ -291,16 +274,16 @@ class ScoreModelBase(Module, ABC):
             logname = logname_prefix + "_" + datetime.now().strftime("%y%m%d%H%M%S")
 
         save_checkpoint = False
+        latest_checkpoint = 0
         if checkpoints_directory is not None or logdir is not None:
             save_checkpoint = True
-            if checkpoints_directory is None: # the way to create a new directory is using logdir
+            if checkpoints_directory is None:
                 checkpoints_directory = os.path.join(logdir, logname)
+            if not os.path.isdir(checkpoints_directory):
+                os.mkdir(checkpoints_directory)
                 with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
                     json.dump(
                         {
-                            "dataset_path": dataset_path,
-                            "dataset_extension": dataset_extension,
-                            "dataset_key": dataset_extension,
                             "preprocessing": preprocessing_name,
                             "learning_rate": learning_rate,
                             "ema_decay": ema_decay,
@@ -324,7 +307,7 @@ class ScoreModelBase(Module, ABC):
                         indent=4
                     )
                 with open(os.path.join(checkpoints_directory, "model_hparams.json"), "w") as f:
-                    json.dump(hyperparameters, f, indent=4)
+                    json.dump(self.hyperparameters, f, indent=4)
 
             # ======= Load model if model_id is provided ===============================================================
             paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
@@ -346,12 +329,9 @@ class ScoreModelBase(Module, ABC):
                     optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
                     print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
                     latest_checkpoint = checkpoint_indices[max_checkpoint_index]
-                latest_checkpoint = 0
 
         if seed is not None:
             torch.manual_seed(seed)
-
-
         best_loss = float('inf')
         losses = []
         step = 0
@@ -369,11 +349,15 @@ class ScoreModelBase(Module, ABC):
             for _ in range(n_iterations_in_epoch):
                 start = time.time()
                 try:
-                    x = next(data_iter)
-                    x, *args = next(data_iter)
+                    X = next(data_iter)
                 except StopIteration:
                     data_iter = iter(dataloader)
-                    x, *args = next(data_iter)
+                    X = next(data_iter)
+                if isinstance(X, list):
+                    x, *args = X
+                else:
+                    x = X
+                    args = []
                 if preprocessing_fn is not None:
                     x = preprocessing_fn(x)
                 optimizer.zero_grad()
