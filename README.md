@@ -58,8 +58,8 @@ net = MLP(dimensions=C, layers=4, units=100)
 # ... or Jonathan Ho's DDPM architecture
 net = DDPM(channels=1, nf=128, ch_mult=[2, 2, 2, 2])
 
-# Train the model
-model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4)
+# Train the rim, and save its weight in checkpoints_directory
+model.fit(dataset, epochs=100, learning_rate=1e-4, checkpoints_directory=checkpoints_directory)
 
 # Generate samples from the trained model (N is the number of Euler-Maruyam steps)
 samples = model.sample(shape=[B, *dimensions], N=1000)
