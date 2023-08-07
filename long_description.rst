@@ -69,8 +69,8 @@ The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
     # Train the rim, and save its weight in checkpoints_directory
     model.fit(dataset=your_dataset, epochs=100, learning_rate=1e-4, checkpoints_directory=checkpoints_directory)
 
-    # Generate samples from the trained model
-    samples = model.sample(shape=[B, *dimensions], N=1000)
+    # Generate samples from the trained model (steps is the number of Euler-Maruyam steps)
+    samples = model.sample(shape=[B, *dimensions], steps=1000)
 
     # Generate posterior samples given a likelihood score function (with a specified guidance factor, defaults to 1.)
     samples = model.sample([B, *dimensions], N, likelihood_score_fn, guidance_factor)
