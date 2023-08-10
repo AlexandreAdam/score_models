@@ -281,7 +281,10 @@ class ScoreModelBase(Module, ABC):
                 checkpoints_directory = os.path.join(logdir, logname)
             if not os.path.isdir(checkpoints_directory):
                 os.mkdir(checkpoints_directory)
-                with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
+
+            script_params_path = os.path.join(checkpoints_directory, "script_params.json")
+            if not os.path.isfile(script_params_path):
+                with open(script_params_path, "w") as f:
                     json.dump(
                         {
                             "preprocessing": preprocessing_name,
@@ -306,7 +309,10 @@ class ScoreModelBase(Module, ABC):
                         f,
                         indent=4
                     )
-                with open(os.path.join(checkpoints_directory, "model_hparams.json"), "w") as f:
+            
+            model_hparams_path = os.path.join(checkpoints_directory, "model_hparams.json")
+            if not os.path.isfile(model_hparams_path):
+                with open(model_hparams_path, "w") as f:
                     json.dump(self.hyperparameters, f, indent=4)
 
             # ======= Load model if model_id is provided ===============================================================
