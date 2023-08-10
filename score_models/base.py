@@ -281,33 +281,33 @@ class ScoreModelBase(Module, ABC):
                 checkpoints_directory = os.path.join(logdir, logname)
             if not os.path.isdir(checkpoints_directory):
                 os.mkdir(checkpoints_directory)
-                with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
-                    json.dump(
-                        {
-                            "preprocessing": preprocessing_name,
-                            "learning_rate": learning_rate,
-                            "ema_decay": ema_decay,
-                            "batch_size": batch_size,
-                            "shuffle": shuffle,
-                            "epochs": epochs,
-                            "patience": patience,
-                            "tolerance": tolerance,
-                            "max_time": max_time,
-                            "epsilon": epsilon,
-                            "warmup": warmup,
-                            "clip": clip,
-                            "checkpoint_directory": checkpoints_directory,
-                            "checkpoints": checkpoints,
-                            "models_to_keep": models_to_keep,
-                            "seed": seed,
-                            "logname": logname,
-                            "logname_prefix": logname_prefix,
-                        },
-                        f,
-                        indent=4
-                    )
-                with open(os.path.join(checkpoints_directory, "model_hparams.json"), "w") as f:
-                    json.dump(self.hyperparameters, f, indent=4)
+            with open(os.path.join(checkpoints_directory, "script_params.json"), "w") as f:
+                json.dump(
+                    {
+                        "preprocessing": preprocessing_name,
+                        "learning_rate": learning_rate,
+                        "ema_decay": ema_decay,
+                        "batch_size": batch_size,
+                        "shuffle": shuffle,
+                        "epochs": epochs,
+                        "patience": patience,
+                        "tolerance": tolerance,
+                        "max_time": max_time,
+                        "epsilon": epsilon,
+                        "warmup": warmup,
+                        "clip": clip,
+                        "checkpoint_directory": checkpoints_directory,
+                        "checkpoints": checkpoints,
+                        "models_to_keep": models_to_keep,
+                        "seed": seed,
+                        "logname": logname,
+                        "logname_prefix": logname_prefix,
+                    },
+                    f,
+                    indent=4
+                )
+            with open(os.path.join(checkpoints_directory, "model_hparams.json"), "w") as f:
+                json.dump(self.hyperparameters, f, indent=4)
 
             # ======= Load model if model_id is provided ===============================================================
             paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
