@@ -201,7 +201,6 @@ class ScoreModelBase(Module, ABC):
         self,
         dataset: Dataset,
         preprocessing_fn=None,
-        loss_fn="dsm",
         epochs=100,
         learning_rate=1e-4,
         ema_decay=0.9999,
