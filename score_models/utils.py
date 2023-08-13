@@ -67,33 +67,32 @@ def load_architecture(
     if model is None:
         with open(os.path.join(checkpoints_directory, "model_hparams.json"), "r") as f:
             hparams = json.load(f)
-        hparams.update(hyperparameters)
+        hyperparameters.update(hparams)
         model = hparams.get("model_architecture", "ncsnpp")
-        if "dimensions" not in hparams.keys():
-            hparams["dimensions"] = dimensions
+        if "dimensions" not in hyperparameters.keys():
+            hyperparameters["dimensions"] = dimensions
     if isinstance(model, str):
         if model.lower() == "ncsnpp":
             from score_models.architectures import NCSNpp
-            model = NCSNpp(**hparams).to(device)
+            model = NCSNpp(**hyperparameters).to(device)
         elif model.lower() == "ddpm":
             from score_models.architectures import DDPM
-            model = DDPM(**hparams).to(device)
+            model = DDPM(**hyperparameters).to(device)
         elif model.lower() == "mlp":
             from score_models import MLP
-            model = MLP(**hparams).to(device)
+            model = MLP(**hyperparameters).to(device)
         else:
             raise ValueError(f"{model} not supported")
-    else:
-        hparams = model.hyperparameters
-    paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
-    checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-    if paths:
-        try:
-            model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
-        except (KeyError, RuntimeError):
-            # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
-            from score_models import ScoreModel
-            model = ScoreModel(model, **hparams)
-            model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
-            model = model.model # Remove the ScoreModel wrapping to extract the nn
-    return model, hparams 
+    if checkpoints_directory is not None:
+        paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
+        checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
+        if paths:
+            try:
+                model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
+            except (KeyError, RuntimeError):
+                # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
+                from score_models import ScoreModel
+                model = ScoreModel(model, **hyperparameters)
+                model.load_state_dict(torch.load(paths[np.argmax(checkpoints)], map_location=device))
+                model = model.model # Remove the ScoreModel wrapping to extract the nn
+    return model, hyperparameters
