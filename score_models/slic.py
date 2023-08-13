@@ -6,12 +6,15 @@ from .sde import SDE
 from .score_model import ScoreModel
 
 class SLIC(ScoreModel):
+    """
+    Original implementation of SLIC
+    """
     def __init__(
             self, 
             model: Union[str, Module] = None, 
             forward_model: Callable = None, # need to be differentiable
             sde: SDE=None, 
-            checkpoints_directory=None, 
+            checkpoints_directory=None,
             **hyperparameters
             ):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)

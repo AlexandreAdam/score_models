@@ -32,7 +32,7 @@ class EnergyModel(ScoreModelBase):
         if self.nn_is_energy:
             return self._nn_energy(t, x, *args)
         else:
-            return self._unet_energy(t, x)
+            return self._unet_energy(t, x, *args)
 
     def _unet_energy(self, t, x, *args):
         _, *D = x.shape
