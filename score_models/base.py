@@ -139,7 +139,6 @@ class ScoreModelBase(Module, ABC):
             ode_steps: int, 
             n_cotangent_vectors: int = 1, 
             noise_type="rademacher", 
-            epsilon=0.,
             verbose=0,
             return_ll=False
             ) -> Tensor:
@@ -149,7 +148,6 @@ class ScoreModelBase(Module, ABC):
         """
         kwargs = {"ode_steps": ode_steps, 
                   "n_cotangent_vectors": n_cotangent_vectors, 
-                  "epsilon": epsilon,
                   "verbose": verbose,
                   "noise_type": noise_type
                   }
@@ -170,6 +168,8 @@ class ScoreModelBase(Module, ABC):
             guidance_factor=1.
             ):
         """
+        An Euler-Maruyama integration of the model SDE
+        
         shape: Shape of the tensor to sample (including batch size)
         steps: Number of Euler-Maruyam steps to perform
         likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
@@ -179,19 +179,20 @@ class ScoreModelBase(Module, ABC):
         sampling_from = "prior" if likelihood_score_fn is None else "posterior"
         if likelihood_score_fn is None:
             likelihood_score_fn = lambda t, x: 0.
-        # A simple Euler-Maruyama integration of the model SDE
         x = self.sde.prior(D).sample([B]).to(self.device)
-        dt = -self.sde.T / steps
+        dt = -(self.sde.T - self.sde.epsilon) / steps
         t = torch.ones(B).to(self.device) * self.sde.T
         for _ in (pbar := tqdm(range(steps))):
             pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
                                  f"| scale ~ {x.max().item():.1e}")
+            t += dt
+            if t[0] < self.sde.epsilon: # Accounts for numerical error in the way we discretize t.
+                break
             g = self.sde.diffusion(t, x)
             f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *args) + guidance_factor * likelihood_score_fn(t, x))
             dw = torch.randn_like(x) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 
-            t += dt
             if torch.any(torch.isnan(x)):
                 print("Diffusion is not stable, NaN were produced. Stopped sampling.")
                 break
@@ -209,7 +210,6 @@ class ScoreModelBase(Module, ABC):
         patience=float('inf'),
         tolerance=0,
         max_time=float('inf'),
-        epsilon=1e-5,
         warmup=0,
         clip=0.,
         checkpoints_directory=None,
@@ -237,7 +237,6 @@ class ScoreModelBase(Module, ABC):
             patience (float, optional): The patience value for early stopping. Default is infinity.
             tolerance (float, optional): The tolerance value for early stopping. Default is 0.
             max_time (float, optional): The maximum training time in hours. Default is infinity.
-            epsilon (float, optional): The epsilon value. Default is 1e-5.
             warmup (int, optional): The number of warmup iterations for learning rate. Default is 0.
             clip (float, optional): The gradient clipping value. Default is 0.
             model_checkpoint (float, optional): If checkpoints_directory is provided, this can be used to restart training from checkpoint.
@@ -296,7 +295,6 @@ class ScoreModelBase(Module, ABC):
                             "patience": patience,
                             "tolerance": tolerance,
                             "max_time": max_time,
-                            "epsilon": epsilon,
                             "warmup": warmup,
                             "clip": clip,
                             "checkpoint_directory": checkpoints_directory,

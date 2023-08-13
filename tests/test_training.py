@@ -62,7 +62,6 @@ def test_training_score_mlp():
     ema_decay = 0.9999
     batch_size = 1
     epochs = 10
-    epsilon = 0 # avoid t=0 in sde sample (not needed for VESDE)
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
     checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
@@ -76,7 +75,6 @@ def test_training_score_mlp():
         ema_decay=ema_decay,
         batch_size=batch_size, 
         epochs=epochs, 
-        epsilon=epsilon, 
         warmup=warmup, 
         clip=clip, 
         checkpoints_directory=checkpoints_directory, 
@@ -144,7 +142,6 @@ def test_training_score_ncsnpp():
      'sde': 'vesde',
      'sigma_min': 0.001,
      'sigma_max': 200,
-     'epsilon': 0.0,
      'T': 1.0}
     net = NCSNpp(**hyperparameters)
     # Create an instance of ScoreModel
@@ -159,7 +156,6 @@ def test_training_score_ncsnpp():
     ema_decay = 0.9999
     batch_size = 1
     epochs = 2
-    epsilon = 0 # avoid t=0 in sde sample (not needed for VESDE)
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
     checkpoints_directory = None
@@ -173,7 +169,6 @@ def test_training_score_ncsnpp():
         ema_decay=ema_decay,
         batch_size=batch_size, 
         epochs=epochs, 
-        epsilon=epsilon, 
         warmup=warmup, 
         clip=clip, 
         checkpoints_directory=checkpoints_directory, 
@@ -211,7 +206,6 @@ def test_training_energy():
     ema_decay = 0.9999
     batch_size = 1
     epochs = 10
-    epsilon = 0 # avoid t=0 in sde sample (not needed for VESDE)
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
     checkpoints_directory = None
@@ -225,7 +219,6 @@ def test_training_energy():
         ema_decay=ema_decay,
         batch_size=batch_size, 
         epochs=epochs, 
-        epsilon=epsilon, 
         warmup=warmup, 
         clip=clip, 
         checkpoints_directory=checkpoints_directory, 

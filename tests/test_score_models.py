@@ -16,6 +16,33 @@ def local_test_loading_model_and_score_fn():
     t = torch.ones(1)
     score(t, x)
 
+
+def test_loading_from_string():
+    score = ScoreModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
+    print(score.sde)
+    x = torch.randn(1, 2)
+    t = torch.ones(1)
+    score(t, x)
+
+    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
+    print(score.sde)
+    x = torch.randn(1, 2)
+    t = torch.ones(1)
+    score(t, x)
+
+    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2, nn_is_energy=True)
+    print(score.sde)
+    x = torch.randn(1, 2)
+    t = torch.ones(1)
+    score(t, x)
+
+    score = EnergyModel("ncsnpp", sigma_min=1e-2, sigma_max=10, nf=32)
+    print(score.sde)
+    x = torch.randn(1, 1, 16, 16)
+    t = torch.ones(1)
+    score(t, x)
+
+
 def test_loading_with_nn():
     net = MLP(dimensions=2)
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)

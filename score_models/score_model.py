@@ -22,8 +22,8 @@ class ScoreModel(ScoreModelBase):
 class EnergyModel(ScoreModelBase):
     def __init__(self, model: Union[str, Module] = None, sde: SDE=None, checkpoints_directory=None, **hyperparameters):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
-        nn_is_energy = model.hyperparameters.get("nn_is_energy", False)
-        i=self.nn_is_energy = nn_is_energy
+        nn_is_energy = self.model.hyperparameters.get("nn_is_energy", False)
+        self.nn_is_energy = nn_is_energy
 
     def loss_fn(self, x, *args):
         return denoising_score_matching(self, x, *args)
