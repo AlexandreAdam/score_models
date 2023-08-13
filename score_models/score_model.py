@@ -1,6 +1,5 @@
-from typing import Callable
-
 from .base import ScoreModelBase, Union, Module
+from .dsm import denoising_score_matching
 from .sde import SDE
 from torch.func import grad
 from torch import vmap
@@ -9,39 +8,13 @@ import torch
 class ScoreModel(ScoreModelBase):
     def __init__(self, model: Union[str, Module] = None, sde: SDE=None, checkpoints_directory=None, **hyperparameters):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
+    
+    def loss_fn(self, x, *args):
+        return denoising_score_matching(self, x, *args)
 
-    def score(self, t, x):
+    def score(self, t, x, *args):
         _, *D = x.shape
-        return self.model(t=t, x=x) / self.sde.sigma(t).view(-1, *[1]*len(D))
-
-# class SLIC(ScoreModelBase):
-    # def __init__(
-            # self, 
-            # forward_model: Callable, # need to be differentiable
-            # model: Union[str, Module] = None, 
-            # sde: SDE=None, 
-            # checkpoints_directory=None, 
-            # **hyperparameters
-            # ):
-        # super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
-        # self.forward_model = forward_model
-
-    # def score(self, t, x):
-        # """
-        # Score of the noise, or residuals
-        # """
-        # _, *D = x.shape
-        # return self.model(t=t, x=x) / self.sde.sigma(t).view(-1, *[1]*len(D))
-    
-    # Actually, I should write an SDE taking the forward model, and give an option to use that SDE
-    # def likelihood_score(self, t, x):
-        # # Implement VJP here
-    
-    # def loss_fn()
-        # Implement loss fn including forward model, should be optional for training
-    
-    # def sampling
-    # Reimplemnt sampling with loss fn in case it is use
+        return self.model(t, x, *args) / self.sde.sigma(t).view(-1, *[1]*len(D))
 
 
     
@@ -51,24 +24,26 @@ class EnergyModel(ScoreModelBase):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
         nn_is_energy = model.hyperparameters.get("nn_is_energy", False)
         i=self.nn_is_energy = nn_is_energy
+
+    def loss_fn(self, x, *args):
+        return denoising_score_matching(self, x, *args)
     
-    def energy(self, t, x):
+    def energy(self, t, x, *args):
         if self.nn_is_energy:
-            return self._nn_energy(t, x)
+            return self._nn_energy(t, x, *args)
         else:
             return self._unet_energy(t, x)
 
-    def _unet_energy(self, t, x):
+    def _unet_energy(self, t, x, *args):
         _, *D = x.shape
-        return 0.5 / self.sde.sigma(t) * torch.sum((x - self.model(t=t, x=x))**2, dim=list(range(1, 1+len(D))))
+        return 0.5 / self.sde.sigma(t) * torch.sum((x - self.model(t, x, *args))**2, dim=list(range(1, 1+len(D))))
     
-    def _nn_energy(self, t, x):
-        return self.model(t, x).squeeze(1) / self.sde.sigma(t) 
+    def _nn_energy(self, t, x, *args):
+        return self.model(t, x, *args).squeeze(1) / self.sde.sigma(t) 
     
-    def score(self, t, x):
+    def score(self, t, x, *args):
         _, *D = x.shape
         # small wrapper to account for input without batch dim from vmap
-        energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0)).squeeze(0)
-        # Don't forget the minus sign!
-        return -vmap(grad(energy, argnums=1))(t, x)
+        energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0), *args).squeeze(0)
+        return -vmap(grad(energy, argnums=1))(t, x, *args) # Don't forget the minus sign!
     

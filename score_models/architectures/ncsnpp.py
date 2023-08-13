@@ -61,6 +61,8 @@ class NCSNpp(nn.Module):
         if dimensions not in [1, 2, 3]:
             raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
         self.conditioned = False
+        self.conditioning_type = conditioning
+        self.conditioning_channels = conditioning_channels
         for c in conditioning:
             if c.lower() not in ["none", "time", "input"]:
                 raise ValueError(f"Conditioning must be in ['None', 'Time', 'Input'], received {c}")
@@ -70,6 +72,7 @@ class NCSNpp(nn.Module):
                     raise ValueError("conditioning_channels must be provided when the network is conditioned")
             elif c.lower() == "none" and self.conditioned:
                 raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
+        
         self.dimensions = dimensions
         self.channels = channels
         self.hyperparameters = {
@@ -91,7 +94,8 @@ class NCSNpp(nn.Module):
             "combine_method": combine_method,
             "attention": attention,
             "dimensions": dimensions,
-            "conditioning": conditioning
+            "conditioning": conditioning,
+            "conditioning_channels": conditioning_channels
         }
         self.act = act = get_activation(activation_type)
         self.attention = attention
@@ -107,6 +111,8 @@ class NCSNpp(nn.Module):
         assert progressive in ['none', 'output_skip', 'residual']
         assert progressive_input in ['none', 'input_skip', 'residual']
         combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
+        
+        # TODO Make a conditioning branch, which we will append on the time conditining channel at the end
 
         # Condition on continuous time
         modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), nn.Linear(nf, nf * 4), nn.Linear(nf * 4, nf * 4)]
@@ -249,15 +255,19 @@ class NCSNpp(nn.Module):
         temb = modules[m_idx](t)
         m_idx += 1
         # if self.conditioned:
-            # if self.conditioning.lower() == "time":
-                # temb = torch.cat([temb, *args], dim=1)
+            # for j, c in enumerate(args):
+                # if self.conditioning[j].lower() == "time":
+                    # temb = torch.cat([temb, *args], dim=1)
+                
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
         
-        # if self.conditioning.lower() == "input":
-            # x = torch.cat([x, *args], dim=1)
+        # if self.conditioned:
+            # for j, c in enumerate(args):
+                # if self.conditioning[j].lower() == "input":
+                    # x = torch.cat([x, c], dim=1)
         
         # Downsampling block
         input_pyramid = None

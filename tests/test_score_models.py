@@ -1,8 +1,7 @@
-from score_models.architectures.ddpm import DDPM
 import torch
 from score_models.utils import load_architecture
-from score_models import ScoreModel, EnergyModel
-from score_models.architectures import MLP, NCSNpp
+from score_models import ScoreModel, EnergyModel, SLIC
+from score_models.architectures import MLP, NCSNpp, DDPM
 import pytest
 
 
@@ -80,6 +79,32 @@ def test_sample_fn():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
-    
+def test_slic_score():
+    def forward_model(x):
+        return torch.sum(x, dim=1, keepdim=True) # Function R^C to R
+    C = 100
+    net = MLP(dimensions=C)
+    # Check that we can get the score without a forward_model
+    score = SLIC(net, beta_min=1e-2, beta_max=10)
+    print(score.sde)
+    x = torch.randn(3, C)
+    t = torch.rand(3)
+    s = score(t, x)
+    print(s)
+    assert s.shape == torch.Size([3, C])
+
+    # Now check slic score
+    net = MLP(dimensions=1) # Define SLIC in output space of forward model
+    score = SLIC(net, forward_model, beta_min=1e-2, beta_max=10)
+    y = forward_model(x)
+    print(score.sde)
+    x = torch.randn(3, C)
+    t = torch.rand(3)
+    s = score.slic_score(t, x, y)
+    print(s)
+    print(s.shape)
+    assert s.shape == torch.Size([3, C])
+
+
 if __name__ == "__main__":
     local_test_loading_model_and_score_fn()

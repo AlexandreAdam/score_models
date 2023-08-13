@@ -3,19 +3,20 @@ from typing import Callable
 import torch
 from torch import Tensor
 from torch.nn import Module
+from torch.utils.data import DataLoader, Dataset
 from torch.func import vjp
-from .utils import DEVICE
-from score_models.sde import VESDE, VPSDE, SDE
-from typing import Union
-from .utils import load_architecture
-from abc import ABC, abstractmethod
 from torch_ema import ExponentialMovingAverage
+from .utils import DEVICE
+from typing import Union
+from abc import ABC, abstractmethod
 from tqdm import tqdm
 import time
 import os, glob, re, json
 import numpy as np
 from datetime import datetime
-from torch.utils.data import DataLoader, Dataset
+
+from .sde import VESDE, VPSDE, SDE
+from .utils import load_architecture
 
 
 class ScoreModelBase(Module, ABC):
@@ -57,33 +58,38 @@ class ScoreModelBase(Module, ABC):
         self.sde = sde
         self.device = device
 
-    def forward(self, t, x) -> Tensor:
-        return self.score(t, x)
+    def forward(self, t, x, *args) -> Tensor:
+        return self.score(t, x, *args)
    
     @abstractmethod
-    def score(self, t, x) -> Tensor:
+    def score(self, t, x, *args) -> Tensor:
         ...
     
-    def ode_drift(self, t, x):
+    @abstractmethod
+    def loss_fn(self, x, *args) -> Tensor:
+        ...
+    
+    def ode_drift(self, t, x, *args):
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
-        f_tilde = f - 0.5 * g**2 * self.score(t, x)
+        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args)
         return f_tilde
     
-    def hessian(self, t, x):
-        return self.divergence(self.drift_fn, t, x)
+    def hessian(self, t, x, *args, **kwargs):
+        return self.divergence(self.drift_fn, t, x, *args, **kwargs)
     
-    def divergence(self, drift_fn, t, x, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
+    def divergence(self, drift_fn, t, x, *args, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
         B, *D = x.shape
         # duplicate noisy samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cotangent_vectors, *[1]*len(D)])
+        # TODO also duplicate args
         t = torch.tile(t, [n_cotangent_vectors])
         # sample cotangent vectors
         vectors = torch.randn_like(samples)
         if noise_type == 'rademacher':
             vectors = vectors.sign()
         # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score) 
-        f = lambda x: drift_fn(t, x)
+        f = lambda x: drift_fn(t, x, *args)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
@@ -92,6 +98,7 @@ class ScoreModelBase(Module, ABC):
             self, 
             t,
             x,
+            *args,
             ode_steps: int, 
             n_cotangent_vectors: int = 1, 
             noise_type="rademacher", 
@@ -99,7 +106,7 @@ class ScoreModelBase(Module, ABC):
             ) -> Tensor:
         """
         A basic implementation of Euler discretisation method of the ODE associated 
-        with the marginales of the learned SDE.
+        with the marginals of the learned SDE.
         
         ode_steps: Number of steps to perform in the ODE
         hutchinsons_samples: Number of samples to draw to compute the trace of the Jacobian (divergence)
@@ -119,8 +126,8 @@ class ScoreModelBase(Module, ABC):
         log_p = 0.
         dt = t / ode_steps
         for _ in tqdm(range(ode_steps), disable=disable):
-            x = x + self.ode_drift(t, x) * dt.view(-1, *[1]*len(D))
-            log_p += self.divergence(self.ode_drift, t, x, **kwargs) * dt
+            x = x + self.ode_drift(t, x, *args) * dt.view(-1, *[1]*len(D))
+            log_p += self.divergence(self.ode_drift, t, x, *args, **kwargs) * dt
             t = t + dt
         log_p = self.sde.prior(D).log_prob(x)
         return log_p
@@ -128,6 +135,7 @@ class ScoreModelBase(Module, ABC):
     def score_at_zero_temperature(
             self, 
             x,
+            *args,
             ode_steps: int, 
             n_cotangent_vectors: int = 1, 
             noise_type="rademacher", 
@@ -145,7 +153,7 @@ class ScoreModelBase(Module, ABC):
                   "verbose": verbose,
                   "noise_type": noise_type
                   }
-        wrapped_ll = lambda x: self.log_likelihood(x, **kwargs)
+        wrapped_ll = lambda x: self.log_likelihood(x, *args, **kwargs)
         ll, vjp_func = vjp(wrapped_ll, x)
         score = vjp_func(torch.ones_like(ll))
         if return_ll:
@@ -157,6 +165,7 @@ class ScoreModelBase(Module, ABC):
             self, 
             shape, 
             steps, 
+            *args,
             likelihood_score_fn:Callable=None,
             guidance_factor=1.
             ):
@@ -178,7 +187,7 @@ class ScoreModelBase(Module, ABC):
             pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
                                  f"| scale ~ {x.max().item():.1e}")
             g = self.sde.diffusion(t, x)
-            f = self.sde.drift(t, x) - g**2 * (self.score(t, x) + guidance_factor * likelihood_score_fn(t, x))
+            f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *args) + guidance_factor * likelihood_score_fn(t, x))
             dw = torch.randn_like(x) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 
@@ -188,19 +197,11 @@ class ScoreModelBase(Module, ABC):
                 break
         return x_mean
 
-    def loss_fn(self, x, *args, **kwargs):
-        B, *D = x.shape
-        broadcast = [B, *[1] * len(D)]
-        z = torch.randn_like(x)
-        t = torch.rand(B).to(self.device) * (self.sde.T - self.sde.epsilon) + self.sde.epsilon
-        mean, sigma = self.sde.marginal_prob(t=t, x=x)
-        sigma_ = sigma.view(*broadcast)
-        return torch.sum((z + sigma_ * self.score(t=t, x=mean + sigma_ * z)) ** 2) / B
-    
     def fit(
         self,
         dataset: Dataset,
         preprocessing_fn=None,
+        loss_fn="dsm",
         epochs=100,
         learning_rate=1e-4,
         ema_decay=0.9999,
