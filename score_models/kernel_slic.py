@@ -4,10 +4,10 @@ from torch import Tensor
 from torch.nn import Module
 from torch.func import vjp, jacrev
 from .sde import SDE
-from .score_model import ScoreModel
+from .score_model import SLIC
 from .utils import DEVICE
 
-class KernelSLIC(ScoreModel):
+class KernelSLIC(SLIC):
     def __init__(
             self, 
             kernel:Tensor, # Kernel of the forward model
