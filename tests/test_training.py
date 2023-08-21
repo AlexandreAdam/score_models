@@ -23,6 +23,9 @@ class Dataset(torch.utils.data.Dataset):
             return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels)
         elif self.conditioning.lower() == "input":
             return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions)
+        elif self.conditioning.lower() == "input_and_time":
+            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions), torch.randn(self.channels)
+
 
 # def test_training_conditioning_input_ncsnpp():
     # C = 1
