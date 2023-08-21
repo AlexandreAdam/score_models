@@ -62,7 +62,6 @@ def test_training_conditioned_discrete_timelike_ncsnpp():
     net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["discrete_timelike"], condition_num_embedding=(10,))
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
     model.fit(dataset, batch_size=B, epochs=2)
-
         
 
 def test_training_score_mlp():
