@@ -5,7 +5,7 @@ from .spectral_normalization import SpectralNorm
 from .ddpm_resnet_block import DDPMResnetBlock
 from .ncsn_resnet_block import NCSNResidualBlock
 from .attention_block import SelfAttentionBlock, ScaledAttentionLayer
-from .projection_embedding import GaussianFourierProjection
+from .projection_embedding import GaussianFourierProjection, PositionalEncoding
 from .conv1dsame import Conv1dSame, ConvTransposed1dSame
 from .conv2dsame import Conv2dSame, ConvTransposed2dSame
 from .conv3dsame import Conv3dSame, ConvTransposed3dSame

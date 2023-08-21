@@ -44,7 +44,7 @@ def test_continuous_input_conditional():
             nf=nf, 
             ch_mult=(1, 1), 
             condition=["input"],
-            condition_channels=3
+            condition_input_channels=3
             )
    
     B = 10
@@ -55,6 +55,25 @@ def test_continuous_input_conditional():
     out = net(t, x, c)
     assert out.shape == x.shape
 
+def test_vector_condition():
+    nf = 32
+    C_cond = 3
+    net = NCSNpp(
+            nf=nf, 
+            ch_mult=(1, 1), 
+            condition=["vector"],
+            condition_vector_channels=3
+            )
+   
+    B = 10
+    c = torch.randn(B, C_cond)
+    x = torch.randn(B, 1, 8, 8)
+    t = torch.rand(B)
+    
+    out = net(t, x, c)
+    assert out.shape == x.shape
+
+
 def test_mix_condition_type():
     nf = 32
     C_cond = 3
@@ -62,7 +81,7 @@ def test_mix_condition_type():
             nf=nf, 
             ch_mult=(1, 1), 
             condition=["input", "discrete_timelike", "continuous_timelike", "continuous_timelike"],
-            condition_channels=3,
+            condition_input_channels=3,
             condition_num_embedding=(15,),
             )
    
@@ -100,4 +119,11 @@ def test_conditional_architecture_raising_errors():
                 nf=nf, 
                 ch_mult=(1, 1), 
                 condition=["input"],
+                )
+
+    with pytest.raises(ValueError):
+        net = NCSNpp(
+                nf=nf, 
+                ch_mult=(1, 1), 
+                condition="input",
                 )

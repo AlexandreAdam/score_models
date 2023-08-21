@@ -1,5 +1,5 @@
 from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, \
-        UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3
+        UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3, PositionalEncoding
 from score_models.utils import get_activation
 from score_models.definitions import default_init
 import torch.nn as nn
@@ -53,9 +53,10 @@ class NCSNpp(nn.Module):
             resblock_type="biggan",
             combine_method="sum",
             attention=True,
-            condition:tuple[str,...]=["None"],
+            condition:tuple[str,...]=["None"], # discrete_time, continuous_time, vector, input
             condition_num_embedding:tuple[int,...]=None,
-            condition_channels:int=None,
+            condition_input_channels:int=None,
+            condition_vector_channels:int=None,
             **kwargs
           ):
         super().__init__()
@@ -63,8 +64,11 @@ class NCSNpp(nn.Module):
             raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
         self.conditioned = False
         discrete_index = 0
+        if condition is not None:
+            if not isinstance(condition, (tuple, list)):
+                raise ValueError("Condition should be a list or a tuple of strings")
         for c in condition:
-            if c.lower() not in ["none", "discrete_timelike", "continuous_timelike", "input"]:
+            if c.lower() not in ["none", "discrete_timelike", "continuous_timelike", "vector", "input"]:
                 raise ValueError(f"Condition must be in ['none', 'discrete_timelike', 'continuous_timelike', 'input'], received {c}")
             if c.lower() != "none":
                 self.conditioned = True
@@ -77,13 +81,16 @@ class NCSNpp(nn.Module):
                     raise ValueError("condition_num_embedding must be provided and be a tuple or list of integer for discrete_timelike condition type")
                 discrete_index += 1
             elif c.lower() == "input":
-                if not isinstance(condition_channels, int):
-                    raise ValueError("condition_channels must be provided and be an integer for input condition type")
-                self.conditioned_on_input = True
+                if not isinstance(condition_input_channels, int):
+                    raise ValueError("condition_input_channels must be provided and be an integer for input condition type")
+            elif c.lower() == "vector":
+                if not isinstance(condition_vector_channels, int):
+                    raise ValueError("condition_vector_channels must be provided and be an integer for vector condition type")
 
         self.condition_type = condition
         self.condition_num_embedding = condition_num_embedding
-        self.condition_channels = 0 if condition_channels is None else condition_channels
+        self.condition_input_channels = 0 if condition_input_channels is None else condition_input_channels
+        self.condition_vector_channels = condition_vector_channels
         
         self.dimensions = dimensions
         self.channels = channels
@@ -108,7 +115,8 @@ class NCSNpp(nn.Module):
             "dimensions": dimensions,
             "condition": condition,
             "condition_num_embedding": condition_num_embedding,
-            "condition_channels": condition_channels
+            "condition_input_channels": condition_input_channels,
+            "condition_vector_channels": condition_vector_channels
         }
         self.act = act = get_activation(activation_type)
         self.attention = attention
@@ -139,6 +147,9 @@ class NCSNpp(nn.Module):
                 elif c_type.lower() == "continuous_timelike":
                     time_input_nf += nf
                     condition_embedding_layers.append(GaussianFourierProjection(embed_dim=nf, scale=fourier_scale))
+                elif c_type.lower() == "vector":
+                    time_input_nf += nf
+                    condition_embedding_layers.append(PositionalEncoding(channels=self.condition_vector_channels, embed_dim=nf, scale=fourier_scale))
             self.condition_embedding_layers = nn.ModuleList(condition_embedding_layers)
                 
         # Condition on continuous time (second layer receives a concatenation of all the embeddings)
@@ -191,8 +202,8 @@ class NCSNpp(nn.Module):
             raise ValueError(f'resblock type {resblock_type} unrecognized.')
 
         # Downsampling block
-        input_pyramid_ch = channels + self.condition_channels
-        modules.append(conv3x3(channels + self.condition_channels, nf, dimensions=dimensions))
+        input_pyramid_ch = channels + self.condition_input_channels
+        modules.append(conv3x3(channels + self.condition_input_channels, nf, dimensions=dimensions))
         hs_c = [nf]
         in_ch = nf
         for i_level in range(num_resolutions):
@@ -275,19 +286,20 @@ class NCSNpp(nn.Module):
         self.all_modules = nn.ModuleList(modules)
 
     def forward(self, t, x, *args):
+        B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
         # Gaussian Fourier features embeddings.
-        temb = modules[m_idx](t)
+        temb = modules[m_idx](t).view(B, -1)
         m_idx += 1
         
         c_idx = 0
         if self.conditioned:
             for j, condition in enumerate(args):
-                if "timelike" in self.condition_type[j].lower():
+                if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
                     # embedding and concatenation of the 'timelike' conditions
-                    c_emb = self.condition_embedding_layers[c_idx](condition)
+                    c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
                     temb = torch.cat([temb, c_emb], dim=1)
                     c_idx += 1
                 

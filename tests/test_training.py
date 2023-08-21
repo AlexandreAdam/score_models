@@ -20,21 +20,48 @@ class Dataset(torch.utils.data.Dataset):
         if self.conditioning.lower() == "none":
             return torch.randn(self.channels, *self.dimensions)
         elif self.conditioning.lower() == "time":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels)
+            return torch.randn(self.channels, *self.dimensions), torch.randn(1)
         elif self.conditioning.lower() == "input":
             return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions)
         elif self.conditioning.lower() == "input_and_time":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions), torch.randn(self.channels)
+            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions), torch.randn(1)
+        elif self.conditioning.lower() == "discrete_time":
+            return torch.randn(self.channels, *self.dimensions), torch.randint(10, (1,))
 
 
-# def test_training_conditioning_input_ncsnpp():
-    # C = 1
-    # D = 16
-    # dim = 2
-    # B = 5
-    # size = 2*B
-    # dataset = Dataset(size, C, [D]*dim, conditioning="input")
-    # net = NCSNpp(
+def test_training_conditioned_input_ncsnpp():
+    C = 1
+    D = 16
+    dim = 2
+    B = 5
+    size = 2*B
+    dataset = Dataset(size, C, [D]*dim, conditioning="input")
+    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["input"], condition_input_channels=1)
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    model.fit(dataset, batch_size=B, epochs=2)
+    
+
+def test_training_conditioned_continuous_timelike_ncsnpp():
+    C = 1
+    D = 16
+    dim = 2
+    B = 5
+    size = 2*B
+    dataset = Dataset(size, C, [D]*dim, conditioning="time")
+    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["continuous_timelike"])
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    model.fit(dataset, batch_size=B, epochs=2)
+
+def test_training_conditioned_discrete_timelike_ncsnpp():
+    C = 1
+    D = 16
+    dim = 2
+    B = 5
+    size = 2*B
+    dataset = Dataset(size, C, [D]*dim, conditioning="discrete_time")
+    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["discrete_timelike"], condition_num_embedding=(10,))
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    model.fit(dataset, batch_size=B, epochs=2)
 
         
 
