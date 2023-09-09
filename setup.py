@@ -6,7 +6,7 @@ with open("long_description.rst", "r") as fh:
 
 setup(
 	name="score_models",
-	version="0.5.1",
+	version="0.5.2",
     description="A simple pytorch interface for score model and basic diffusion.",
     long_description=long_description,
     author="Alexandre Adam",
