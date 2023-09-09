@@ -76,6 +76,7 @@ class TSVESDE(SDE):
         return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2*(np.log(self.sigma_max) - np.log(self.sigma_min)))
 
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
+        _, *D = x.shape
         t_star = torch.ones_like(t) * self.t_star
-        return torch.where(t > t_star, - self.beta * x, torch.zeros_like(x))
+        return torch.where((t > t_star).view(-1, *[1]*len(D)), - self.beta * x, torch.zeros_like(x))
 
