@@ -1,7 +1,7 @@
 import torch
-from torch.distributions import Independent, Normal
 from torch import Tensor
 from .sde import SDE
+from torch.distributions import Independent, Normal
 
 
 class VPSDE(SDE):
@@ -10,7 +10,8 @@ class VPSDE(SDE):
         beta_min: float = 0.1,
         beta_max: float = 20,
         T: float = 1.0,
-        epsilon: float = 1e-5
+        epsilon: float = 1e-5,
+        **kwargs
     ):
         super().__init__(T, epsilon)
         self.beta_min = beta_min
@@ -26,12 +27,6 @@ class VPSDE(SDE):
         mu = torch.zeros(shape)
         return Independent(Normal(loc=mu, scale=1., validate_args=False), 1)
 
-    def marginal(self, t: Tensor, x0: Tensor) -> Tensor:
-        _, *D = x0.shape
-        z = torch.randn_like(x0)
-        mu_t, sigma_t = self.marginal_prob_scalars(t)
-        return mu_t.view(-1, *[1]*len(D)) * x0 + sigma_t.view(-1, *[1]*len(D)) * z
-    
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
         return torch.sqrt(self.beta(t)).view(-1, *[1]*len(D))

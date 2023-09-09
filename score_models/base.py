@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union
 
 import torch
 from torch import Tensor
@@ -15,12 +15,12 @@ import os, glob, re, json
 import numpy as np
 from datetime import datetime
 
-from .sde import VESDE, VPSDE, SDE
+from .sde import VESDE, VPSDE, TSVESDE, SDE
 from .utils import load_architecture
 
 
 class ScoreModelBase(Module, ABC):
-    def __init__(self, model: Union[str, Module]=None, sde:SDE=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
+    def __init__(self, model: Union[str, Module]=None, sde:Union[str, SDE]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
         super().__init__()
         if model is None and checkpoints_directory is None:
             raise ValueError("Must provide one of 'model' or 'checkpoints_directory'")
@@ -30,26 +30,47 @@ class ScoreModelBase(Module, ABC):
         elif hasattr(model, "hyperparameters"):
             hyperparameters.update(model.hyperparameters)
         if sde is None:
-            if "sigma_min" in hyperparameters.keys():
-                hyperparameters["sde"] = "vesde"
+            # Some sane defaults for quick use
+            if "t_star" in hyperparameters.keys():
+                print("Using the Truncated Scaled Variance Exploding SDE")
+                sde = "tsve"
+            elif "sigma_min" in hyperparameters.keys():
+                print("Using the Variance Exploding SDE")
+                sde = "ve"
             elif "beta_min" in hyperparameters.keys():
-                hyperparameters["sde"] = "vpsde"
+                print("Using the Variance Preserving SDE")
+                sde = "vp"
             else:
-                raise KeyError("SDE parameters are missing, please specify `sigma_min` and `sigma_max`"
-                               "or `beta_min` and `beta_max`. Alternatively, you may provide your own SDE")
-            if "T" not in hyperparameters.keys():
-                hyperparameters["T"] = 1.
-            if hyperparameters["sde"].lower() == "vesde":
-                sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"], T=hyperparameters["T"])
-            elif hyperparameters["sde"].lower() == "vpsde":
-                if "epsilon" not in hyperparameters.keys():
-                    hyperparameters["epsilon"] = 1e-5
-                sde = VPSDE(
-                        beta_min=hyperparameters["beta_min"], 
-                        beta_max=hyperparameters["beta_max"], 
-                        T=hyperparameters["T"],
-                        epsilon=hyperparameters["epsilon"]
-                        )
+                raise KeyError("SDE parameters are missing, please specify which sde to use")
+        if isinstance(sde, str):
+            if sde.lower() not in ["ve", "vp", "tsve"]:
+                raise ValueError(f"The SDE {sde} provided is no supported")
+            hyperparameters["sde"] = sde.lower()
+        if "T" not in hyperparameters.keys():
+            hyperparameters["T"] = 1.
+        if sde.lower() == "ve":
+            sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"], T=hyperparameters["T"])
+        elif sde.lower() == "vp":
+            if "epsilon" not in hyperparameters.keys():
+                hyperparameters["epsilon"] = 1e-5
+            sde = VPSDE(
+                    beta_min=hyperparameters["beta_min"], 
+                    beta_max=hyperparameters["beta_max"], 
+                    T=hyperparameters["T"],
+                    epsilon=hyperparameters["epsilon"]
+                    )
+        elif sde.lower() == "tsve":
+            if "epsilon" not in hyperparameters.keys():
+                hyperparameters["epsilon"] = 0
+            sde = TSVESDE(
+                    sigma_min=hyperparameters["sigma_min"], 
+                    sigma_max=hyperparameters["sigma_max"], 
+                    t_star=hyperparameters["t_star"],
+                    beta=hyperparameters["beta"],
+                    T=hyperparameters["T"],
+                    epsilon=hyperparameters["epsilon"]
+                    )
+
         hyperparameters["model_architecture"] = model.__class__.__name__
         self.hyperparameters = hyperparameters
         self.checkpoints_directory = checkpoints_directory

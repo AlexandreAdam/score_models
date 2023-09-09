@@ -2,6 +2,7 @@ import torch
 from score_models.utils import load_architecture
 from score_models import ScoreModel, EnergyModel, SLIC
 from score_models.architectures import MLP, NCSNpp, DDPM
+from score_models.sde import VESDE, VPSDE, TSVESDE
 import pytest
 
 
@@ -131,6 +132,33 @@ def test_slic_score():
     print(s)
     print(s.shape)
     assert s.shape == torch.Size([3, C])
+    
+
+def test_loading_different_sdes():
+    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    score = ScoreModel(net, beta_min=1e-2, beta_max=10, epsilon=1e-3)
+    assert isinstance(score.sde, VPSDE)
+    assert score.sde.beta_min == 1e-2
+    assert score.sde.beta_max == 10
+    assert score.sde.epsilon == 1e-3
+    assert score.sde.T == 1
+
+    score = ScoreModel(net, sigma_min=1e-3, sigma_max=1e2)
+    assert isinstance(score.sde, VESDE)
+    assert score.sde.sigma_min == 1e-3
+    assert score.sde.sigma_max == 1e2
+    assert score.sde.epsilon == 0
+    assert score.sde.T == 1
+
+    score = ScoreModel(net, sigma_min=1e-3, sigma_max=1e2, t_star=0.5, beta=10)
+    assert isinstance(score.sde, TSVESDE)
+    assert score.sde.sigma_min == 1e-3
+    assert score.sde.sigma_max == 1e2
+    assert score.sde.epsilon == 0
+    assert score.sde.T == 1
+    assert score.sde.t_star == 0.5
+    assert score.sde.beta == 10
+
 
 
 if __name__ == "__main__":

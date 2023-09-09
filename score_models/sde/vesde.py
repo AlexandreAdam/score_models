@@ -11,7 +11,8 @@ class VESDE(SDE):
             sigma_min: float,
             sigma_max: float,
             T:float=1.0,
-            epsilon:float=0.0
+            epsilon:float=0.0,
+            **kwargs
     ):
         """
         Variance Exploding stochastic differential equation 
@@ -40,12 +41,6 @@ class VESDE(SDE):
         else:
             assert mu.shape == shape 
         return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), 1)
-    
-    def marginal(self, t: Tensor, x0: Tensor) -> Tensor:
-        _, *D = x0.shape
-        z = torch.randn_like(x0)
-        _, sigma_t = self.marginal_prob_scalars(t)
-        return x0 + sigma_t.view(-1, *[1]*len(D)) * z
     
     def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
         return torch.ones_like(t), self.sigma(t)
