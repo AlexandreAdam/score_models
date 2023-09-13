@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     B = 100
     N = 1000
-    x0 = 1e4
+    x0 = 1e2
     sde1 = VESDE(sigma_min=1e-1, sigma_max=100)
     sde2 = VPSDE(beta_min=1e-2, beta_max=20)
     sde3 = TSVESDE(sigma_min=1e-6, sigma_max=1e9, t_star=0.4, beta=30, beta_fn="relu")

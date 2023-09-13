@@ -18,7 +18,7 @@ class VPSDE(SDE):
         self.beta_max = beta_max
     
     def beta(self, t: Tensor):
-        return self.beta_min + t * (self.beta_max - self.beta_min)
+        return self.beta_min + (self.beta_max - self.beta_min) * t
 
     def sigma(self, t: Tensor) -> Tensor:
         return self.marginal_prob_scalars(t)[1]
@@ -39,7 +39,7 @@ class VPSDE(SDE):
         """
         See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
         """
-        log_coeff = -0.25 * t ** 2 * (self.beta_max - self.beta_min) - 0.5 * t * self.beta_min
-        std = torch.sqrt(1. - torch.exp(2. * log_coeff))
-        return torch.exp(log_coeff), std
+        log_coeff = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t # integral of b(t)
+        std = torch.sqrt(1. - torch.exp(- log_coeff))
+        return torch.exp(-0.5*log_coeff), std
 

@@ -5,6 +5,7 @@ from torch import Tensor
 import numpy as np
 from torch.distributions import Normal, Independent
 import torch.nn.functional as F
+from torch.func import grad, vmap
 
 
 class TSVESDE(SDE):
@@ -17,7 +18,7 @@ class TSVESDE(SDE):
             T:float=1.0,
             epsilon:float=0.0,
             beta_fn="relu",
-            alpha=20, # silu and hardswish recaling of t
+            alpha=30, # silu and hardswish recaling of t
             **kwargs
     ):
         """
@@ -43,6 +44,7 @@ class TSVESDE(SDE):
             self.beta_fn = lambda t: - self.beta * F.silu(alpha*(t/self.T - self.t_star))/alpha
         elif beta_fn == "hardswish":
             self.beta_fn = lambda t: - self.beta * F.hardswish(alpha*(t/self.T - self.t_star))/alpha
+        self.beta_fn_dot = vmap(grad(self.beta_fn))
     
     def scale(self, t):
         """
@@ -50,9 +52,7 @@ class TSVESDE(SDE):
         attach it to a VP-like diffusion at t>t_star. Note that the variance isnan
         still exploding but with a logarihmic slope reduced by the beta hyperparameter.
         """
-        t_star = torch.ones_like(t) * self.t_star
-        t = torch.maximum(t_star, t) - t_star
-        return torch.exp(- self.beta * t)
+        return torch.exp(self.beta_fn(t))
 
     def sigma(self, t: Tensor) -> Tensor:
         """
@@ -72,11 +72,10 @@ class TSVESDE(SDE):
         return self.scale(t), self.sigma(t)
 
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
-        _, *D = x.shape # broadcast diffusion coefficient to x shape
+        _, *D = x.shape
         return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2*(np.log(self.sigma_max) - np.log(self.sigma_min)))
 
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
-        t_star = torch.ones_like(t) * self.t_star
-        return torch.where((t > t_star).view(-1, *[1]*len(D)), - self.beta * x, torch.zeros_like(x))
+        return self.beta_fn_dot(t).view(-1, *[1]*len(D)) * x
 

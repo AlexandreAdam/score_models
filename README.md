@@ -114,8 +114,36 @@ Refer to the method's docstring or the class definition for more details on avai
 
 If you use this package in your research, please consider citing the following papers:
 
+
 ```bibtex
-@inproceedings{NEURIPS2020_4c5bcfec,
+@inproceedings{Song2021,
+  title={Score-Based Generative Modeling through Stochastic Differential Equations},
+  author={Yang Song and Jascha Sohl-Dickstein and Diederik P Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
+  booktitle={International Conference on Learning Representations},
+  year={2021},
+  url={https://openreview.net/forum?id=PxTIG12RRHS}
+}
+```
+
+```bibtex
+@article{Adam2022,
+       author = {{Adam}, Alexandre and {Coogan}, Adam and {Malkin}, Nikolay and {Legin}, Ronan and {Perreault-Levasseur}, Laurence and {Hezaveh}, Yashar and {Bengio}, Yoshua},
+        title = "{Posterior samples of source galaxies in strong gravitational lenses with score-based priors}",
+      journal = {arXiv e-prints},
+         year = 2022,
+        month = nov,
+          eid = {arXiv:2211.03812},
+          doi = {10.48550/arXiv.2211.03812},
+archivePrefix = {arXiv},
+       eprint = {2211.03812},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221103812A},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+
+```bibtex
+@inproceedings{Ho2020,
     author      = {Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
     booktitle   = {Advances in Neural Information Processing Systems},
     editor      = {H. Larochelle and M. Ranzato and R. Hadsell and M.F. Balcan and H. Lin},
@@ -130,17 +158,6 @@ If you use this package in your research, please consider citing the following p
 }
 ```
 
-```bibtex
-@inproceedings{song2021scorebased,
-  title={Score-Based Generative Modeling through Stochastic Differential Equations},
-  author={Yang Song and Jascha Sohl-Dickstein and Diederik P Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
-  booktitle={International Conference on Learning Representations},
-  year={2021},
-  url={https://openreview.net/forum?id=PxTIG12RRHS}
-}
-```
-
----
 
 This package is licensed under the MIT License.
 
