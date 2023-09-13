@@ -141,6 +141,26 @@ archivePrefix = {arXiv},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```
+```bibtex
+@article{Legin2023,
+       author = {{Legin}, Ronan and {Adam}, Alexandre and {Hezaveh}, Yashar and {Perreault-Levasseur}, Laurence},
+        title = "{Beyond Gaussian Noise: A Generalized Approach to Likelihood Analysis with Non-Gaussian Noise}",
+      journal = {\apjl},
+     keywords = {James Webb Space Telescope, Hubble Space Telescope, Non-Gaussianity, Astronomy image processing, Observational astronomy, Bayesian statistics, CCD observation, Cosmic rays, Posterior distribution, Neural networks, Astronomy data analysis, Computational methods, 2291, 761, 1116, 2306, 1145, 1900, 207, 329, 1926, 1933, 1858, 1965, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2023,
+        month = jun,
+       volume = {949},
+       number = {2},
+          eid = {L41},
+        pages = {L41},
+          doi = {10.3847/2041-8213/acd645},
+archivePrefix = {arXiv},
+       eprint = {2302.03046},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023ApJ...949L..41L},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
 
 ```bibtex
 @inproceedings{Ho2020,
