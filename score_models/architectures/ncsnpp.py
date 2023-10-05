@@ -296,6 +296,8 @@ class NCSNpp(nn.Module):
         
         c_idx = 0
         if self.conditioned:
+            if len(args) != len(self.condition_type):
+                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
             for j, condition in enumerate(args):
                 if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
                     # embedding and concatenation of the 'timelike' conditions
