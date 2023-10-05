@@ -205,7 +205,7 @@ class ScoreModelBase(Module, ABC):
         t = torch.ones(B).to(self.device) * self.sde.T
         for _ in (pbar := tqdm(range(steps))):
             pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
-                                 f"| scale ~ {x.max().item():.1e}")
+                                 f"| scale ~ {x.std().item():.1e}")
             t += dt
             if t[0] < self.sde.epsilon: # Accounts for numerical error in the way we discretize t.
                 break

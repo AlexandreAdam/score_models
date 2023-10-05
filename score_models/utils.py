@@ -101,4 +101,10 @@ def load_architecture(
                 model = model.model # Remove the ScoreModel wrapping to extract the nn
                 model_dir = os.path.split(checkpoints_directory)[-1]
                 print(f"Loaded checkpoint {checkpoint} of {model_dir}")
+    # Backward compatibility with old stuff
+    if "sde" in hyperparameters.keys():
+        if hyperparameters["sde"] == "vpsde":
+            hyperparameters["sde"] = "vp"
+        elif hyperparameters["sde"] == "vesde":
+            hyperparameters["sde"] = "ve"
     return model, hyperparameters
