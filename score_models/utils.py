@@ -83,6 +83,12 @@ def load_architecture(
             model = MLP(**hyperparameters).to(device)
         else:
             raise ValueError(f"{model} not supported")
+    # Backward compatibility with old stuff
+    if "sde" in hyperparameters.keys():
+        if hyperparameters["sde"] == "vpsde":
+            hyperparameters["sde"] = "vp"
+        elif hyperparameters["sde"] == "vesde":
+            hyperparameters["sde"] = "ve"
     if checkpoints_directory is not None:
         paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
         checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
@@ -101,10 +107,4 @@ def load_architecture(
                 model = model.model # Remove the ScoreModel wrapping to extract the nn
                 model_dir = os.path.split(checkpoints_directory)[-1]
                 print(f"Loaded checkpoint {checkpoint} of {model_dir}")
-    # Backward compatibility with old stuff
-    if "sde" in hyperparameters.keys():
-        if hyperparameters["sde"] == "vpsde":
-            hyperparameters["sde"] = "vp"
-        elif hyperparameters["sde"] == "vesde":
-            hyperparameters["sde"] = "ve"
     return model, hyperparameters

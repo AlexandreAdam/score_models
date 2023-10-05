@@ -182,9 +182,9 @@ class ScoreModelBase(Module, ABC):
     @torch.no_grad()
     def sample(
             self, 
-            shape, 
+            shape, # TODO change this so that specifying C, H, W is optional. Maybe save C, H, W in model hparams in the future
             steps, 
-            *args,
+            *args, # maybe rename this in some more obvious ways to y or condition. Make a more obvious framework
             likelihood_score_fn:Callable=None,
             guidance_factor=1.
             ):
