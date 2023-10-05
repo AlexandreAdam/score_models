@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import TensorDataset
 from score_models import ScoreModel, EnergyModel, MLP, NCSNpp
 import shutil, os
+import numpy as np
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, size, channels, dimensions:list, conditioning="None", test_input_list=False):
@@ -25,8 +26,10 @@ class Dataset(torch.utils.data.Dataset):
             return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions)
         elif self.conditioning.lower() == "input_and_time":
             return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions), torch.randn(1)
+        elif self.conditioning.lower() == "time_and_discrete":
+            return torch.randn(self.channels, *self.dimensions), torch.randn(1), torch.randint(10, (1,))
         elif self.conditioning.lower() == "discrete_time":
-            return torch.randn(self.channels, *self.dimensions), torch.randint(10, (1,))
+            return torch.randn(self.channels, *self.dimensions), torch.tensor(np.random.choice(range(10)))
 
 
 def test_training_conditioned_input_ncsnpp():
@@ -60,6 +63,18 @@ def test_training_conditioned_discrete_timelike_ncsnpp():
     size = 2*B
     dataset = Dataset(size, C, [D]*dim, conditioning="discrete_time")
     net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["discrete_timelike"], condition_num_embedding=(10,))
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    model.fit(dataset, batch_size=B, epochs=2)
+
+
+def test_training_conditioned_discrete_and_timelike_ncsnpp():
+    C = 1
+    D = 16
+    dim = 2
+    B = 5
+    size = 2*B
+    dataset = Dataset(size, C, [D]*dim, conditioning="time_and_discrete")
+    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["continuous_timelike", "discrete_timelike"], condition_num_embedding=(10,))
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
     model.fit(dataset, batch_size=B, epochs=2)
         

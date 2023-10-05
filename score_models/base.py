@@ -184,7 +184,7 @@ class ScoreModelBase(Module, ABC):
             self, 
             shape, # TODO change this so that specifying C, H, W is optional. Maybe save C, H, W in model hparams in the future
             steps, 
-            *args, # maybe rename this in some more obvious ways to y or condition. Make a more obvious framework
+            condition:list=[],
             likelihood_score_fn:Callable=None,
             guidance_factor=1.
             ):
@@ -210,7 +210,7 @@ class ScoreModelBase(Module, ABC):
             if t[0] < self.sde.epsilon: # Accounts for numerical error in the way we discretize t.
                 break
             g = self.sde.diffusion(t, x)
-            f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *args) + guidance_factor * likelihood_score_fn(t, x))
+            f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x))
             dw = torch.randn_like(x) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 
@@ -378,7 +378,7 @@ class ScoreModelBase(Module, ABC):
                 except StopIteration:
                     data_iter = iter(dataloader)
                     X = next(data_iter)
-                if isinstance(X, list):
+                if isinstance(X, (list, tuple)):
                     x, *args = X
                 else:
                     x = X
