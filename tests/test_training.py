@@ -30,6 +30,17 @@ class Dataset(torch.utils.data.Dataset):
             return torch.randn(self.channels, *self.dimensions), torch.randn(1), torch.randint(10, (1,))
         elif self.conditioning.lower() == "discrete_time":
             return torch.randn(self.channels, *self.dimensions), torch.tensor(np.random.choice(range(10)))
+    
+def test_multiple_channels_ncsnpp():
+    C = 3
+    D = 16
+    dim = 2
+    B = 5
+    size = 2*B
+    dataset = Dataset(size, C, [D]*dim)
+    net = NCSNpp(nf=8, channels=C, ch_mul=(1, 1))
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    model.fit(dataset, batch_size=B, epochs=2)
 
 
 def test_training_conditioned_input_ncsnpp():

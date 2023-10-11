@@ -364,13 +364,13 @@ class ScoreModelBase(Module, ABC):
         estimated_time_for_epoch = 0
         out_of_time = False
 
+        data_iter = iter(dataloader)
         for epoch in (pbar := tqdm(range(epochs))):
             if (time.time() - global_start) > max_time * 3600 - estimated_time_for_epoch:
                 break
             epoch_start = time.time()
             time_per_step_epoch_mean = 0
             cost = 0
-            data_iter = iter(dataloader)
             for _ in range(n_iterations_in_epoch):
                 start = time.time()
                 try:
