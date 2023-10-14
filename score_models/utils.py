@@ -97,7 +97,7 @@ def load_architecture(
                 checkpoint = np.argmax(checkpoints)
                 model.load_state_dict(torch.load(paths[checkpoint], map_location=device))
                 model_dir = os.path.split(checkpoints_directory)[-1]
-                print(f"Loaded checkpoint {checkpoint} of {model_dir}")
+                print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
             except (KeyError, RuntimeError):
                 # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
                 from score_models import ScoreModel
@@ -106,5 +106,5 @@ def load_architecture(
                 model.load_state_dict(torch.load(paths[checkpoint], map_location=device))
                 model = model.model # Remove the ScoreModel wrapping to extract the nn
                 model_dir = os.path.split(checkpoints_directory)[-1]
-                print(f"Loaded checkpoint {checkpoint} of {model_dir}")
+                print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
     return model, hyperparameters

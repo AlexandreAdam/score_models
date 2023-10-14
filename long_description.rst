@@ -67,13 +67,10 @@ The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
     net = DDPM(channels=1, dimensions=2, nf=128, ch_mult=[2, 2, 2, 2])
 
     # Train the score model, and save its weight in checkpoints_directory
-    model.fit(dataset=your_dataset, epochs=100, batch_size=8, learning_rate=1e-4, checkpoints_directory=checkpoints_directory)
+    model.fit(dataset=your_dataset, epochs=100, batch_size=B, learning_rate=1e-4, checkpoints_directory=checkpoints_directory)
 
     # Generate samples from the trained model (steps is the number of Euler-Maruyama steps)
     samples = model.sample(shape=[B, *dimensions], steps=1000)
-
-    # Generate posterior samples given a likelihood score function (with a specified guidance factor, defaults to 1.)
-    samples = model.sample([B, *dimensions], N, likelihood_score_fn, guidance_factor)
 
     # Compute the score for a given input
     score = model.score(t, x)

@@ -196,6 +196,8 @@ class ScoreModelBase(Module, ABC):
         likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
         guidance_factor: Multiplicative factor for the likelihood drift
         """
+        if not isinstance(condition, (list, tuple)):
+            raise ValueError(f"condition must be a list or tuple or torch.Tensor, received {type(condition)}")
         B, *D = shape
         sampling_from = "prior" if likelihood_score_fn is None else "posterior"
         if likelihood_score_fn is None:
