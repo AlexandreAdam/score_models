@@ -113,7 +113,7 @@ def load_architecture(
             model_dir = os.path.split(checkpoints_directory)[-1]
             print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
         except (KeyError, RuntimeError):
-            # Maybe the ScoreModel instance was used whemodel_n saving the weights, in which case we hack the loading process
+            # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
             from score_models import ScoreModel
             model = ScoreModel(model, **hyperparameters)
             model.load_state_dict(torch.load(path, map_location=device))
