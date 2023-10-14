@@ -149,8 +149,24 @@ def test_training_score_mlp_input_list():
         dataset, 
         checkpoints_directory=checkpoints_directory, 
         epochs=10,
+        checkpoints=1,
+        models_to_keep=12, # keep all checkpoints for next test
         batch_size=1
         )
+
+
+def test_load_checkpoint_at_scoremodel_init():
+    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
+    model1 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=1)
+    assert model1.loaded_checkpoint == 1, f"Expected checkpoint 1, got {model1.loaded_checkpoint}"
+
+    model2 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=4)
+    assert model2.loaded_checkpoint == 4, f"Expected checkpoint 4, got {model2.loaded_checkpoint}"
+
+    model3 = ScoreModel(checkpoints_directory=checkpoints_directory)
+    # Additional assertion based on the expected behavior when model_checkpoint is not provided
+    expected_checkpoint = 11  # Based on previous test, training 10 epochs and saving each one, we should have 11 checkpoints (also saving the last one)
+    assert model3.loaded_checkpoint == expected_checkpoint, f"Expected checkpoint {expected_checkpoint}, got {model3.loaded_checkpoint}"
 
 
 def test_training_load_checkpoint():
@@ -166,6 +182,7 @@ def test_training_load_checkpoint():
         epochs=10,
         batch_size=1
         )
+    # Finally remove the checkpoint directory to keep the logic of the test above sound
     shutil.rmtree(checkpoints_directory)
 
     

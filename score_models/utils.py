@@ -1,4 +1,5 @@
 from functools import partial
+import warnings
 import torch
 import torch.nn as nn
 import os, json, re
@@ -61,7 +62,9 @@ def load_architecture(
         model: Union[str, Module] = None, 
         dimensions=2, 
         hyperparameters=None, 
-        device=DEVICE) -> list[Module, dict]:
+        device=DEVICE,
+        model_checkpoint:int=None,
+        ) -> list[Module, dict]:
     if hyperparameters is None:
         hyperparameters = {}
     if model is None:
@@ -92,19 +95,31 @@ def load_architecture(
     if checkpoints_directory is not None:
         paths = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
         checkpoints = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-        if paths:
-            try:
-                checkpoint = np.argmax(checkpoints)
-                model.load_state_dict(torch.load(paths[checkpoint], map_location=device))
-                model_dir = os.path.split(checkpoints_directory)[-1]
-                print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
-            except (KeyError, RuntimeError):
-                # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
-                from score_models import ScoreModel
-                model = ScoreModel(model, **hyperparameters)
-                checkpoint = np.argmax(checkpoints)
-                model.load_state_dict(torch.load(paths[checkpoint], map_location=device))
-                model = model.model # Remove the ScoreModel wrapping to extract the nn
-                model_dir = os.path.split(checkpoints_directory)[-1]
-                print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
-    return model, hyperparameters
+        if not paths:
+            warnings.warn(f"Directory {checkpoints_directory} might not have checkpoint files. Cannot load architecture.")
+            return model, hyperparameters, None
+        if model_checkpoint is None:
+            checkpoint = np.argmax(checkpoints)
+            path = paths[checkpoint]
+        elif model_checkpoint not in checkpoints:
+            warnings.warn(f"Directory {checkpoints_directory} does not have the checkpoint requested. Methods defaults to loading latest checkpoint.")
+            checkpoint = np.argmax(checkpoints)
+            path = paths[checkpoint]
+        else:
+            checkpoint = [i for i, c in enumerate(checkpoints) if c == model_checkpoint][0]
+            path = paths[checkpoint]
+        try:
+            model.load_state_dict(torch.load(path, map_location=device))
+            model_dir = os.path.split(checkpoints_directory)[-1]
+            print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
+        except (KeyError, RuntimeError):
+            # Maybe the ScoreModel instance was used whemodel_n saving the weights, in which case we hack the loading process
+            from score_models import ScoreModel
+            model = ScoreModel(model, **hyperparameters)
+            model.load_state_dict(torch.load(path, map_location=device))
+            model = model.model # Remove the ScoreModel wrapping to extract the nn
+            model_dir = os.path.split(checkpoints_directory)[-1]
+            print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
+        return model, hyperparameters, checkpoints[checkpoint]
+    return model, hyperparameters, None
+

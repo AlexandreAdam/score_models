@@ -20,12 +20,26 @@ from .utils import load_architecture
 
 
 class ScoreModelBase(Module, ABC):
-    def __init__(self, model: Union[str, Module]=None, sde:Union[str, SDE]=None, checkpoints_directory=None, device=DEVICE, **hyperparameters):
+    def __init__(
+            self, 
+            model: Union[str, Module]=None, 
+            sde:Union[str, SDE]=None, 
+            checkpoints_directory=None, 
+            model_checkpoint:int=None, 
+            device=DEVICE, 
+            **hyperparameters
+            ):
         super().__init__()
         if model is None and checkpoints_directory is None:
             raise ValueError("Must provide one of 'model' or 'checkpoints_directory'")
         if model is None or isinstance(model, str):
-            model, hyperparams = load_architecture(checkpoints_directory, model=model, device=device, hyperparameters=hyperparameters)
+            model, hyperparams, self.loaded_checkpoint = load_architecture(
+                    checkpoints_directory, 
+                    model=model, 
+                    device=device, 
+                    hyperparameters=hyperparameters, 
+                    model_checkpoint=model_checkpoint
+                    )
             hyperparameters.update(hyperparams)
         elif hasattr(model, "hyperparameters"):
             hyperparameters.update(model.hyperparameters)
