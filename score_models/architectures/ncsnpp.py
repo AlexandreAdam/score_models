@@ -57,6 +57,9 @@ class NCSNpp(nn.Module):
             condition_num_embedding:tuple[int,...]=None,
             condition_input_channels:int=None,
             condition_vector_channels:int=None,
+            fourier_features=False,
+            n_min=7,
+            n_max=8,
             **kwargs
           ):
         super().__init__()
@@ -205,7 +208,7 @@ class NCSNpp(nn.Module):
         input_pyramid_ch = channels + self.condition_input_channels
         modules.append(conv3x3(channels + self.condition_input_channels, nf, dimensions=dimensions))
         hs_c = [nf]
-        in_ch = nf
+        in_ch = nf + fourier_feature_channels
         for i_level in range(num_resolutions):
             # Residual blocks for this resolution
             for i_block in range(num_res_blocks):
@@ -310,10 +313,16 @@ class NCSNpp(nn.Module):
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
         
+        
         if self.conditioned:
             for j, condition in enumerate(args):
                 if self.condition_type[j].lower() == "input":
                     x = torch.cat([x, condition], dim=1)
+        
+        # Add Fourier features
+        # if self.fourier_features:
+            # ffeatures = self.fourier_features(x)
+            # x = torch.concat([x, ffeatures], axis=1)
         
         # Downsampling block
         input_pyramid = None

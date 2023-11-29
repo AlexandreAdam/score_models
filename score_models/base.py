@@ -14,6 +14,7 @@ import time
 import os, glob, re, json
 import numpy as np
 from datetime import datetime
+from contextlib import nullcontext
 
 from .sde import VESDE, VPSDE, TSVESDE, SDE
 from .utils import load_architecture
@@ -129,15 +130,18 @@ class ScoreModelBase(Module, ABC):
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
     
+    @torch.no_grad()
     def log_likelihood(
             self, 
-            t,
             x,
             *args,
             ode_steps: int, 
             n_cotangent_vectors: int = 1, 
             noise_type="rademacher", 
-            verbose=0
+            verbose=0,
+            method="Euler",
+            t0:int=0,
+            t1:int=1
             ) -> Tensor:
         """
         A basic implementation of Euler discretisation method of the ODE associated 
@@ -159,39 +163,53 @@ class ScoreModelBase(Module, ABC):
         disable = False if verbose else True  
         B, *D = x.shape
         log_p = 0.
-        dt = t / ode_steps
+        t = torch.ones([B]).to(self.device) * t0
+        dt = (t1 - t0) / ode_steps
+        # Small wrappers to make the notation a bit more readable
+        f = lambda t, x: self.ode_drift(t, x, *args)
+        div = lambda t, x: self.divergence(self.ode_drift, t, x, *args, **kwargs)
         for _ in tqdm(range(ode_steps), disable=disable):
-            x = x + self.ode_drift(t, x, *args) * dt.view(-1, *[1]*len(D))
-            log_p += self.divergence(self.ode_drift, t, x, *args, **kwargs) * dt
-            t = t + dt
-        log_p = self.sde.prior(D).log_prob(x)
+            if method == "Euler":
+                x = x + f(t, x) * dt
+                log_p += div(t, x) * dt
+                t = t + dt
+            elif method == "Heun":
+                previous_x = x.clone()
+                drift = f(t, x)
+                new_x = x + drift * dt
+                x = x + 0.5 * (drift + f(t+dt, new_x)) * dt
+                log_p += 0.5 * (div(t, previous_x) + div(t+dt, x)) * dt
+                t = t + dt
+            else:
+                raise NotImplementedError("Invalid method, please select either Euler or Heun")
+        log_p += self.sde.prior(D).log_prob(x)
         return log_p
     
-    def score_at_zero_temperature(
-            self, 
-            x,
-            *args,
-            ode_steps: int, 
-            n_cotangent_vectors: int = 1, 
-            noise_type="rademacher", 
-            verbose=0,
-            return_ll=False
-            ) -> Tensor:
-        """
-        Takes a gradient through the log_likelihood solver to compute the score 
-        at zero temperature. 
-        """
-        kwargs = {"ode_steps": ode_steps, 
-                  "n_cotangent_vectors": n_cotangent_vectors, 
-                  "verbose": verbose,
-                  "noise_type": noise_type
-                  }
-        wrapped_ll = lambda x: self.log_likelihood(x, *args, **kwargs)
-        ll, vjp_func = vjp(wrapped_ll, x)
-        score = vjp_func(torch.ones_like(ll))
-        if return_ll:
-            return score, ll
-        return score
+    # def score_at_zero_temperature(
+            # self, 
+            # x,
+            # *args,
+            # ode_steps: int, 
+            # n_cotangent_vectors: int = 1, 
+            # noise_type="rademacher", 
+            # verbose=0,
+            # return_ll=False
+            # ) -> Tensor:
+        # """
+        # Takes a gradient through the log_likelihood solver to compute the score 
+        # at zero temperature. 
+        # """
+        # kwargs = {"ode_steps": ode_steps, 
+                  # "n_cotangent_vectors": n_cotangent_vectors, 
+                  # "verbose": verbose,
+                  # "noise_type": noise_type
+                  # }
+        # wrapped_ll = lambda x: self.log_likelihood(x, *args, **kwargs)
+        # ll, vjp_func = vjp(wrapped_ll, x)
+        # score = vjp_func(torch.ones_like(ll))
+        # if return_ll:
+            # return score, ll
+        # return score
     
     @torch.no_grad()
     def sample(

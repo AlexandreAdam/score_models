@@ -25,7 +25,7 @@ class VPSDE(SDE):
         
     def prior(self, shape):
         mu = torch.zeros(shape)
-        return Independent(Normal(loc=mu, scale=1., validate_args=False), 1)
+        return Independent(Normal(loc=mu, scale=1., validate_args=False), len(shape))
 
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape

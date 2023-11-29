@@ -66,7 +66,7 @@ class TSVESDE(SDE):
     def prior(self, shape):
         mu = torch.zeros(shape)
         sigma_max = np.exp(-self.beta * (1. - self.t_star) + np.log(self.sigma_max))
-        return Independent(Normal(loc=mu, scale=sigma_max, validate_args=False), 1)
+        return Independent(Normal(loc=mu, scale=sigma_max, validate_args=False), len(shape))
     
     def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
         return self.scale(t), self.sigma(t)

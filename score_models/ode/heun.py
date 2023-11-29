@@ -4,9 +4,9 @@ import torch
 from torch import Tensor
 from tqdm import tqdm
 
-def euler(x:Tensor, drift_fn:Callable, N:int, t0=0., t1=1., verbose=0, **kwargs):
+def heun(x:Tensor, drift_fn:Callable, N:int, t0=0., t1=1., verbose=0, **kwargs):
         """
-        A basic implementation of Euler discretisation method of the ODE associated 
+        A basic implementation of Heun second order discretisation method of the ODE associated 
         with the marginales of the learned SDE.
         
         x: Initial state
@@ -22,7 +22,8 @@ def euler(x:Tensor, drift_fn:Callable, N:int, t0=0., t1=1., verbose=0, **kwargs)
         t = torch.ones([B]).to(x.device) * t0
         dt = (t1 - t0) / N
         for _ in tqdm(range(N), disable=disable):
-            x = x + drift_fn(t, x, **kwargs) * dt
-            t += dt
+            new_x = x + drift_fn(t, x) * dt
+            x = x + 0.5 * (drift_fn(t, x) + drift_fn(t+dt, new_x)) * dt
+            t = t + dt
         return x
     

@@ -40,7 +40,7 @@ class VESDE(SDE):
             mu = torch.zeros(shape)
         else:
             assert mu.shape == shape 
-        return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), 1)
+        return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), len(shape))
     
     def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
         return torch.ones_like(t), self.sigma(t)

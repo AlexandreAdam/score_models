@@ -15,8 +15,6 @@ class ScoreModel(ScoreModelBase):
     def score(self, t, x, *args):
         _, *D = x.shape
         return self.model(t, x, *args) / self.sde.sigma(t).view(-1, *[1]*len(D))
-
-
     
 
 class EnergyModel(ScoreModelBase):
