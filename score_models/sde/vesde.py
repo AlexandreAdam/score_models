@@ -3,6 +3,7 @@ from .sde import SDE
 from torch import Tensor
 import numpy as np
 from torch.distributions import Normal, Independent
+from score_models.utils import DEVICE
 
 
 class VESDE(SDE):
@@ -30,14 +31,14 @@ class VESDE(SDE):
     def sigma(self, t: Tensor) -> Tensor:
         return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t/self.T)
     
-    def prior(self, shape, mu=None):
+    def prior(self, shape, mu=None, device=DEVICE):
         """
         Technically, VESDE does not change the mean of the 0 temperature distribution, 
         so I give the option to provide for more accuracy. In practice, 
         sigma_max is chosen large enough to make this choice irrelevant
         """
         if mu is None:
-            mu = torch.zeros(shape)
+            mu = torch.zeros(shape).to(device)
         else:
             assert mu.shape == shape 
         return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), len(shape))

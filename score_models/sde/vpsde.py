@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 from .sde import SDE
 from torch.distributions import Independent, Normal
+from score_models.utils import DEVICE
 
 
 class VPSDE(SDE):
@@ -23,8 +24,8 @@ class VPSDE(SDE):
     def sigma(self, t: Tensor) -> Tensor:
         return self.marginal_prob_scalars(t)[1]
         
-    def prior(self, shape):
-        mu = torch.zeros(shape)
+    def prior(self, shape, device=DEVICE):
+        mu = torch.zeros(shape).to(device)
         return Independent(Normal(loc=mu, scale=1., validate_args=False), len(shape))
 
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:

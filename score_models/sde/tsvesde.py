@@ -6,6 +6,7 @@ import numpy as np
 from torch.distributions import Normal, Independent
 import torch.nn.functional as F
 from torch.func import grad, vmap
+from score_models.utils import DEVICE
 
 
 class TSVESDE(SDE):
@@ -63,8 +64,8 @@ class TSVESDE(SDE):
         log_coeff = self.beta_fn(t) + (smax - smin) * t/self.T + smin
         return torch.exp(log_coeff)
     
-    def prior(self, shape):
-        mu = torch.zeros(shape)
+    def prior(self, shape, device=DEVICE):
+        mu = torch.zeros(shape).to(device) 
         sigma_max = np.exp(-self.beta * (1. - self.t_star) + np.log(self.sigma_max))
         return Independent(Normal(loc=mu, scale=sigma_max, validate_args=False), len(shape))
     
