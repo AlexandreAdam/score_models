@@ -7,6 +7,6 @@ def denoising_score_matching(score_model: Union["ScoreModel", "EnergyModel"], sa
     sde = score_model.sde
     z = torch.randn_like(samples)
     t = torch.rand(B).to(score_model.device) * (sde.T - sde.epsilon) + sde.epsilon
-    mean, sigma = sde.marginal_prob(t, samples)
-    return torch.sum((z + score_model.model(t, mean + sigma * z, *args)) ** 2) / B
+    mean, sigma = sde.marginal_prob(samples, t)
+    return torch.sum((z + score_model.model(mean + sigma * z, t, *args)) ** 2) / B
 

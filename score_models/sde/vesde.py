@@ -31,6 +31,9 @@ class VESDE(SDE):
     def sigma(self, t: Tensor) -> Tensor:
         return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t/self.T)
     
+    def mu(self, t: Tensor) -> Tensor:
+        return torch.ones_like(t)
+    
     def prior(self, shape, mu=None, device=DEVICE):
         """
         Technically, VESDE does not change the mean of the 0 temperature distribution, 
@@ -43,14 +46,11 @@ class VESDE(SDE):
             assert mu.shape == shape 
         return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), len(shape))
     
-    def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
-        return torch.ones_like(t), self.sigma(t)
-
-    def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
+    def diffusion(self, x: Tensor, t: Tensor) -> Tensor:
         _, *D = x.shape # broadcast diffusion coefficient to x shape
         return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2 * (np.log(self.sigma_max) - np.log(self.sigma_min)))
 
-    def drift(self, t: Tensor, x: Tensor) -> Tensor:
+    def drift(self, x: Tensor, t: Tensor) -> Tensor:
         return torch.zeros_like(x)
 
 

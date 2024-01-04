@@ -2,6 +2,7 @@ from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, Self
         UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3, PositionalEncoding
 from score_models.utils import get_activation
 from score_models.definitions import default_init
+from torch import Tensor
 import torch.nn as nn
 import functools
 import torch
@@ -288,7 +289,7 @@ class NCSNpp(nn.Module):
 
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x, *args):
+    def forward(self, x: Tensor, t: Tensor, *args):
         B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules

@@ -7,6 +7,7 @@ from torch import nn
 from score_models.utils import get_activation
 from score_models.layers import DDPMResnetBlock, SelfAttentionBlock, GaussianFourierProjection, UpsampleLayer, DownsampleLayer
 from score_models.layers.ddpm_resnet_block import conv3x3
+from torch import Tensor
 import functools
 
 
@@ -106,7 +107,7 @@ class DDPM(nn.Module):
         modules.append(conv3x3(in_ch, channels))
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x):
+    def forward(self, x: Tensor, t: Tensor):
         modules = self.all_modules
         m_idx = 0
         temb = t

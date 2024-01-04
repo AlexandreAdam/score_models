@@ -94,27 +94,27 @@ class ScoreModelBase(Module, ABC):
         self.sde = sde
         self.device = device
 
-    def forward(self, t, x, *args) -> Tensor:
-        return self.score(t, x, *args)
+    def forward(self, t: Tensor, x: Tensor, *args) -> Tensor:
+        return self.score(x, t, *args)
    
     @abstractmethod
-    def score(self, t, x, *args) -> Tensor:
+    def score(self, x: Tensor, t: Tensor, *args) -> Tensor:
         ...
     
     @abstractmethod
     def loss_fn(self, x, *args) -> Tensor:
         ...
     
-    def ode_drift(self, t, x, *args):
-        f = self.sde.drift(t, x)
-        g = self.sde.diffusion(t, x)
-        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args)
+    def ode_drift(self, x: Tensor, t: Tensor, *args):
+        f = self.sde.drift(x, t)
+        g = self.sde.diffusion(x, t)
+        f_tilde = f - 0.5 * g**2 * self.score(x, t, *args)
         return f_tilde
     
-    def hessian(self, t, x, *args, **kwargs):
-        return self.divergence(self.drift_fn, t, x, *args, **kwargs)
+    def hessian(self, x, t, *args, **kwargs):
+        return self.divergence(self.drift_fn, x, t, *args, **kwargs)
     
-    def divergence(self, drift_fn, t, x, *args, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
+    def divergence(self, drift_fn, x, t, *args, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
         B, *D = x.shape
         # duplicate noisy samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cotangent_vectors, *[1]*len(D)])
@@ -125,7 +125,7 @@ class ScoreModelBase(Module, ABC):
         if noise_type == 'rademacher':
             vectors = vectors.sign()
         # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score) 
-        f = lambda x: drift_fn(t, x, *args)
+        f = lambda x: drift_fn(x, t, *args)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
@@ -166,16 +166,16 @@ class ScoreModelBase(Module, ABC):
         t = torch.ones([B]).to(self.device) * t0
         dt = (t1 - t0) / ode_steps
         # Small wrappers to make the notation a bit more readable
-        f = lambda t, x: self.ode_drift(t, x, *args)
-        div = lambda t, x: self.divergence(self.ode_drift, t, x, *args, **kwargs)
+        f = lambda t, x: self.ode_drift(x, t, *args)
+        div = lambda t, x: self.divergence(self.ode_drift, x, t, *args, **kwargs)
         for _ in tqdm(range(ode_steps), disable=disable):
             if method == "Euler":
-                x = x + f(t, x) * dt
-                log_p += div(t, x) * dt
+                x = x + f(x, t) * dt
+                log_p += div(x, t) * dt
                 t = t + dt
             elif method == "Heun":
                 previous_x = x.clone()
-                drift = f(t, x)
+                drift = f(x, t)
                 new_x = x + drift * dt
                 x = x + 0.5 * (drift + f(t+dt, new_x)) * dt
                 log_p += 0.5 * (div(t, previous_x) + div(t+dt, x)) * dt
@@ -243,8 +243,8 @@ class ScoreModelBase(Module, ABC):
             t += dt
             if t[0] < self.sde.epsilon: # Accounts for numerical error in the way we discretize t.
                 break
-            g = self.sde.diffusion(t, x)
-            f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x))
+            g = self.sde.diffusion(x, t)
+            f = self.sde.drift(x, t) - g**2 * (self.score(x, t, *condition) + guidance_factor * likelihood_score_fn(x, t))
             dw = torch.randn_like(x) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 

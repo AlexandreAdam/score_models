@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
 from score_models.layers import GaussianFourierProjection, ScaledAttentionLayer
 from score_models.utils import get_activation
 
@@ -79,7 +80,7 @@ class MLP(nn.Module):
         self.act = get_activation(activation)
         self.all_modules = nn.ModuleList(modules)
     
-    def forward(self, t, x):
+    def forward(self, x: Tensor, t: Tensor):
         B, D = x.shape
         modules = self.all_modules
         temb = modules[0](t)

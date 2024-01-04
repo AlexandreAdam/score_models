@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
 
 import torch
-from torch.distributions import Normal, Independent
 from torch.distributions import Distribution
 from torch import Tensor
 
@@ -21,6 +19,10 @@ class SDE(ABC):
     @abstractmethod
     def sigma(self, t) -> Tensor:
         ...
+
+    @abstractmethod
+    def mu(self, t) -> Tensor:
+        ...
     
     @abstractmethod
     def prior(self, shape) -> Distribution:
@@ -30,21 +32,14 @@ class SDE(ABC):
         ...
     
     @abstractmethod
-    def diffusion(self, t:Tensor, x: Tensor) -> Tensor:
+    def diffusion(self, x: Tensor, t: Tensor) -> Tensor:
         ...
 
     @abstractmethod
-    def drift(self, t, x) -> Tensor:
+    def drift(self, x: Tensor, t: Tensor) -> Tensor:
         ...
     
-    @abstractmethod
-    def marginal_prob_scalars(self, t) -> Tuple[Tensor, Tensor]:
-        """
-        Returns scaling functions for the mean and the standard deviation of the marginals
-        """
-        ...
-
-    def sample_marginal(self, t: Tensor, x0: Tensor) -> Tensor:
+    def sample_marginal(self, x0: Tensor, t: Tensor) -> Tensor:
         """
         Sample from the marginal at time t given some initial condition x0
         """
@@ -53,11 +48,12 @@ class SDE(ABC):
         mu_t, sigma_t = self.marginal_prob_scalars(t)
         return mu_t.view(-1, *[1]*len(D)) * x0 + sigma_t.view(-1, *[1]*len(D)) * z
 
-    def marginal_prob(self, t, x):
+    def marginal_prob(self, x: Tensor, t: Tensor) -> Tensor:
         _, *D = x.shape
         m_t, sigma_t = self.marginal_prob_scalars(t)
         mean = m_t.view(-1, *[1]*len(D)) * x
         std = sigma_t.view(-1, *[1]*len(D))
         return mean, std
 
-
+    def marginal_prob_scalars(self, t: Tensor) -> tuple[Tensor, Tensor]:
+        return self.mu(t), self.sigma(t)

@@ -22,25 +22,25 @@ class VPSDE(SDE):
         return self.beta_min + (self.beta_max - self.beta_min) * t
 
     def sigma(self, t: Tensor) -> Tensor:
-        return self.marginal_prob_scalars(t)[1]
+        b = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t
+        return torch.sqrt(1. - torch.exp(-b))
+    
+    def mu(self, t: Tensor) -> Tensor:
+        """
+        See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
+        """
+        b = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t
+        return torch.exp(-b/2)
         
     def prior(self, shape, device=DEVICE):
         mu = torch.zeros(shape).to(device)
         return Independent(Normal(loc=mu, scale=1., validate_args=False), len(shape))
 
-    def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
+    def diffusion(self, x: Tensor, t: Tensor) -> Tensor:
         _, *D = x.shape
         return torch.sqrt(self.beta(t)).view(-1, *[1]*len(D))
 
-    def drift(self, t: Tensor, x: Tensor) -> Tensor:
+    def drift(self, x: Tensor, t: Tensor) -> Tensor:
         _, *D = x.shape
         return -0.5 * self.beta(t).view(-1, *[1]*len(D)) * x
-
-    def marginal_prob_scalars(self, t: Tensor) -> tuple[Tensor, Tensor]:
-        """
-        See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
-        """
-        log_coeff = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t # integral of b(t)
-        std = torch.sqrt(1. - torch.exp(- log_coeff))
-        return torch.exp(-0.5*log_coeff), std
 
