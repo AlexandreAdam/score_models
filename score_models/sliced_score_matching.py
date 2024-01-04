@@ -26,7 +26,7 @@ def time_weighted_sliced_score_matching_loss(model, samples, t, lambda_t, n_cota
     vectors = torch.randn_like(samples)
     if noise_type == 'rademacher':
         vectors = vectors.sign()
-    score, vjp_func = vjp(lambda x: model(t, x), samples)
+    score, vjp_func = vjp(lambda x: model(x, t), samples)
     trace_estimate = vectors * vjp_func(vectors)[0]
     trace_estimate = torch.sum(trace_estimate.flatten(1), dim=1)
     loss = (lambda_t(samples, t) * (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate)).mean()

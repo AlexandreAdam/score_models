@@ -16,7 +16,7 @@ class ScoreModel(ScoreModelBase):
     def score(self, x: Tensor, t: Tensor, *args):
         _, *D = x.shape
         return self.model(x, t, *args) / self.sde.sigma(t).view(-1, *[1]*len(D))
-    
+
 
 class EnergyModel(ScoreModelBase):
     def __init__(self, model: Union[str, Module] = None, sde: SDE=None, checkpoints_directory=None, **hyperparameters):

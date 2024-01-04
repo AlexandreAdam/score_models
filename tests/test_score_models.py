@@ -15,7 +15,7 @@ def local_test_loading_model_and_score_fn():
     print(score.sde)
     x = torch.randn(1, 1, 256, 256)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
 
 def test_loading_from_string():
@@ -23,25 +23,25 @@ def test_loading_from_string():
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2, nn_is_energy=True)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     score = EnergyModel("ncsnpp", sigma_min=1e-2, sigma_max=10, nf=32)
     print(score.sde)
     x = torch.randn(1, 1, 16, 16)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
 
 def test_loading_with_nn():
@@ -50,28 +50,28 @@ def test_loading_with_nn():
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     net = MLP(dimensions=2)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     net = MLP(dimensions=2, nn_is_energy=True)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
     net = NCSNpp(nf=32)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 1, 16, 16)
     t = torch.ones(1)
-    score(t, x)
+    score(x, t)
 
 def test_init_score():
     net = MLP(10)
@@ -116,7 +116,7 @@ def test_slic_score():
     print(score.sde)
     x = torch.randn(3, C)
     t = torch.rand(3)
-    s = score(t, x)
+    s = score(x, t)
     print(s)
     assert s.shape == torch.Size([3, C])
 
@@ -127,7 +127,7 @@ def test_slic_score():
     print(score.sde)
     x = torch.randn(3, C)
     t = torch.rand(3)
-    s = score.slic_score(t, x, y)
+    s = score.slic_score(x, t, y)
     print(s)
     print(s.shape)
     assert s.shape == torch.Size([3, C])

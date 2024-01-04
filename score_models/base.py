@@ -94,7 +94,7 @@ class ScoreModelBase(Module, ABC):
         self.sde = sde
         self.device = device
 
-    def forward(self, t: Tensor, x: Tensor, *args) -> Tensor:
+    def forward(self, x: Tensor, t: Tensor, *args) -> Tensor:
         return self.score(x, t, *args)
    
     @abstractmethod
@@ -166,8 +166,8 @@ class ScoreModelBase(Module, ABC):
         t = torch.ones([B]).to(self.device) * t0
         dt = (t1 - t0) / ode_steps
         # Small wrappers to make the notation a bit more readable
-        f = lambda t, x: self.ode_drift(x, t, *args)
-        div = lambda t, x: self.divergence(self.ode_drift, x, t, *args, **kwargs)
+        f = lambda x, t: self.ode_drift(x, t, *args)
+        div = lambda x, t: self.divergence(self.ode_drift, x, t, *args, **kwargs)
         for _ in tqdm(range(ode_steps), disable=disable):
             if method == "Euler":
                 x = x + f(x, t) * dt

@@ -1,4 +1,4 @@
-from score_models import NCSNpp, DDPM, MLP
+from score_models import NCSNpp
 import torch
 import pytest
 
@@ -16,7 +16,7 @@ def test_discrete_timelike_conditional():
     x = torch.randn(B, 1, 8, 8)
     t = torch.rand(B)
     
-    out = net(t, x, c)
+    out = net(x, t, c)
     assert out.shape == x.shape
     assert net.condition_embedding_layers[0](c).shape == torch.Size([B, nf])
 
@@ -33,7 +33,7 @@ def test_continuous_timelike_conditional():
     x = torch.randn(B, 1, 8, 8)
     t = torch.rand(B)
     
-    out = net(t, x, c)
+    out = net(x, t, c)
     assert out.shape == x.shape
     assert net.condition_embedding_layers[0](c).shape == torch.Size([B, nf])
 
@@ -52,7 +52,7 @@ def test_continuous_input_conditional():
     x = torch.randn(B, 1, 8, 8)
     t = torch.rand(B)
     
-    out = net(t, x, c)
+    out = net(x, t, c)
     assert out.shape == x.shape
 
 def test_vector_condition():
@@ -70,7 +70,7 @@ def test_vector_condition():
     x = torch.randn(B, 1, 8, 8)
     t = torch.rand(B)
     
-    out = net(t, x, c)
+    out = net(x, t, c)
     assert out.shape == x.shape
 
 
@@ -93,7 +93,7 @@ def test_mix_condition_type():
     x = torch.randn(B, 1, 8, 8)
     t = torch.rand(B)
     
-    out = net(t, x, c_input, c_discrete, c_cont1, c_cont2)
+    out = net(x, t, c_input, c_discrete, c_cont1, c_cont2)
     assert out.shape == x.shape
 
 

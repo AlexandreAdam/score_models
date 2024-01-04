@@ -290,6 +290,8 @@ class NCSNpp(nn.Module):
         self.all_modules = nn.ModuleList(modules)
 
     def forward(self, x: Tensor, t: Tensor, *args):
+        print("NCNNPP forward")
+        print(x.shape, t.shape, len(args))
         B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules

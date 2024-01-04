@@ -20,9 +20,9 @@ class SLIC(ScoreModel):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
         self.forward_model = forward_model
         
-    def slic_score(self, t, x, y):
+    def slic_score(self, x, t, y):
         """
         See Legin et al. (2023), https://iopscience.iop.org/article/10.3847/2041-8213/acd645
         """
         y_hat, vjp_func = vjp(self.forward_model, x)
-        return - vjp_func(self.score(t, y - y_hat))[0]
+        return - vjp_func(self.score(y - y_hat, t))[0]
