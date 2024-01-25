@@ -12,13 +12,17 @@ class SDE(ABC):
     Abstract class for some SDE info important for the score models
     """
 
-    def __init__(self, T=1.0, epsilon=0.0, **kwargs):
+    def __init__(self, t_min=0.0, t_max=1.0, **kwargs):
         """
-        The time index in the diffusion is defined in the range [epsilon, T].
+        The time index in the diffusion is defined in the range [t_min, t_max].
         """
         super().__init__()
-        self.T = T
-        self.epsilon = epsilon
+        self.t_min = t_min
+        self.t_max = t_max
+
+    @property
+    def DT(self):
+        return self.t_max - self.t_min
 
     @abstractmethod
     def sigma(self, t: Tensor) -> Tensor:

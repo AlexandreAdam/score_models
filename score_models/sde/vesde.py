@@ -2,14 +2,10 @@ import torch
 from .sde import SDE
 from torch import Tensor
 import numpy as np
-from torch.distributions import Normal, Independent
-from score_models.utils import DEVICE
 
 
 class VESDE(SDE):
-    def __init__(
-        self, sigma_min: float, sigma_max: float, T: float = 1.0, epsilon: float = 0.0, **kwargs
-    ):
+    def __init__(self, sigma_min: float, sigma_max: float, **kwargs):
         """
         Variance Exploding stochastic differential equation
 
@@ -19,12 +15,12 @@ class VESDE(SDE):
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
-        super().__init__(T, epsilon)
+        super().__init__(**kwargs)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
 
     def sigma(self, t: Tensor) -> Tensor:
-        return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t / self.T)
+        return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t / self.t_max)
 
     def mu(self, t: Tensor) -> Tensor:
         return torch.ones_like(t)

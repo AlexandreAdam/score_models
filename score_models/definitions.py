@@ -4,14 +4,8 @@ from scipy.stats import norm
 
 
 def variance_scaling(
-        scale,
-        mode,
-        distribution,
-        in_axis=1,
-        out_axis=0,
-        dtype=torch.float32,
-        device='cpu'
-    ):
+    scale, mode, distribution, in_axis=1, out_axis=0, dtype=torch.float32, device="cpu"
+):
     """Ported from JAX. Ported from Yang Song repo"""
 
     def _compute_fans(shape, in_axis=1, out_axis=0):
@@ -34,26 +28,29 @@ def variance_scaling(
         if distribution == "normal":
             return torch.randn(*shape, dtype=dtype, device=device) * np.sqrt(variance)
         elif distribution == "uniform":
-            return (torch.rand(*shape, dtype=dtype, device=device) * 2. - 1.) * np.sqrt(3 * variance)
+            return (torch.rand(*shape, dtype=dtype, device=device) * 2.0 - 1.0) * np.sqrt(
+                3 * variance
+            )
         else:
             raise ValueError("invalid distribution for variance scaling initializer")
+
     return init
 
 
-def default_init(scale=1.):
+def default_init(scale=1.0):
     """The same initialization used in DDPM."""
     scale = 1e-10 if scale == 0 else scale
-    return variance_scaling(scale, 'fan_avg', 'uniform')
+    return variance_scaling(scale, "fan_avg", "uniform")
 
 
 def geometric_series(begin_value, end_value, L):
     r = (end_value / begin_value) ** (1 / L)
-    return torch.concat([torch.tensor([begin_value * r ** n]) for n in range(L)])
+    return torch.concat([torch.tensor([begin_value * r**n]) for n in range(L)])
 
 
 def radial_acceptance_probability(gamma, n):
     """
     Technique 2 of Song & Ermon (2020) paper on improved techniques for training SBM
     """
-    c = (2 * n)**(1/2)
+    c = (2 * n) ** (1 / 2)
     return norm.cdf(c * (gamma - 1) + 3 * gamma) - norm.cdf(c * (gamma - 1) - 3 * gamma)

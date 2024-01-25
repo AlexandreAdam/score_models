@@ -1,8 +1,11 @@
 import torch
 from torch.func import vjp
 
+
 # Kept here for reference, but not currently used
-def time_weighted_sliced_score_matching_loss(model, samples, t, lambda_t, n_cotangent_vectors=1,  noise_type="rademacher"):
+def time_weighted_sliced_score_matching_loss(
+    model, samples, t, lambda_t, n_cotangent_vectors=1, noise_type="rademacher"
+):
     """
     Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of
     Hyvärinen (2005). Estimation of Non-Normalized Statistical Models by Score Matching,
@@ -19,21 +22,23 @@ def time_weighted_sliced_score_matching_loss(model, samples, t, lambda_t, n_cota
         raise ValueError("noise_type has to be either 'gaussian' or 'rademacher'")
     B, *D = samples.shape
     # duplicate noisy samples across the number of particle for the Hutchinson trace estimator
-    samples = torch.tile(samples, [n_cotangent_vectors, *[1]*len(D)])
+    samples = torch.tile(samples, [n_cotangent_vectors, *[1] * len(D)])
     t = torch.tile(t, [n_cotangent_vectors])
 
     # sample cotangent vectors
     vectors = torch.randn_like(samples)
-    if noise_type == 'rademacher':
+    if noise_type == "rademacher":
         vectors = vectors.sign()
     score, vjp_func = vjp(lambda x: model(t, x), samples)
     trace_estimate = vectors * vjp_func(vectors)[0]
     trace_estimate = torch.sum(trace_estimate.flatten(1), dim=1)
-    loss = (lambda_t(samples, t) * (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate)).mean()
+    loss = (
+        lambda_t(samples, t) * (0.5 * torch.sum(score.flatten(1) ** 2, dim=1) + trace_estimate)
+    ).mean()
     return loss
 
 
-def sliced_score_matching_loss(model, samples, n_cotangent_vectors=1,  noise_type="rademacher"):
+def sliced_score_matching_loss(model, samples, n_cotangent_vectors=1, noise_type="rademacher"):
     """
     Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of
     Hyvärinen (2005). Estimation of Non-Normalized Statistical Models by Score Matching,
@@ -49,13 +54,12 @@ def sliced_score_matching_loss(model, samples, n_cotangent_vectors=1,  noise_typ
         raise ValueError("noise_type has to be either 'gaussian' or 'rademacher'")
     B, *D = samples.shape
     # duplicate noisy samples across the number of particle for the Hutchinson trace estimator
-    samples = torch.tile(samples, [n_cotangent_vectors, *[1]*len(D)])
+    samples = torch.tile(samples, [n_cotangent_vectors, *[1] * len(D)])
     # sample cotangent vectors
     vectors = torch.randn_like(samples)
-    if noise_type == 'rademacher':
+    if noise_type == "rademacher":
         vectors = vectors.sign()
     score, vjp_func = vjp(model, samples)
     trace_estimate = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
-    loss = (0.5 * torch.sum(score.flatten(1)**2, dim=1) + trace_estimate).mean()
+    loss = (0.5 * torch.sum(score.flatten(1) ** 2, dim=1) + trace_estimate).mean()
     return loss
-

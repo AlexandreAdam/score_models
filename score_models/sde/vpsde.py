@@ -6,23 +6,18 @@ from score_models.utils import DEVICE
 
 
 class VPSDE(SDE):
-    def __init__(
-        self,
-        beta_min: float = 0.1,
-        beta_max: float = 20,
-        T: float = 1.0,
-        epsilon: float = 1e-5,
-        **kwargs
-    ):
-        super().__init__(T, epsilon)
+    def __init__(self, beta_min: float = 0.1, beta_max: float = 20, **kwargs):
+        super().__init__(**kwargs)
         self.beta_min = beta_min
         self.beta_max = beta_max
 
     def beta(self, t: Tensor):
-        return self.beta_min + (self.beta_max - self.beta_min) * t
+        return self.beta_min + (self.beta_max - self.beta_min) * t / self.t_max
 
     def alpha(self, t: Tensor):
-        return 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t
+        return 0.5 * (self.beta_max - self.beta_min) * (t / self.t_max) ** 2 + self.beta_min * (
+            t / self.t_max
+        )
 
     def sigma(self, t: Tensor) -> Tensor:
         return torch.sqrt(1.0 - torch.exp(-self.alpha(t)))

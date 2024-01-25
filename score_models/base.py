@@ -61,13 +61,11 @@ class ScoreModelBase(Module, ABC):
             if sde.lower() not in ["ve", "vp", "tsve"]:
                 raise ValueError(f"The SDE {sde} provided is no supported")
             hyperparameters["sde"] = sde.lower()
-        if "T" not in hyperparameters.keys():
-            hyperparameters["T"] = 1.0
+
         if sde.lower() == "ve":
             sde = VESDE(
                 sigma_min=hyperparameters["sigma_min"],
                 sigma_max=hyperparameters["sigma_max"],
-                T=hyperparameters["T"],
             )
         elif sde.lower() == "vp":
             if "epsilon" not in hyperparameters.keys():
@@ -75,19 +73,13 @@ class ScoreModelBase(Module, ABC):
             sde = VPSDE(
                 beta_min=hyperparameters["beta_min"],
                 beta_max=hyperparameters["beta_max"],
-                T=hyperparameters["T"],
-                epsilon=hyperparameters["epsilon"],
             )
         elif sde.lower() == "tsve":
-            if "epsilon" not in hyperparameters.keys():
-                hyperparameters["epsilon"] = 0
             sde = TSVESDE(
                 sigma_min=hyperparameters["sigma_min"],
                 sigma_max=hyperparameters["sigma_max"],
                 t_star=hyperparameters["t_star"],
                 beta=hyperparameters["beta"],
-                T=hyperparameters["T"],
-                epsilon=hyperparameters["epsilon"],
             )
 
         hyperparameters["model_architecture"] = model.__class__.__name__
@@ -108,88 +100,6 @@ class ScoreModelBase(Module, ABC):
     @abstractmethod
     def loss_fn(self, x, *args) -> Tensor:
         ...
-
-    def ode_drift(self, t, x, *args):
-        f = self.sde.drift(t, x)
-        g = self.sde.diffusion(t, x)
-        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args)
-        return f_tilde
-
-    def hessian(self, t, x, *args, **kwargs):
-        return self.divergence(self.drift_fn, t, x, *args, **kwargs)
-
-    def divergence(
-        self, drift_fn, t, x, *args, n_cotangent_vectors: int = 1, noise_type="rademacher"
-    ) -> Tensor:
-        B, *D = x.shape
-        # duplicate noisy samples for for the Hutchinson trace estimator
-        samples = torch.tile(x, [n_cotangent_vectors, *[1] * len(D)])
-        # TODO also duplicate args
-        t = torch.tile(t, [n_cotangent_vectors])
-        # sample cotangent vectors
-        vectors = torch.randn_like(samples)
-        if noise_type == "rademacher":
-            vectors = vectors.sign()
-        # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score)
-        f = lambda x: drift_fn(t, x, *args)
-        _, vjp_func = vjp(f, samples)
-        divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
-        return divergence
-
-    @torch.no_grad()
-    def log_likelihood(
-        self,
-        x,
-        *args,
-        ode_steps: int,
-        n_cotangent_vectors: int = 1,
-        noise_type="rademacher",
-        verbose=0,
-        method="Euler",
-        t0: int = 0,
-        t1: int = 1,
-    ) -> Tensor:
-        """
-        A basic implementation of Euler discretisation method of the ODE associated
-        with the marginals of the learned SDE.
-
-        ode_steps: Number of steps to perform in the ODE
-        hutchinsons_samples: Number of samples to draw to compute the trace of the Jacobian (divergence)
-
-        Note that this estimator only compute the likelihood for one trajectory.
-        For more precise log likelihood estimation, tile x along the batch dimension
-        and averge the results. You can also increase the number of ode steps and increase
-        the number of cotangent vector for the Hutchinson estimator.
-
-        Using the instantaneous change of variable formula
-        (Chen et al. 2018,https://arxiv.org/abs/1806.07366)
-        See also Song et al. 2020, https://arxiv.org/abs/2011.13456)
-        """
-        kwargs = {"n_cotangent_vectors": n_cotangent_vectors, "noise_type": noise_type}
-        disable = False if verbose else True
-        B, *D = x.shape
-        log_p = 0.0
-        t = torch.ones([B]).to(self.device) * t0
-        dt = (t1 - t0) / ode_steps
-        # Small wrappers to make the notation a bit more readable
-        f = lambda t, x: self.ode_drift(t, x, *args)
-        div = lambda t, x: self.divergence(self.ode_drift, t, x, *args, **kwargs)
-        for _ in tqdm(range(ode_steps), disable=disable):
-            if method == "Euler":
-                x = x + f(t, x) * dt
-                log_p += div(t, x) * dt
-                t = t + dt
-            elif method == "Heun":
-                previous_x = x.clone()
-                drift = f(t, x)
-                new_x = x + drift * dt
-                x = x + 0.5 * (drift + f(t + dt, new_x)) * dt
-                log_p += 0.5 * (div(t, previous_x) + div(t + dt, x)) * dt
-                t = t + dt
-            else:
-                raise NotImplementedError("Invalid method, please select either Euler or Heun")
-        log_p += self.sde.prior(D).log_prob(x)
-        return log_p
 
     # def score_at_zero_temperature(
     # self,
@@ -216,54 +126,6 @@ class ScoreModelBase(Module, ABC):
     # if return_ll:
     # return score, ll
     # return score
-
-    @torch.no_grad()
-    def sample(
-        self,
-        shape,  # TODO change this so that specifying C, H, W is optional. Maybe save C, H, W in model hparams in the future
-        steps,
-        condition: list = [],
-        likelihood_score_fn: Callable = None,
-        guidance_factor=1.0,
-    ):
-        """
-        An Euler-Maruyama integration of the model SDE
-
-        shape: Shape of the tensor to sample (including batch size)
-        steps: Number of Euler-Maruyam steps to perform
-        likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
-        guidance_factor: Multiplicative factor for the likelihood drift
-        """
-        if not isinstance(condition, (list, tuple)):
-            raise ValueError(
-                f"condition must be a list or tuple or torch.Tensor, received {type(condition)}"
-            )
-        B, *D = shape
-        sampling_from = "prior" if likelihood_score_fn is None else "posterior"
-        if likelihood_score_fn is None:
-            likelihood_score_fn = lambda t, x: 0.0
-        x = self.sde.prior(D).sample([B]).to(self.device)
-        dt = -(self.sde.T - self.sde.epsilon) / steps
-        t = torch.ones(B).to(self.device) * self.sde.T
-        for _ in (pbar := tqdm(range(steps))):
-            pbar.set_description(
-                f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
-                f"| scale ~ {x.std().item():.1e}"
-            )
-            t += dt
-            if t[0] < self.sde.epsilon:  # Accounts for numerical error in the way we discretize t.
-                break
-            g = self.sde.diffusion(t, x)
-            f = self.sde.drift(t, x) - g**2 * (
-                self.score(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x)
-            )
-            dw = torch.randn_like(x) * (-dt) ** (1 / 2)
-            x_mean = x + f * dt
-            x = x_mean + g * dw
-            if torch.any(torch.isnan(x)):
-                print("Diffusion is not stable, NaN were produced. Stopped sampling.")
-                break
-        return x_mean
 
     def fit(
         self,

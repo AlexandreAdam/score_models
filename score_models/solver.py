@@ -19,7 +19,7 @@ class Solver(ABC):
         self.score = score
 
     @abstractmethod
-    def _solve(self, x0, N, dx, *args):
+    def _solve(self, x, N, dx, *args):
         """base SDE solver"""
         ...
 
@@ -52,11 +52,9 @@ class Solver(ABC):
         return self.reverse_f(t, x, **kargs) * dt + self.sde.diffusion(t, **kargs) * dw
 
 
-class EulerMaruyama(Solver):
-    def _solve(self, x0, N, dx, *args):
+class EulerMaruyamaSDE(Solver):
+    def _solve(self, x, N, dx, *args):
         """base SDE solver"""
-
-        x = x0
         dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
         for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
             dw = torch.randn_like(x) * torch.sqrt(dt)
@@ -65,10 +63,9 @@ class EulerMaruyama(Solver):
         return x
 
 
-class RungeKutta_2(Solver):
-    def _solve(self, x0, N, dx, *args):
+class RungeKuttaSDE_2(Solver):
+    def _solve(self, x, N, dx, *args):
         """Base SDE solver"""
-        x = x0
         dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
         for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
             dw = torch.randn_like(x) * torch.sqrt(dt)
@@ -79,10 +76,9 @@ class RungeKutta_2(Solver):
         return x
 
 
-class RungeKutta_4(Solver):
-    def _solve(self, x0, N, dx, *args):
+class RungeKuttaSDE_4(Solver):
+    def _solve(self, x, N, dx, *args):
         """Base SDE solver"""
-        x = x0
         dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
         for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
             dw = torch.randn_like(x) * torch.sqrt(dt)

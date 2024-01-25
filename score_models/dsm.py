@@ -9,6 +9,6 @@ def denoising_score_matching(
     B, *D = samples.shape
     sde = score_model.sde
     z = torch.randn_like(samples)
-    t = torch.rand(B).to(score_model.device) * (sde.T - sde.epsilon) + sde.epsilon
+    t = torch.rand(B).to(score_model.device) * sde.DT + sde.t_min
     mean, sigma = sde.marginal_prob(t, samples)
     return torch.sum((z + score_model.model(t, mean + sigma * z, *args)) ** 2) / B

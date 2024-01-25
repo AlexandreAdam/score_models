@@ -16,8 +16,6 @@ class TSVESDE(SDE):
         sigma_max: float,
         t_star: float,
         beta: float,
-        T: float = 1.0,
-        epsilon: float = 0.0,
         beta_fn="relu",
         alpha=30,  # silu and hardswish recaling of t
         **kwargs
@@ -33,19 +31,21 @@ class TSVESDE(SDE):
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
-        super().__init__(T, epsilon)
+        super().__init__(**kwargs)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.beta = beta
         self.t_star = t_star
 
         if beta_fn == "relu":
-            self.beta_fn = lambda t: -self.beta * F.relu(t / self.T - self.t_star)
+            self.beta_fn = lambda t: -self.beta * F.relu(t / self.t_max - self.t_star)
         elif beta_fn == "swish" or beta_fn == "silu":
-            self.beta_fn = lambda t: -self.beta * F.silu(alpha * (t / self.T - self.t_star)) / alpha
+            self.beta_fn = (
+                lambda t: -self.beta * F.silu(alpha * (t / self.t_max - self.t_star)) / alpha
+            )
         elif beta_fn == "hardswish":
             self.beta_fn = (
-                lambda t: -self.beta * F.hardswish(alpha * (t / self.T - self.t_star)) / alpha
+                lambda t: -self.beta * F.hardswish(alpha * (t / self.t_max - self.t_star)) / alpha
             )
         self.beta_fn_dot = vmap(grad(self.beta_fn))
 
@@ -63,7 +63,7 @@ class TSVESDE(SDE):
         """
         smin = np.log(self.sigma_min)
         smax = np.log(self.sigma_max)
-        log_coeff = self.beta_fn(t) + (smax - smin) * t / self.T + smin
+        log_coeff = self.beta_fn(t) + (smax - smin) * t / self.t_max + smin
         return torch.exp(log_coeff)
 
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
