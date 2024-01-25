@@ -16,8 +16,10 @@ import numpy as np
 from datetime import datetime
 from contextlib import nullcontext
 
-from .sde import VESDE, VPSDE, TSVESDE, SDE
+from .sde import VESDE, VPSDE, TSVESDE, SDE, subVPSDE
 from .utils import load_architecture
+from .solver import EulerMaruyamaSDE, RungeKuttaSDE_2, RungeKuttaSDE_4
+from .ode import EulerODE, RungeKuttaODE_2, RungeKuttaODE_4
 
 
 class ScoreModelBase(Module, ABC):
@@ -63,24 +65,19 @@ class ScoreModelBase(Module, ABC):
             hyperparameters["sde"] = sde.lower()
 
         if sde.lower() == "ve":
-            sde = VESDE(
-                sigma_min=hyperparameters["sigma_min"],
-                sigma_max=hyperparameters["sigma_max"],
-            )
+            sde = VESDE(**hyperparameters)
         elif sde.lower() == "vp":
-            if "epsilon" not in hyperparameters.keys():
-                hyperparameters["epsilon"] = 1e-5
-            sde = VPSDE(
-                beta_min=hyperparameters["beta_min"],
-                beta_max=hyperparameters["beta_max"],
-            )
+            if "t_min" not in hyperparameters.keys():
+                hyperparameters["t_min"] = 1e-5
+            sde = VPSDE(**hyperparameters)
+        elif sde.lower() == "subvp":
+            if "t_min" not in hyperparameters.keys():
+                hyperparameters["t_min"] = 1e-5
+            sde = subVPSDE(**hyperparameters)
         elif sde.lower() == "tsve":
-            sde = TSVESDE(
-                sigma_min=hyperparameters["sigma_min"],
-                sigma_max=hyperparameters["sigma_max"],
-                t_star=hyperparameters["t_star"],
-                beta=hyperparameters["beta"],
-            )
+            sde = TSVESDE(**hyperparameters)
+        else:
+            raise ValueError(f"The SDE {sde} provided is no supported")
 
         hyperparameters["model_architecture"] = model.__class__.__name__
         self.hyperparameters = hyperparameters
@@ -100,6 +97,30 @@ class ScoreModelBase(Module, ABC):
     @abstractmethod
     def loss_fn(self, x, *args) -> Tensor:
         ...
+
+    def log_likelihood(self, x, N, method="EulerODE"):
+        if method == "EulerODE":
+            ode = EulerODE(self)
+        elif method == "RungeKuttaODE_2":
+            ode = RungeKuttaODE_2(self)
+        elif method == "RungeKuttaODE_4":
+            ode = RungeKuttaODE_4(self)
+        else:
+            raise ValueError("Method not supported")
+        return ode.log_likelihood(x, N)
+
+    def sample(self, shape, N, method="EulerMaruyamaSDE"):
+        if method == "EulerMaruyamaSDE":
+            solver = EulerMaruyamaSDE(self)
+        elif method == "RungeKuttaSDE_2":
+            solver = RungeKuttaSDE_2(self)
+        elif method == "RungeKuttaSDE_4":
+            solver = RungeKuttaSDE_4(self)
+        else:
+            raise ValueError("Method not supported")
+
+        xT = self.sde.prior(shape)
+        return solver.reverse(xT, N)
 
     # def score_at_zero_temperature(
     # self,
@@ -136,7 +157,6 @@ class ScoreModelBase(Module, ABC):
         ema_kwargs={"decay": 0.9999},
         batch_size=1,
         shuffle=False,
-        patience=float("inf"),
         tolerance=0,
         max_time=float("inf"),
         warmup=0,
@@ -218,7 +238,7 @@ class ScoreModelBase(Module, ABC):
                             "batch_size": batch_size,
                             "shuffle": shuffle,
                             "epochs": epochs,
-                            "patience": patience,
+                            "patience": kwargs.get("patience", float("inf")),
                             "tolerance": tolerance,
                             "max_time": max_time,
                             "warmup": warmup,
@@ -344,7 +364,7 @@ class ScoreModelBase(Module, ABC):
 
             if cost < (1 - tolerance) * best_loss:
                 best_loss = cost
-                patience = patience
+                patience = kwargs.get("patience", float("inf"))
             else:
                 patience -= 1
 

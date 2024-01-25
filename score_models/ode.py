@@ -6,9 +6,12 @@ from torch.func import vjp
 
 
 class ODE(ABC):
-    def __init__(self, sde, score):
-        self.sde = sde
+    def __init__(self, score):
         self.score = score
+
+    @property
+    def sde(self):
+        return self.score.sde
 
     def dx_dt(self, t, x):
         return self.sde.drift(x, t) - 0.5 * self.sde.diffusion(t) ** 2 * self.score(t, x)
