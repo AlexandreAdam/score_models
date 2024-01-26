@@ -154,7 +154,7 @@ class ScoreModelBase(Module, ABC):
         dataset: Dataset,
         preprocessing_fn=None,
         epochs=100,
-        optimizer_kwargs={"learning_rate": 1e-4},
+        optimizer_kwargs={"lr": 1e-4},
         ema_kwargs={"decay": 0.9999},
         batch_size=1,
         shuffle=False,

@@ -150,8 +150,8 @@ def test_training_score_mlp():
     losses = model.fit(
         dataset,
         preprocessing_fn=preprocessing_fn,
-        learning_rate=learning_rate,
-        ema_decay=ema_decay,
+        optimizer_kwargs={"lr": learning_rate},
+        ema_kwargs={"decay": ema_decay},
         batch_size=batch_size,
         epochs=epochs,
         warmup=warmup,
@@ -262,8 +262,8 @@ def test_training_score_ncsnpp():
     losses = model.fit(
         dataset,
         preprocessing_fn=preprocessing_fn,
-        learning_rate=learning_rate,
-        ema_decay=ema_decay,
+        optimizer_kwargs={"lr": learning_rate},
+        ema_kwargs={"decay": ema_decay},
         batch_size=batch_size,
         epochs=epochs,
         warmup=warmup,
@@ -313,8 +313,8 @@ def test_training_energy():
     losses = model.fit(
         dataset,
         preprocessing_fn=preprocessing_fn,
-        learning_rate=learning_rate,
-        ema_decay=ema_decay,
+        optimizer_kwargs={"lr": learning_rate},
+        ema_kwargs={"decay": ema_decay},
         batch_size=batch_size,
         epochs=epochs,
         warmup=warmup,
