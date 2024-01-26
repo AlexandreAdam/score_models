@@ -119,7 +119,8 @@ class ScoreModelBase(Module, ABC):
         else:
             raise ValueError("Method not supported")
 
-        xT = self.sde.prior(shape)
+        B, *D = shape
+        xT = self.sde.prior(D).sample([B])
         return solver.reverse(xT, N)
 
     # def score_at_zero_temperature(

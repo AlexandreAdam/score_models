@@ -104,11 +104,11 @@ def test_log_likelihood():
 def test_sample_fn():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
-    score.sample(shape=[5, 1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], N=10)
 
     net = DDPM(1, nf=32, ch_mult=(2, 2))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
-    score.sample(shape=[5, 1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], N=10)
 
 
 def test_slic_score():

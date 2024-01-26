@@ -11,7 +11,7 @@ class Solver(ABC):
     The SDE defines the differential element ``dx`` for the stochastic process
     ``x``. Both the forward and reverse processes are defined using the
     coefficients and score provided. This class represents essentially any SDE
-    of the form: :math:`dx = f(x, t) dt + g(x, t) dw`.
+    of the form: :math:`dx = f(t, x) dt + g(t, x) dw`.
     """
 
     def __init__(self, score):
@@ -29,12 +29,12 @@ class Solver(ABC):
     def forward(self, x0, N, **kwargs):
         """forward SDE solver"""
 
-        return self._solve(x0, N, self.forward_dx, **kwargs)
+        return self._solve(x0, N, self.forward_dx, True, **kwargs)
 
     def reverse(self, xT, N, **kwargs):
         """reverse SDE solver"""
 
-        return self._solve(xT, N, self.reverse_dx, **kwargs)
+        return self._solve(xT, N, self.reverse_dx, False, **kwargs)
 
     def forward_f(self, t, x, **kwargs):
         """forward SDE coefficient a"""
@@ -42,28 +42,38 @@ class Solver(ABC):
 
     def forward_dx(self, t, x, dt, dw, **kwargs):
         """forward SDE differential element dx"""
-        return self.forward_f(x, t, **kwargs) * dt + self.sde.diffusion(t, **kwargs) * dw
+        return self.forward_f(t, x, **kwargs) * dt + self.sde.diffusion(t, x, **kwargs) * dw
 
-    def reverse_f(self, x, t, **kwargs):
+    def reverse_f(self, t, x, **kwargs):
         """reverse SDE coefficient a"""
-        return self.sde.drift(t, x, **kwargs) - self.sde.diffusion(t, **kwargs) ** 2 * self.score(
-            x, t, **kwargs
-        )
+        return self.sde.drift(t, x, **kwargs) - self.sde.diffusion(
+            t, x, **kwargs
+        ) ** 2 * self.score(t, x, **kwargs)
 
-    def reverse_dx(self, x, t, dt, dw, **kwargs):
+    def reverse_dx(self, t, x, dt, dw, **kwargs):
         """reverse SDE differential element dx"""
-        return self.reverse_f(t, x, **kwargs) * dt + self.sde.diffusion(t, **kwargs) * dw
+        return self.reverse_f(t, x, **kwargs) * dt + self.sde.diffusion(t, x, **kwargs) * dw
+
+    def time_steps(self, N, B=1, forward=True):
+        if forward:
+            return torch.linspace(self.sde.t_min, self.sde.t_max, N)[1:].repeat(B, 1).T
+        else:
+            return torch.linspace(self.sde.t_max, self.sde.t_min, N)[1:].repeat(B, 1).T
+
+    def stepsize(self, N):
+        return (self.sde.t_max - self.sde.t_min) / (N - 1)
 
 
 class EulerMaruyamaSDE(Solver):
-    def _solve(self, x, N, dx, **kwargs):
+    def _solve(self, x, N, dx, forward, **kwargs):
         """base SDE solver"""
-        dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
+        B, *D = x.shape
+        dt = self.stepsize(N)
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
-            dw = torch.randn_like(x) * torch.sqrt(dt)
+        for t in self.time_steps(N, B, forward=forward):
+            dw = torch.randn_like(x) * np.sqrt(dt)
             x = x + dx(t, x, dt, dw, **kwargs)
             if trace:
                 path.append(x)
@@ -73,14 +83,15 @@ class EulerMaruyamaSDE(Solver):
 
 
 class RungeKuttaSDE_2(Solver):
-    def _solve(self, x, N, dx, **kwargs):
+    def _solve(self, x, N, dx, forward, **kwargs):
         """Base SDE solver"""
-        dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
+        B, *D = x.shape
+        dt = self.stepsize(N)
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
-            dw = torch.randn_like(x) * torch.sqrt(dt)
+        for t in self.time_steps(N, B, forward=forward):
+            dw = torch.randn_like(x) * np.sqrt(dt)
             k1 = dx(t, x, dt, dw, **kwargs)
             k2 = dx(t + dt, x + k1, dt, dw, **kwargs)
             x = x + (k1 + k2) / 2
@@ -92,14 +103,15 @@ class RungeKuttaSDE_2(Solver):
 
 
 class RungeKuttaSDE_4(Solver):
-    def _solve(self, x, N, dx, **kwargs):
+    def _solve(self, x, N, dx, forward, **kwargs):
         """Base SDE solver"""
-        dt = (self.sde.t_max - self.sde.t_min) / (N - 1)
+        B, *D = x.shape
+        dt = self.stepsize(N)
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        for t in np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]:
-            dw = torch.randn_like(x) * torch.sqrt(dt)
+        for t in self.time_steps(N, B, forward=forward):
+            dw = torch.randn_like(x) * np.sqrt(dt)
             k1 = dx(t, x, dt, dw, **kwargs)
             k2 = dx(t + dt / 2, x + k1 / 2, dt, dw, **kwargs)
             k3 = dx(t + dt / 2, x + k2 / 2, dt, dw, **kwargs)

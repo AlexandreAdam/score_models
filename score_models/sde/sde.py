@@ -49,7 +49,7 @@ class SDE(ABC):
         if x0 is None:
             x0 = torch.zeros(shape).to(device)
 
-        mu = x0 * self.mean(t)
+        mu = x0 * self.mu(t)
         scale = self.sigma(t)
         return Independent(Normal(loc=mu, scale=scale, validate_args=False), len(shape))
 

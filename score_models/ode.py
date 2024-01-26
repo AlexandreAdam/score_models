@@ -14,7 +14,7 @@ class ODE(ABC):
         return self.score.sde
 
     def dx_dt(self, t, x):
-        return self.sde.drift(x, t) - 0.5 * self.sde.diffusion(t) ** 2 * self.score(t, x)
+        return self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)
 
     @abstractmethod
     def solve(self, x, N, forward=True, *args):
@@ -56,11 +56,11 @@ class ODE(ABC):
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
 
-    def time_steps(self, N, forward=True):
+    def time_steps(self, N, B=1, forward=True):
         if forward:
-            return np.linspace(self.sde.t_min, self.sde.t_max, N)[1:]
+            return torch.linspace(self.sde.t_min, self.sde.t_max, N)[1:].repeat(B, 1).T
         else:
-            return np.linspace(self.sde.t_max, self.sde.t_min, N)[1:]
+            return torch.linspace(self.sde.t_max, self.sde.t_min, N)[1:].repeat(B, 1).T
 
     def stepsize(self, N):
         return (self.sde.t_max - self.sde.t_min) / (N - 1)
@@ -68,9 +68,10 @@ class ODE(ABC):
 
 class EulerODE(ODE):
     def solve(self, x, N, forward=True, *args):
+        B, *D = x.shape
         dt = self.stepsize(N)
 
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             x = x + self.dx_dt(t, x) * dt
         return x
 
@@ -78,18 +79,19 @@ class EulerODE(ODE):
         B, *D = x.shape
         dt = self.stepsize(N)
         log_likelihood = 0.0
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             x = x + self.dx_dt(t, x) * dt
-            log_likelihood += self.sde.trace_jac_drift(t, x) * dt
+            log_likelihood += self.trace_jac_drift(t, x) * dt
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood
 
 
 class RungeKuttaODE_2(ODE):
     def solve(self, x, N, forward=True, *args):
+        B, *D = x.shape
         dt = self.stepsize(N)
 
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             k1 = self.dx_dt(t, x)
             k2 = self.dx_dt(t + dt, x + k1)
             x = x + (k1 + k2) * dt / 2
@@ -99,12 +101,12 @@ class RungeKuttaODE_2(ODE):
         B, *D = x.shape
         dt = self.stepsize(N)
         log_likelihood = 0.0
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             k1 = self.dx_dt(t, x)
             k2 = self.dx_dt(t + dt, x + k1)
             x = x + (k1 + k2) * dt / 2
-            l1 = self.sde.trace_jac_drift(t, x)
-            l2 = self.sde.trace_jac_drift(t + dt, x + k1)
+            l1 = self.trace_jac_drift(t, x)
+            l2 = self.trace_jac_drift(t + dt, x + k1)
             log_likelihood += (l1 + l2) * dt / 2
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood
@@ -112,9 +114,10 @@ class RungeKuttaODE_2(ODE):
 
 class RungeKuttaODE_4(ODE):
     def solve(self, x, N, forward=True, *args):
+        B, *D = x.shape
         dt = self.stepsize(N)
 
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             k1 = self.dx_dt(t, x)
             k2 = self.dx_dt(t + dt / 2, x + k1 / 2)
             k3 = self.dx_dt(t + dt / 2, x + k2 / 2)
@@ -126,7 +129,7 @@ class RungeKuttaODE_4(ODE):
         B, *D = x.shape
         dt = self.stepsize(N)
         log_likelihood = 0.0
-        for t in self.time_steps(N, forward):
+        for t in self.time_steps(N, B, forward):
             k1 = self.dx_dt(t, x)
             k2 = self.dx_dt(t + dt / 2, x + k1 / 2)
             k3 = self.dx_dt(t + dt / 2, x + k2 / 2)
