@@ -31,5 +31,4 @@ class VPSDE(SDE):
 
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
-        print(t, x, self.beta(t), D)
         return -0.5 * self.beta(t).view(-1, *[1] * len(D)) * x

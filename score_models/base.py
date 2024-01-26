@@ -64,20 +64,20 @@ class ScoreModelBase(Module, ABC):
                 raise ValueError(f"The SDE {sde} provided is no supported")
             hyperparameters["sde"] = sde.lower()
 
-        if sde.lower() == "ve":
-            sde = VESDE(**hyperparameters)
-        elif sde.lower() == "vp":
-            if "t_min" not in hyperparameters.keys():
-                hyperparameters["t_min"] = 1e-5
-            sde = VPSDE(**hyperparameters)
-        elif sde.lower() == "subvp":
-            if "t_min" not in hyperparameters.keys():
-                hyperparameters["t_min"] = 1e-5
-            sde = subVPSDE(**hyperparameters)
-        elif sde.lower() == "tsve":
-            sde = TSVESDE(**hyperparameters)
-        else:
-            raise ValueError(f"The SDE {sde} provided is no supported")
+            if sde.lower() == "ve":
+                sde = VESDE(**hyperparameters)
+            elif sde.lower() == "vp":
+                if "t_min" not in hyperparameters.keys():
+                    hyperparameters["t_min"] = 1e-5
+                sde = VPSDE(**hyperparameters)
+            elif sde.lower() == "subvp":
+                if "t_min" not in hyperparameters.keys():
+                    hyperparameters["t_min"] = 1e-5
+                sde = subVPSDE(**hyperparameters)
+            elif sde.lower() == "tsve":
+                sde = TSVESDE(**hyperparameters)
+            else:
+                raise ValueError(f"The SDE {sde} provided is no supported")
 
         hyperparameters["model_architecture"] = model.__class__.__name__
         self.hyperparameters = hyperparameters
