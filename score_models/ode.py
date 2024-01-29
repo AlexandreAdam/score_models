@@ -29,8 +29,25 @@ class ODE(ABC):
         """Reverse discretization of the ODE, this is the update for x"""
         return (self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)) * dt
 
+    def _solve(self, x, N, dx, forward=True, **kwargs):
+        B, *_ = x.shape
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
+        trace = kwargs.get("trace", False)
+        if trace:
+            path = [x]
+
+        for t in self.time_steps(N, B, forward):
+            x = self._step(t, x, dt, dx, **kwargs)
+            if trace:
+                path.append(x)
+        if trace:
+            return torch.stack(path)
+        return x
+
     @abstractmethod
-    def _solve(self, x, N, forward=True, *args):
+    def _step(self, t, x, dt, dx, **kwargs):
+        """base ODE step"""
         ...
 
     @abstractmethod
@@ -83,21 +100,8 @@ class ODE(ABC):
 
 
 class EulerODE(ODE):
-    def _solve(self, x, N, dx, forward=True, **kwargs):
-        B, *_ = x.shape
-        h = 1 if forward else -1
-        dt = h * self.stepsize(N, x.device)
-        trace = kwargs.get("trace", False)
-        if trace:
-            path = [x]
-
-        for t in self.time_steps(N, B, forward):
-            x = x + dx(t, x, dt)
-            if trace:
-                path.append(x)
-        if trace:
-            return torch.stack(path)
-        return x
+    def _step(self, t, x, dt, dx, **kwargs):
+        return x + dx(t, x, dt)
 
     def _log_likelihood(self, x, N, dx, forward=True, *args):
         # TODO: this assumes user is going to call forward=False
@@ -114,23 +118,10 @@ class EulerODE(ODE):
 
 
 class RungeKuttaODE_2(ODE):
-    def _solve(self, x, N, dx, forward=True, **kwargs):
-        B, *D = x.shape
-        h = 1 if forward else -1
-        dt = h * self.stepsize(N)
-        trace = kwargs.get("trace", False)
-        if trace:
-            path = [x]
-
-        for t in self.time_steps(N, B, forward):
-            k1 = dx(t, x, dt)
-            k2 = dx(t + dt, x + k1, dt)
-            x = x + (k1 + k2) / 2
-            if trace:
-                path.append(x)
-        if trace:
-            return torch.stack(path)
-        return x
+    def _step(self, t, x, dt, dx, **kwargs):
+        k1 = dx(t, x, dt)
+        k2 = dx(t + dt, x + k1, dt)
+        return x + (k1 + k2) / 2
 
     def _log_likelihood(self, x, N, dx, forward=True, *args):
         B, *D = x.shape
@@ -150,25 +141,12 @@ class RungeKuttaODE_2(ODE):
 
 
 class RungeKuttaODE_4(ODE):
-    def _solve(self, x, N, dx, forward=True, **kwargs):
-        B, *_ = x.shape
-        h = 1 if forward else -1
-        dt = h * self.stepsize(N)
-        trace = kwargs.get("trace", False)
-        if trace:
-            path = [x]
-
-        for t in self.time_steps(N, B, forward):
-            k1 = dx(t, x, dt)
-            k2 = dx(t + dt / 2, x + k1 / 2, dt)
-            k3 = dx(t + dt / 2, x + k2 / 2, dt)
-            k4 = dx(t + dt, x + k3, dt)
-            x = x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
-            if trace:
-                path.append(x)
-        if trace:
-            return torch.stack(path)
-        return x
+    def _step(self, t, x, dt, dx, **kwargs):
+        k1 = dx(t, x, dt)
+        k2 = dx(t + dt / 2, x + k1 / 2, dt)
+        k3 = dx(t + dt / 2, x + k2 / 2, dt)
+        k4 = dx(t + dt, x + k3, dt)
+        return x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
     def _log_likelihood(self, x, N, dx, forward=True, *args):
         B, *D = x.shape
