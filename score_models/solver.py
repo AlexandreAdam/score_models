@@ -96,7 +96,7 @@ class RungeKuttaSDE_2(Solver):
         sk = kwargs.get("sk", -1)
         for t in self.time_steps(N, B, forward=forward):
             dw = torch.randn_like(x) * torch.sqrt(dt.abs())
-            sk = -sk
+            sk *= np.random.choice([-1, 1])
             skdt = sk * torch.sqrt(dt.abs())
             k1 = dx(t, x, dt, dw - skdt, **kwargs)
             k2 = dx(t + dt, x + k1, dt, dw + skdt, **kwargs)
@@ -120,7 +120,7 @@ class RungeKuttaSDE_4(Solver):
         sk = kwargs.get("sk", -1)
         for t in self.time_steps(N, B, forward=forward):
             dw = torch.randn_like(x) * torch.sqrt(dt.abs())
-            sk = -sk
+            sk *= np.random.choice([-1, 1])
             skdt = sk * torch.sqrt(dt.abs())
             k1 = dx(t, x, dt, dw - skdt, **kwargs)
             k2 = dx(t + dt / 2, x + k1 / 2, dt, dw + skdt, **kwargs)
