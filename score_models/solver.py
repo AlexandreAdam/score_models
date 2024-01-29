@@ -14,12 +14,38 @@ class Solver(ABC):
     of the form: :math:`dx = f(t, x) dt + g(t, x) dw`.
     """
 
-    def __init__(self, score):
+    def __init__(self, score, corrector=False, **kwargs):
         self.score = score
+        self.corrector = corrector
+        self.corrector_epsilon = kwargs.get("corrector_epsilon", lambda t: 0.1)
+        self.corrector_steps = kwargs.get("corrector_steps", 1)
 
     @property
     def sde(self):
         return self.score.sde
+
+    @property
+    def corrector(self):
+        return self._corrector
+
+    @corrector.setter
+    def corrector(self, corrector):
+        if corrector:
+            self._corrector = self.corrector_step
+        else:
+            self._corrector = self.null_corrector
+
+    def null_corrector(self, t, x, **kwargs):
+        return x
+
+    def corrector_step(self, t, x, **kwargs):
+        """Basic Langevin corrector step for the SDE."""
+        z = torch.randn_like(x)
+        return (
+            x
+            + self.corrector_epsilon(t) * self.score(t, x)
+            + z * torch.sqrt(2 * self.corrector_epsilon(t))
+        )
 
     def forward(self, x0, N, **kwargs):
         """Call this to solve the SDE forward in time from x0 at time t_min to xT at time t_max"""
@@ -40,6 +66,8 @@ class Solver(ABC):
         sk = kwargs.get("sk", -1)
         for t in self.time_steps(N, B, forward=forward):
             x = self._step(t, x, dt, dx, sk=sk, **kwargs)
+            for _ in range(self.corrector_steps):
+                x = self.corrector(t, x, **kwargs)
             if trace:
                 path.append(x)
         if trace:
