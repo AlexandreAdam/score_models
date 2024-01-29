@@ -13,15 +13,28 @@ class ODE(ABC):
     def sde(self):
         return self.score.sde
 
-    def dx_dt(self, t, x):
-        return self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)
+    def forward(self, x0, N, **kwargs):
+        """Call this to solve the ODE forward in time from x0 at time t_min to xT at time t_max"""
+        return self._solve(x0, N, self.forward_dx, True, **kwargs)
+
+    def reverse(self, xT, N, **kwargs):
+        """Call this to solve the ODE backward in time from xT at time t_max to x0 at time t_min"""
+        return self._solve(xT, N, self.reverse_dx, False, **kwargs)
+
+    def forward_dx(self, t, x, dt):
+        """Forward discretization of the ODE, this is the update for x"""
+        return self.sde.drift(t, x) * dt
+
+    def reverse_dx(self, t, x, dt):
+        """Reverse discretization of the ODE, this is the update for x"""
+        return (self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)) * dt
 
     @abstractmethod
-    def solve(self, x, N, forward=True, *args):
+    def _solve(self, x, N, forward=True, *args):
         ...
 
     @abstractmethod
-    def log_likelihood(self, x, N, forward=True, *args):
+    def _log_likelihood(self, x, N, forward=True, *args):
         """
         A basic implementation of Euler discretisation method of the ODE associated
         with the marginals of the learned SDE.
@@ -40,8 +53,11 @@ class ODE(ABC):
         """
         ...
 
+    def log_likelihood(self, xT, N, *args):
+        return self._log_likelihood(xT, N, self.reverse_dx, False, *args)
+
     def trace_jac_drift(self, t, x, n_cotangent_vectors: int = 1, noise_type="rademacher"):
-        B, *D = x.shape
+        _, *D = x.shape
         # duplicate noisy samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cotangent_vectors, *[1] * len(D)])
         # TODO also duplicate args
@@ -51,7 +67,7 @@ class ODE(ABC):
         if noise_type == "rademacher":
             vectors = vectors.sign()
         # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score)
-        f = lambda x: self.dx_dt(t, x)
+        f = lambda x: self.reverse_dx(t, x, 1)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
@@ -62,48 +78,69 @@ class ODE(ABC):
         else:
             return torch.linspace(self.sde.t_max, self.sde.t_min, N)[1:].repeat(B, 1).T
 
-    def stepsize(self, N):
-        return (self.sde.t_max - self.sde.t_min) / (N - 1)
+    def stepsize(self, N, device=None):
+        return torch.tensor((self.sde.t_max - self.sde.t_min) / (N - 1), device=device)
 
 
 class EulerODE(ODE):
-    def solve(self, x, N, forward=True, *args):
-        B, *D = x.shape
-        dt = self.stepsize(N)
+    def _solve(self, x, N, dx, forward=True, **kwargs):
+        B, *_ = x.shape
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N, x.device)
+        trace = kwargs.get("trace", False)
+        if trace:
+            path = [x]
 
         for t in self.time_steps(N, B, forward):
-            x = x + self.dx_dt(t, x) * dt
+            x = x + dx(t, x, dt)
+            if trace:
+                path.append(x)
+        if trace:
+            return torch.stack(path)
         return x
 
-    def log_likelihood(self, x, N, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, *args):
+        # TODO: this assumes user is going to call forward=False
         B, *D = x.shape
-        dt = self.stepsize(N)
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
         log_likelihood = 0.0
+
         for t in self.time_steps(N, B, forward):
-            x = x + self.dx_dt(t, x) * dt
+            x = x + dx(t, x, dt)
             log_likelihood += self.trace_jac_drift(t, x) * dt
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood
 
 
 class RungeKuttaODE_2(ODE):
-    def solve(self, x, N, forward=True, *args):
+    def _solve(self, x, N, dx, forward=True, **kwargs):
         B, *D = x.shape
-        dt = self.stepsize(N)
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
+        trace = kwargs.get("trace", False)
+        if trace:
+            path = [x]
 
         for t in self.time_steps(N, B, forward):
-            k1 = self.dx_dt(t, x)
-            k2 = self.dx_dt(t + dt, x + k1)
-            x = x + (k1 + k2) * dt / 2
+            k1 = dx(t, x, dt)
+            k2 = dx(t + dt, x + k1, dt)
+            x = x + (k1 + k2) / 2
+            if trace:
+                path.append(x)
+        if trace:
+            return torch.stack(path)
         return x
 
-    def log_likelihood(self, x, N, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, *args):
         B, *D = x.shape
-        dt = self.stepsize(N)
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
         log_likelihood = 0.0
+
         for t in self.time_steps(N, B, forward):
-            k1 = self.dx_dt(t, x)
-            k2 = self.dx_dt(t + dt, x + k1)
+            k1 = dx(t, x, dt)
+            k2 = dx(t + dt, x + k1, dt)
             x = x + (k1 + k2) * dt / 2
             l1 = self.trace_jac_drift(t, x)
             l2 = self.trace_jac_drift(t + dt, x + k1)
@@ -113,27 +150,37 @@ class RungeKuttaODE_2(ODE):
 
 
 class RungeKuttaODE_4(ODE):
-    def solve(self, x, N, forward=True, *args):
-        B, *D = x.shape
-        dt = self.stepsize(N)
+    def _solve(self, x, N, dx, forward=True, **kwargs):
+        B, *_ = x.shape
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
+        trace = kwargs.get("trace", False)
+        if trace:
+            path = [x]
 
         for t in self.time_steps(N, B, forward):
-            k1 = self.dx_dt(t, x)
-            k2 = self.dx_dt(t + dt / 2, x + k1 / 2)
-            k3 = self.dx_dt(t + dt / 2, x + k2 / 2)
-            k4 = self.dx_dt(t + dt, x + k3)
-            x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
+            k1 = dx(t, x, dt)
+            k2 = dx(t + dt / 2, x + k1 / 2, dt)
+            k3 = dx(t + dt / 2, x + k2 / 2, dt)
+            k4 = dx(t + dt, x + k3, dt)
+            x = x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+            if trace:
+                path.append(x)
+        if trace:
+            return torch.stack(path)
         return x
 
-    def log_likelihood(self, x, N, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, *args):
         B, *D = x.shape
-        dt = self.stepsize(N)
+        h = 1 if forward else -1
+        dt = h * self.stepsize(N)
         log_likelihood = 0.0
+
         for t in self.time_steps(N, B, forward):
-            k1 = self.dx_dt(t, x)
-            k2 = self.dx_dt(t + dt / 2, x + k1 / 2)
-            k3 = self.dx_dt(t + dt / 2, x + k2 / 2)
-            k4 = self.dx_dt(t + dt, x + k3)
+            k1 = dx(t, x, dt)
+            k2 = dx(t + dt / 2, x + k1 / 2, dt)
+            k3 = dx(t + dt / 2, x + k2 / 2, dt)
+            k4 = dx(t + dt, x + k3, dt)
             x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
             l1 = self.trace_jac_drift(t, x)
             l2 = self.trace_jac_drift(t + dt / 2, x + k1 / 2)

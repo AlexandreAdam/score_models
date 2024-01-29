@@ -116,6 +116,12 @@ class ScoreModelBase(Module, ABC):
             solver = RungeKuttaSDE_2(self)
         elif method == "RungeKuttaSDE_4":
             solver = RungeKuttaSDE_4(self)
+        elif method == "EulerODE":
+            solver = EulerODE(self)
+        elif method == "RungeKuttaODE_2":
+            solver = RungeKuttaODE_2(self)
+        elif method == "RungeKuttaODE_4":
+            solver = RungeKuttaODE_4(self)
         else:
             raise ValueError("Method not supported")
 
