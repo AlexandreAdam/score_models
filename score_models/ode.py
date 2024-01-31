@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 from torch.func import vjp
+from tqdm import tqdm
 
 
 class ODE(ABC):
@@ -36,8 +37,16 @@ class ODE(ABC):
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-
-        for t in self.time_steps(N, B, forward):
+        T = self.time_steps(N, B, forward=forward)
+        pbar = kwargs.get("progress_bar", False)
+        if pbar:
+            T = tqdm(T)
+        for t in T:
+            if pbar:
+                T.set_description(
+                    f"t = {t[0].item():.1e} | sigma = {self.sde.sigma(t)[0].item():.1e} | "
+                    f"x = {x.mean().item():.1e} +- {x.std().item():.1e}"
+                )
             x = self._step(t, x, dt, dx, **kwargs)
             if trace:
                 path.append(x)

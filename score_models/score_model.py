@@ -27,6 +27,16 @@ class ScoreModel(ScoreModelBase):
 
 
 class EnergyModel(ScoreModelBase):
+    """
+    Energy-based model for score matching. The energy is defined as the negative
+    log-likelihood. This comes from the Gibbs measure of a probability
+    distribution and looks something like:
+
+    .. math::
+        P(X=x) = \\frac{1}{Z} \\exp(-E(x))
+
+    """
+
     def __init__(
         self,
         model: Union[str, Module] = None,
@@ -51,7 +61,7 @@ class EnergyModel(ScoreModelBase):
 
     def _unet_energy(self, t, x, *args):
         _, *D = x.shape
-        return -(
+        return (
             0.5
             / self.sde.sigma(t)
             * torch.sum((x - self.model(t, x, *args)) ** 2, dim=list(range(1, 1 + len(D))))
@@ -64,4 +74,4 @@ class EnergyModel(ScoreModelBase):
         _, *D = x.shape
         # small wrapper to account for input without batch dim from vmap
         energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0), *args).squeeze(0)
-        return vmap(grad(energy, argnums=1))(t, x, *args)  # Don't forget the minus sign!
+        return -vmap(grad(energy, argnums=1))(t, x, *args)  # Don't forget the minus sign!
