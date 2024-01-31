@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import torch
 import numpy as np
+from tqdm import tqdm
 
 
 class Solver(ABC):
@@ -64,7 +65,10 @@ class Solver(ABC):
         if trace:
             path = [x]
         sk = kwargs.get("sk", -1)
-        for t in self.time_steps(N, B, forward=forward):
+        T = self.time_steps(N, B, forward=forward)
+        if kwargs.get("progress_bar", False):
+            T = tqdm(T)
+        for t in T:
             x = self._step(t, x, dt, dx, sk=sk, **kwargs)
             for _ in range(self.corrector_steps):
                 x = self.corrector(t, x, **kwargs)

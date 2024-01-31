@@ -92,10 +92,12 @@ class ScoreModelBase(Module, ABC):
 
     @abstractmethod
     def score(self, t, x, *args) -> Tensor:
+        """function which evaluates the score at a given time and position (gradient wrt x of the log probability)"""
         ...
 
     @abstractmethod
     def loss_fn(self, x, *args) -> Tensor:
+        """Defines the loss for training the score model (usually a variant of the denoising score matching loss)"""
         ...
 
     def log_likelihood(self, x, N, method="EulerODE"):
@@ -109,7 +111,7 @@ class ScoreModelBase(Module, ABC):
             raise ValueError("Method not supported")
         return ode.log_likelihood(x, N)
 
-    def sample(self, shape, N, method="EulerMaruyamaSDE"):
+    def sample(self, shape, N, method="EulerMaruyamaSDE", **kwargs):
         if method == "EulerMaruyamaSDE":
             solver = EulerMaruyamaSDE(self)
         elif method == "RungeKuttaSDE_2":
@@ -127,7 +129,7 @@ class ScoreModelBase(Module, ABC):
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
-        return solver.reverse(xT, N)
+        return solver.reverse(xT, N, **kwargs)
 
     # def score_at_zero_temperature(
     # self,
