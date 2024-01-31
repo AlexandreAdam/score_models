@@ -66,9 +66,15 @@ class Solver(ABC):
             path = [x]
         sk = kwargs.get("sk", -1)
         T = self.time_steps(N, B, forward=forward)
-        if kwargs.get("progress_bar", False):
+        pbar = kwargs.get("progress_bar", False)
+        if pbar:
             T = tqdm(T)
         for t in T:
+            if pbar:
+                T.set_description(
+                    f"t = {t[0].item():.1e} | sigma = {self.sde.sigma(t)[0].item():.1e} | "
+                    f"x = {x.mean().item():.1e} +- {x.std().item():.1e}"
+                )
             x = self._step(t, x, dt, dx, sk=sk, **kwargs)
             for _ in range(self.corrector_steps):
                 x = self.corrector(t, x, **kwargs)
