@@ -67,8 +67,8 @@ class Solver(ABC):
         for t in pbar:
             if progress_bar:
                 pbar.set_description(
-                    f"t = {t[0].item():.1e} | sigma = {self.sde.sigma(t)[0].item():.1e} | "
-                    f"x = {x.mean().item():.1e} +- {x.std().item():.1e}"
+                    f"t = {t[0].item():.1g} | sigma = {self.sde.sigma(t)[0].item():.1g} | "
+                    f"x = {x.mean().item():.1g} \u00B1 {x.std().item():.1g}"
                 )
             x = self._step(t, x, dt, dx, sk=sk, **kwargs)
             for _ in range(self.corrector_steps):

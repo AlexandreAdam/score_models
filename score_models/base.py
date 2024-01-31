@@ -115,7 +115,7 @@ class ScoreModelBase(Module, ABC):
             raise ValueError("Method not supported")
         return ode.log_likelihood(x, N)
 
-    def sample(self, shape, N, method="EulerMaruyamaSDE", **kwargs):
+    def sample(self, shape, N, method="EulerMaruyamaSDE", progress_bar=True, **kwargs):
         if method == "EulerMaruyamaSDE":
             solver = EulerMaruyamaSDE(self)
         elif method == "RungeKuttaSDE_2":
@@ -133,7 +133,7 @@ class ScoreModelBase(Module, ABC):
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
-        return solver.reverse(xT, N, **kwargs)
+        return solver.reverse(xT, N, progress_bar=progress_bar, **kwargs)
 
     # def score_at_zero_temperature(
     # self,
