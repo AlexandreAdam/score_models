@@ -44,7 +44,7 @@ class SDE(ABC):
         """drift coefficient for SDE. This is the term in front of dt"""
         ...
 
-    def p0t(self, shape, t: Tensor, x0: Optional[Tensor] = None, device=DEVICE):
+    def perturbation_kernel(self, shape, t: Tensor, x0: Optional[Tensor] = None, device=DEVICE):
         """perturbation kernel"""
         if x0 is None:
             x0 = torch.zeros(shape).to(device)
@@ -57,7 +57,7 @@ class SDE(ABC):
         """
         High temperature (t=1) distribution
         """
-        return self.p0t(shape, torch.ones(1).to(device), x0, device)
+        return self.perturbation_kernel(shape, torch.ones(1).to(device), x0, device)
 
     def marginal_prob_scalars(self, t: Tensor) -> tuple[Tensor, Tensor]:
         return self.mu(t), self.sigma(t)

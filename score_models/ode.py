@@ -5,6 +5,8 @@ import torch
 from torch.func import vjp
 from tqdm import tqdm
 
+# TODO: maybe merge ODE and Solver into single class?
+
 
 class ODE(ABC):
     def __init__(self, score):

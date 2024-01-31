@@ -46,6 +46,10 @@ class ScoreModelBase(Module, ABC):
             hyperparameters.update(hyperparams)
         elif hasattr(model, "hyperparameters"):
             hyperparameters.update(model.hyperparameters)
+            # For backwards compatability ensure epsilon and t_min are the same
+            if "epsilon" in hyperparameters.keys():
+                hyperparameters["t_min"] = hyperparameters["epsilon"]
+            hyperparameters["epsilon"] = hyperparameters.get("t_min", 1e-3)
         if sde is None:
             # Some sane defaults for quick use
             if "t_star" in hyperparameters.keys():

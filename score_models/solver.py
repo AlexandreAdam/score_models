@@ -18,7 +18,7 @@ class Solver(ABC):
     def __init__(self, score, corrector=False, **kwargs):
         self.score = score
         self.corrector = corrector
-        self.corrector_epsilon = kwargs.get("corrector_epsilon", lambda t: 0.1)
+        self.corrector_snr = kwargs.get("corrector_snr", 0.1)
         self.corrector_steps = kwargs.get("corrector_steps", 1)
 
     @property
@@ -42,11 +42,8 @@ class Solver(ABC):
     def corrector_step(self, t, x, **kwargs):
         """Basic Langevin corrector step for the SDE."""
         z = torch.randn_like(x)
-        return (
-            x
-            + self.corrector_epsilon(t) * self.score(t, x)
-            + z * torch.sqrt(2 * self.corrector_epsilon(t))
-        )
+        epsilon = (self.corrector_snr * self.sde.sigma(t)) ** 2
+        return x + epsilon * self.score(t, x) + z * torch.sqrt(2 * epsilon)
 
     def forward(self, x0, N, **kwargs):
         """Call this to solve the SDE forward in time from x0 at time t_min to xT at time t_max"""
