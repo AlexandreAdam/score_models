@@ -30,7 +30,7 @@ class ODE(ABC):
         """Reverse discretization of the ODE, this is the update for x"""
         return (self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)) * dt
 
-    def _solve(self, x, N, dx, forward=True, **kwargs):
+    def _solve(self, x, N, dx, forward=True, progress_bar=False, **kwargs):
         B, *_ = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N)
@@ -38,12 +38,10 @@ class ODE(ABC):
         if trace:
             path = [x]
         T = self.time_steps(N, B, forward=forward)
-        pbar = kwargs.get("progress_bar", False)
-        if pbar:
-            T = tqdm(T)
-        for t in T:
-            if pbar:
-                T.set_description(
+        pbar = tqdm(T) if progress_bar else T
+        for t in pbar:
+            if progress_bar:
+                pbar.set_description(
                     f"t = {t[0].item():.1e} | sigma = {self.sde.sigma(t)[0].item():.1e} | "
                     f"x = {x.mean().item():.1e} +- {x.std().item():.1e}"
                 )

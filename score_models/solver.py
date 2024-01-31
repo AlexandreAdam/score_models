@@ -56,7 +56,7 @@ class Solver(ABC):
         """Call this to solve the SDE backward in time from xT at time t_max to x0 at time t_min"""
         return self._solve(xT, N, self.reverse_dx, False, **kwargs)
 
-    def _solve(self, x, N, dx, forward, **kwargs):
+    def _solve(self, x, N, dx, forward, progress_bar=False, **kwargs):
         """base SDE solver"""
         B, *D = x.shape
         h = 1 if forward else -1
@@ -64,14 +64,12 @@ class Solver(ABC):
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        sk = kwargs.get("sk", -1)
+        sk = kwargs.get("sk", 0)  # Set to -1 for Ito SDE, TODO: make sure this is right
         T = self.time_steps(N, B, forward=forward)
-        pbar = kwargs.get("progress_bar", False)
-        if pbar:
-            T = tqdm(T)
-        for t in T:
-            if pbar:
-                T.set_description(
+        pbar = tqdm(T) if progress_bar else T
+        for t in pbar:
+            if progress_bar:
+                pbar.set_description(
                     f"t = {t[0].item():.1e} | sigma = {self.sde.sigma(t)[0].item():.1e} | "
                     f"x = {x.mean().item():.1e} +- {x.std().item():.1e}"
                 )
@@ -122,12 +120,17 @@ class Solver(ABC):
 class EulerMaruyamaSDE(Solver):
     def _step(self, t, x, dt, dx, **kwargs):
         """base SDE solver"""
-        return x + dx(t, x, dt, **kwargs)
+        dw = torch.randn_like(x) * torch.sqrt(dt.abs())
+        return x + dx(t, x, dt, dw, **kwargs)
 
 
 class RungeKuttaSDE_2(Solver):
     def _step(self, t, x, dt, dx, sk, **kwargs):
-        """Base SDE solver"""
+        """Base SDE solver using a 2nd order Runge-Kutta method. For more
+        details see Equation 2.5 in chapter 7.2 of the book "Introduction to
+        Stochastic Differential Equations" by Thomas C. Gard. The equations have
+        been adapted by including a term ``skdt`` which allows for solving the
+        Ito SDE or the Stratonovich SDE."""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
         k1 = dx(t, x, dt, dw - skdt, **kwargs)
@@ -137,7 +140,11 @@ class RungeKuttaSDE_2(Solver):
 
 class RungeKuttaSDE_4(Solver):
     def _step(self, t, x, dt, dx, sk, **kwargs):
-        """Base SDE solver"""
+        """Base SDE solver using a 4th order Runge-Kutta method. For more
+        details see Equation 3.6 in chapter 7.3 of the book "Introduction to
+        Stochastic Differential Equations" by Thomas C. Gard. The equations have
+        been adapted by including a term ``skdt`` which allows for solving the
+        Ito SDE or the Stratonovich SDE."""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
         k1 = dx(t, x, dt, dw - skdt, **kwargs)
