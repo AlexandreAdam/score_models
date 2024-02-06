@@ -62,7 +62,7 @@ class Solver(ABC):
         if trace:
             path = [x]
         sk = kwargs.get("sk", 0)  # Set to -1 for Ito SDE, TODO: make sure this is right
-        T = self.time_steps(N, B, forward=forward)
+        T = self.time_steps(N, B, forward=forward, **kwargs)
         pbar = tqdm(T) if progress_bar else T
         for t in pbar:
             if progress_bar:
@@ -104,11 +104,13 @@ class Solver(ABC):
             dw = torch.randn_like(x) * torch.sqrt(torch.abs(dt))
         return self.reverse_f(t, x, **kwargs) * dt + self.sde.diffusion(t, x) * dw
 
-    def time_steps(self, N, B=1, forward=True):
+    def time_steps(self, N, B=1, forward=True, **kwargs):
+        t_min = kwargs.get("t_min", self.sde.t_min)
+        t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(self.sde.t_min, self.sde.t_max, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N)[1:].repeat(B, 1).T
         else:
-            return torch.linspace(self.sde.t_max, self.sde.t_min, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
 
     def stepsize(self, N, device=None):
         return torch.tensor((self.sde.t_max - self.sde.t_min) / (N - 1), device=device)

@@ -39,7 +39,7 @@ class ODE(ABC):
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        T = self.time_steps(N, B, forward=forward)
+        T = self.time_steps(N, B, forward=forward, **kwargs)
         pbar = tqdm(T) if progress_bar else T
         for t in pbar:
             if progress_bar:
@@ -98,11 +98,13 @@ class ODE(ABC):
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
 
-    def time_steps(self, N, B=1, forward=True):
+    def time_steps(self, N, B=1, forward=True, **kwargs):
+        t_min = kwargs.get("t_min", self.sde.t_min)
+        t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(self.sde.t_min, self.sde.t_max, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N)[1:].repeat(B, 1).T
         else:
-            return torch.linspace(self.sde.t_max, self.sde.t_min, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
 
     def stepsize(self, N, device=None):
         return torch.tensor((self.sde.t_max - self.sde.t_min) / (N - 1), device=device)
