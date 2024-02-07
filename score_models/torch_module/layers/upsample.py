@@ -15,10 +15,10 @@ class UpsampleLayer(Module):
             assert with_conv
         if not fir:
             if with_conv:
-                self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
+                self.conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
         else:
             if with_conv:
-                self.Conv1d_0 = StyleGANConv(in_ch, out_ch,
+                self.conv1d_0 = StyleGANConv(in_ch, out_ch,
                                    kernel=3, up=True,
                                    resample_kernel=fir_kernel,
                                    use_bias=True,
@@ -34,11 +34,11 @@ class UpsampleLayer(Module):
         if not self.fir:
             h = F.interpolate(x, size=[d*2 for d in D], mode='nearest')
             if self.with_conv:
-                h = self.Conv_0(h)
+                h = self.conv_0(h)
         else:
             if not self.with_conv:
                 h = upsample(x, self.fir_kernel, factor=2, dimensions=len(D))
             else:
-                h = self.Conv1d_0(x)
+                h = self.conv1d_0(x)
         return h
 

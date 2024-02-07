@@ -30,3 +30,17 @@ setup(
     ],
 )
 
+
+# setup(
+    # name='your_package',
+    # ...
+    # install_requires=[
+        # 'numpy',  # common dependencies
+        # ...
+    # ],
+    # extras_require={
+        # 'torch': ['torch', 'torchvision'],  # PyTorch and its dependencies
+        # 'jax': ['jax', 'jaxlib', 'equinox']  # JAX and its dependencies
+    # }
+# )
+
