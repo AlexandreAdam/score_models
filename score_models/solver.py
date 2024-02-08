@@ -41,8 +41,9 @@ class Solver(ABC):
 
     def corrector_step(self, t, x, **kwargs):
         """Basic Langevin corrector step for the SDE."""
+        _, *D = x.shape
         z = torch.randn_like(x)
-        epsilon = (self.corrector_snr * self.sde.sigma(t)) ** 2
+        epsilon = (self.corrector_snr * self.sde.sigma(t).view(-1, *[1] * len(D))) ** 2
         return x + epsilon * self.score(t, x) + z * torch.sqrt(2 * epsilon)
 
     def forward(self, x0, N, **kwargs):

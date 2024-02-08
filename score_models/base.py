@@ -117,17 +117,17 @@ class ScoreModelBase(Module, ABC):
 
     def sample(self, shape, N, method="EulerMaruyamaSDE", progress_bar=True, **kwargs):
         if method == "EulerMaruyamaSDE":
-            solver = EulerMaruyamaSDE(self)
+            solver = EulerMaruyamaSDE(self, **kwargs)
         elif method == "RungeKuttaSDE_2":
-            solver = RungeKuttaSDE_2(self)
+            solver = RungeKuttaSDE_2(self, **kwargs)
         elif method == "RungeKuttaSDE_4":
-            solver = RungeKuttaSDE_4(self)
+            solver = RungeKuttaSDE_4(self, **kwargs)
         elif method == "EulerODE":
-            solver = EulerODE(self)
+            solver = EulerODE(self, **kwargs)
         elif method == "RungeKuttaODE_2":
-            solver = RungeKuttaODE_2(self)
+            solver = RungeKuttaODE_2(self, **kwargs)
         elif method == "RungeKuttaODE_4":
-            solver = RungeKuttaODE_4(self)
+            solver = RungeKuttaODE_4(self, **kwargs)
         else:
             raise ValueError("Method not supported")
 
