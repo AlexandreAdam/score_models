@@ -1,67 +1,54 @@
-import torch.nn as nn
-import torch
+import jax.numpy as jnp
+import equinox as eqx
+import jax
 
 
-class ConditionalInstanceNorm2dPlus(nn.Module):
-    """
-    From Song & Ermon 2020. Original implementation
-    (https://github.com/ermongroup/ncsn/blob/master/models/refinenet_dilated_baseline.py).
+class ConditionalInstanceNorm2dPlus(eqx.Module):
+    instance_norm: eqx.nn.InstanceNorm
+    embed: eqx.Module
+    num_features: int
+    bias: bool
+    num_classes: int = None
 
-    Goal of this instance norm is to correct for color shift in output maps due to information
-    about the spatial mean being loss across avery feature map for InstanceNorm.
-    """
     def __init__(self, num_features, num_classes=None, bias=True):
-        super().__init__()
         self.num_features = num_features
         self.bias = bias
-        self.instance_norm = nn.InstanceNorm2d(num_features, affine=False, track_running_stats=False)
+        self.instance_norm = eqx.nn.InstanceNorm(
+            num_features, use_running_average=False
+        )
         if num_classes is None:
-            self.prepare_dim = lambda condition: condition.view(-1, 1)
-            if self.bias:
-                self.embed = nn.Linear(1, num_features * 3, bias=False)
-            else:
-                self.embed = nn.Linear(1, num_features * 2, bias=False)
-        else:  # the condition is the index of a schedule, we use an embedding layer in this case
-            self.prepare_dim = lambda condition: condition
-            if self.bias:
-                self.embed = nn.Embedding(num_classes, num_features * 3)
-            else:
-                self.embed = nn.Embedding(num_classes, num_features * 2)
-        with torch.no_grad():
-            if self.bias:
-                self.embed.weight.data[:, :num_features].normal_(1, 0.02)   # Initialise scale at N(1, 0.02)
-                self.embed.weight.data[:, num_features:].zero_()  # Initialise bias at 0
-            else:
-                self.embed.weight.data.normal_(1, 0.02)
+            embed_output_dim = num_features * 3 if bias else num_features * 2
+            self.embed = eqx.nn.Linear(1, embed_output_dim, use_bias=False)
+        else:
+            self.num_classes = num_classes
+            embed_output_dim = num_features * 3 if bias else num_features * 2
+            self.embed = eqx.nn.Embedding(num_classes, embed_output_dim)
 
-    def forward(self, x, condition):
-        condition = self.prepare_dim(condition)
-        means = torch.mean(x, dim=(2, 3), keepdim=True)
-        m = torch.mean(means, dim=1, keepdim=True)
-        v = torch.var(means, dim=1, keepdim=True)
-        means = (means - m) / (torch.sqrt(v + 1e-5))
+        # Initialize weights
+        self.embed.weight = jax.nn.initializers.normal(stddev=0.02)(
+            self.embed.weight.shape
+        )
+        if bias:
+            self.embed.weight = self.embed.weight.at[num_features:].set(
+                0
+            )  # Set bias part to 0
+
+    def __call__(self, x, condition):
+        condition = condition[:, None] if self.num_classes is None else condition
+        means = jnp.mean(x, axis=(2, 3), keepdims=True)
+        m = jnp.mean(means, axis=1, keepdims=True)
+        v = jnp.var(means, axis=1, keepdims=True)
+        means_norm = (means - m) / (jnp.sqrt(v + 1e-5))
         h = self.instance_norm(x)
 
+        embed_out = self.embed(condition)
+        gamma, alpha = (
+            embed_out[:, : self.num_features],
+            embed_out[:, self.num_features : self.num_features * 2],
+        )
+        h = h + means_norm * alpha[..., None, None]
+        out = gamma.reshape(-1, self.num_features, 1, 1) * h
         if self.bias:
-            gamma, alpha, beta = self.embed(condition).chunk(3, dim=-1)
-            h = h + means * alpha[..., None, None]
-            out = gamma.view(-1, self.num_features, 1, 1) * h + beta.view(-1, self.num_features, 1, 1)
-        else:
-            gamma, alpha = self.embed(condition).chunk(2, dim=-1)
-            h = h + means * alpha[..., None, None]
-            out = gamma.view(-1, self.num_features, 1, 1) * h
+            beta = embed_out[:, self.num_features * 2 :]
+            out = out + beta.reshape(-1, self.num_features, 1, 1)
         return out
-
-
-if __name__ == '__main__':
-    # Continuous case
-    some_network = ConditionalInstanceNorm2dPlus(10, None, bias=False)
-    some_input_image = torch.randn((10, 10, 32, 32))  # [B, C, H, W]
-    time_variable = torch.randn((10,))
-    some_network.forward(some_input_image, time_variable)
-
-    # Discrete case
-    some_network = ConditionalInstanceNorm2dPlus(10, 3)
-    some_input_image = torch.randn((10, 10, 32, 32))  # [B, C, H, W]
-    time_index = torch.randint(size=(10,), high=3)
-    some_network.forward(some_input_image, time_index)
