@@ -54,6 +54,7 @@ class Solver(ABC):
         """Call this to solve the SDE backward in time from xT at time t_max to x0 at time t_min"""
         return self._solve(xT, N, self.reverse_dx, False, **kwargs)
 
+    @torch.no_grad()
     def _solve(self, x, N, dx, forward, progress_bar=False, **kwargs):
         """base SDE solver"""
         B, *D = x.shape
@@ -62,7 +63,7 @@ class Solver(ABC):
         trace = kwargs.get("trace", False)
         if trace:
             path = [x]
-        sk = kwargs.get("sk", 0)  # Set to -1 for Ito SDE, TODO: make sure this is right
+        sk = kwargs.pop("sk", 0)  # Set to -1 for Ito SDE, TODO: make sure this is right
         T = self.time_steps(N, B, forward=forward, **kwargs)
         pbar = tqdm(T) if progress_bar else T
         for t in pbar:
@@ -97,7 +98,7 @@ class Solver(ABC):
 
     def reverse_f(self, t, x, **kwargs):
         """reverse SDE coefficient a"""
-        return self.sde.drift(t, x) - self.sde.diffusion(t, x) ** 2 * self.score(t, x)
+        return self.sde.drift(t, x) - self.sde.diffusion(t, x) ** 2 * self.score(t, x, **kwargs)
 
     def reverse_dx(self, t, x, dt, dw=None, **kwargs):
         """reverse SDE differential element dx"""
@@ -118,7 +119,7 @@ class Solver(ABC):
 
 
 class EulerMaruyamaSDE(Solver):
-    def _step(self, t, x, dt, dx, **kwargs):
+    def _step(self, t, x, dt, dx, sk=None, **kwargs):
         """base SDE solver"""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         return x + dx(t, x, dt, dw, **kwargs)

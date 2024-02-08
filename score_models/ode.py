@@ -28,10 +28,13 @@ class ODE(ABC):
         """Forward discretization of the ODE, this is the update for x"""
         return self.sde.drift(t, x) * dt
 
-    def reverse_dx(self, t, x, dt):
+    def reverse_dx(self, t, x, dt, **kwargs):
         """Reverse discretization of the ODE, this is the update for x"""
-        return (self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x)) * dt
+        return (
+            self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x, **kwargs)
+        ) * dt
 
+    @torch.no_grad()
     def _solve(self, x, N, dx, forward=True, progress_bar=False, **kwargs):
         B, *_ = x.shape
         h = 1 if forward else -1
@@ -82,7 +85,9 @@ class ODE(ABC):
     def log_likelihood(self, xT, N, *args):
         return self._log_likelihood(xT, N, self.reverse_dx, False, *args)
 
-    def trace_jac_drift(self, t, x, n_cotangent_vectors: int = 1, noise_type="rademacher"):
+    def trace_jac_drift(
+        self, t, x, n_cotangent_vectors: int = 1, noise_type="rademacher", **kwargs
+    ):
         _, *D = x.shape
         # duplicate noisy samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cotangent_vectors, *[1] * len(D)])
@@ -93,7 +98,7 @@ class ODE(ABC):
         if noise_type == "rademacher":
             vectors = vectors.sign()
         # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score)
-        f = lambda x: self.reverse_dx(t, x, 1)
+        f = lambda x: self.reverse_dx(t, x, 1, **kwargs)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
@@ -112,9 +117,9 @@ class ODE(ABC):
 
 class EulerODE(ODE):
     def _step(self, t, x, dt, dx, **kwargs):
-        return x + dx(t, x, dt)
+        return x + dx(t, x, dt, **kwargs)
 
-    def _log_likelihood(self, x, N, dx, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, **kwargs):
         # TODO: this assumes user is going to call forward=False
         B, *D = x.shape
         h = 1 if forward else -1
@@ -122,30 +127,30 @@ class EulerODE(ODE):
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):
-            x = x + dx(t, x, dt)
-            log_likelihood += self.trace_jac_drift(t, x) * dt
+            x = x + dx(t, x, dt, **kwargs)
+            log_likelihood += self.trace_jac_drift(t, x, **kwargs) * dt
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood
 
 
 class RungeKuttaODE_2(ODE):
     def _step(self, t, x, dt, dx, **kwargs):
-        k1 = dx(t, x, dt)
-        k2 = dx(t + dt, x + k1, dt)
+        k1 = dx(t, x, dt, **kwargs)
+        k2 = dx(t + dt, x + k1, dt, **kwargs)
         return x + (k1 + k2) / 2
 
-    def _log_likelihood(self, x, N, dx, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, **kwargs):
         B, *D = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N)
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):
-            k1 = dx(t, x, dt)
-            k2 = dx(t + dt, x + k1, dt)
+            k1 = dx(t, x, dt, **kwargs)
+            k2 = dx(t + dt, x + k1, dt, **kwargs)
             x = x + (k1 + k2) * dt / 2
-            l1 = self.trace_jac_drift(t, x)
-            l2 = self.trace_jac_drift(t + dt, x + k1)
+            l1 = self.trace_jac_drift(t, x, **kwargs)
+            l2 = self.trace_jac_drift(t + dt, x + k1, **kwargs)
             log_likelihood += (l1 + l2) * dt / 2
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood
@@ -153,28 +158,28 @@ class RungeKuttaODE_2(ODE):
 
 class RungeKuttaODE_4(ODE):
     def _step(self, t, x, dt, dx, **kwargs):
-        k1 = dx(t, x, dt)
-        k2 = dx(t + dt / 2, x + k1 / 2, dt)
-        k3 = dx(t + dt / 2, x + k2 / 2, dt)
-        k4 = dx(t + dt, x + k3, dt)
+        k1 = dx(t, x, dt, **kwargs)
+        k2 = dx(t + dt / 2, x + k1 / 2, dt, **kwargs)
+        k3 = dx(t + dt / 2, x + k2 / 2, dt, **kwargs)
+        k4 = dx(t + dt, x + k3, dt, **kwargs)
         return x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
-    def _log_likelihood(self, x, N, dx, forward=True, *args):
+    def _log_likelihood(self, x, N, dx, forward=True, **kwargs):
         B, *D = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N)
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):
-            k1 = dx(t, x, dt)
-            k2 = dx(t + dt / 2, x + k1 / 2, dt)
-            k3 = dx(t + dt / 2, x + k2 / 2, dt)
-            k4 = dx(t + dt, x + k3, dt)
+            k1 = dx(t, x, dt, **kwargs)
+            k2 = dx(t + dt / 2, x + k1 / 2, dt, **kwargs)
+            k3 = dx(t + dt / 2, x + k2 / 2, dt, **kwargs)
+            k4 = dx(t + dt, x + k3, dt, **kwargs)
             x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
-            l1 = self.trace_jac_drift(t, x)
-            l2 = self.trace_jac_drift(t + dt / 2, x + k1 / 2)
-            l3 = self.trace_jac_drift(t + dt / 2, x + k2 / 2)
-            l4 = self.trace_jac_drift(t + dt, x + k3)
+            l1 = self.trace_jac_drift(t, x, **kwargs)
+            l2 = self.trace_jac_drift(t + dt / 2, x + k1 / 2, **kwargs)
+            l3 = self.trace_jac_drift(t + dt / 2, x + k2 / 2, **kwargs)
+            l4 = self.trace_jac_drift(t + dt, x + k3, **kwargs)
             log_likelihood += (l1 + 2 * l2 + 2 * l3 + l4) * dt / 6
         log_likelihood += self.sde.prior(D).log_prob(x)
         return log_likelihood

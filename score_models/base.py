@@ -104,16 +104,18 @@ class ScoreModelBase(Module, ABC):
         """Defines the loss for training the score model (usually a variant of the denoising score matching loss)"""
         ...
 
-    def log_likelihood(self, x, N, method="EulerODE"):
+    def log_likelihood(self, x, N, method="EulerODE", **kwargs):
         if method == "EulerODE":
-            ode = EulerODE(self)
+            ode = EulerODE(self, **kwargs)
         elif method == "RungeKuttaODE_2":
-            ode = RungeKuttaODE_2(self)
+            ode = RungeKuttaODE_2(self, **kwargs)
         elif method == "RungeKuttaODE_4":
-            ode = RungeKuttaODE_4(self)
+            ode = RungeKuttaODE_4(self, **kwargs)
         else:
-            raise ValueError("Method not supported")
-        return ode.log_likelihood(x, N)
+            raise ValueError(
+                "Method not supported, should be one of 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
+            )
+        return ode.log_likelihood(x, N, **kwargs)
 
     def sample(self, shape, N, method="EulerMaruyamaSDE", progress_bar=True, **kwargs):
         if method == "EulerMaruyamaSDE":
@@ -129,7 +131,7 @@ class ScoreModelBase(Module, ABC):
         elif method == "RungeKuttaODE_4":
             solver = RungeKuttaODE_4(self, **kwargs)
         else:
-            raise ValueError("Method not supported")
+            raise ValueError("Method not supported, should be one of 'EulerMaruyamaSDE', 'RungeKuttaSDE_2', 'RungeKuttaSDE_4', 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'")
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
