@@ -1,31 +1,29 @@
-import torch
-from torch.func import vmap
-from torch import nn
+import jax.numpy as jnp
+import equinox as eqx
+from jax import vmap
 from numpy import pi
 
-left_matmul = vmap(torch.matmul, in_dims=(None,  0))
 
+class GaussianFourierProjection(eqx.Module):
+    W: jnp.ndarray
 
-class GaussianFourierProjection(nn.Module):
-    """Gaussian random features for encoding time steps."""
-    def __init__(self, embed_dim, scale=30.):
-        super().__init__()
-        # Randomly sample weights during initialization. These weights are fixed
-        # during optimization and are not trainable.
-        self.W = nn.Parameter(torch.randn(embed_dim // 2) * scale, requires_grad=False)
+    def __init__(self, embed_dim: int, scale: float = 30.0):
+        self.W = eqx.static(jnp.random.randn(embed_dim // 2) * scale)
 
-    def forward(self, t):
+    def __call__(self, t: jnp.ndarray) -> jnp.ndarray:
         t_proj = t[:, None] * self.W[None, :] * 2 * pi
-        return torch.cat([torch.sin(t_proj), torch.cos(t_proj)], dim=1)
+        return jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=1)
 
 
-class PositionalEncoding(nn.Module):
-    """ More classical encoding of a vector """
-    def __init__(self, channels, embed_dim, scale=30.):
-        super().__init__()
-        self.W = nn.Parameter(torch.randn(embed_dim // 2, channels) * scale, requires_grad=False)
+class PositionalEncoding(eqx.Module):
+    W: jnp.ndarray
 
-    def forward(self, x):
-        x_proj = left_matmul(self.W, x) * 2 * pi
-        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=1)
+    def __init__(self, channels: int, embed_dim: int, scale: float = 30.0):
+        self.W = eqx.static(jnp.random.randn(embed_dim // 2, channels) * scale)
 
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        def single_matmul(w, x):
+            return jnp.dot(w, x)
+
+        x_proj = vmap(single_matmul, in_axes=(0, None))(self.W, x) * 2 * pi
+        return jnp.concatenate([jnp.sin(x_proj), jnp.cos(x_proj)], axis=1)
