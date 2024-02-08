@@ -14,13 +14,16 @@ setup(
     url="https://github.com/AlexandreAdam/torch_score_models",
     packages=find_packages(),
     install_requires=[
-        "torch>=2.0",
         "scipy",
         "torch_ema",
         "h5py",
         "numpy",
         "tqdm"
     ],
+    extras_require={
+        'jax': ['jax', 'jaxlib', 'equinox'],
+        'torch': ['torch>=2.0', 'torchvision'],
+        }
 	python_requires=">=3.8",
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -4,7 +4,6 @@ Based on the paper
 Taken from original implementation
     https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/blob/12dcf945a6359301d63d1e0da3708cd0f0590b19/spectral_normalization.py
 """
-
 import torch
 from torch import nn
 from torch.nn import Parameter
