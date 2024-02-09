@@ -91,11 +91,11 @@ class ScoreModelBase(Module, ABC):
         self.sde = sde
         self.device = device
 
-    def forward(self, t, x, *args) -> Tensor:
-        return self.score(t, x, *args)
+    def forward(self, t, x, *args, **kwargs) -> Tensor:
+        return self.score(t, x, *args, **kwargs)
 
     @abstractmethod
-    def score(self, t, x, *args) -> Tensor:
+    def score(self, t, x, *args, **kwargs) -> Tensor:
         """function which evaluates the score at a given time and position (gradient wrt x of the log probability)"""
         ...
 
@@ -131,7 +131,9 @@ class ScoreModelBase(Module, ABC):
         elif method == "RungeKuttaODE_4":
             solver = RungeKuttaODE_4(self, **kwargs)
         else:
-            raise ValueError("Method not supported, should be one of 'EulerMaruyamaSDE', 'RungeKuttaSDE_2', 'RungeKuttaSDE_4', 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'")
+            raise ValueError(
+                "Method not supported, should be one of 'EulerMaruyamaSDE', 'RungeKuttaSDE_2', 'RungeKuttaSDE_4', 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
+            )
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])

@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 class ODE(ABC):
-    def __init__(self, score):
+    def __init__(self, score, **kwargs):
         self.score = score
 
     @property
@@ -39,7 +39,7 @@ class ODE(ABC):
         B, *_ = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N)
-        trace = kwargs.get("trace", False)
+        trace = kwargs.pop("trace", False)
         if trace:
             path = [x]
         T = self.time_steps(N, B, forward=forward, **kwargs)

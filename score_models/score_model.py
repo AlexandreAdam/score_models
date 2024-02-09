@@ -21,9 +21,9 @@ class ScoreModel(ScoreModelBase):
     def loss_fn(self, x, *args):
         return denoising_score_matching(self, x, *args)
 
-    def score(self, t, x, *args):
+    def score(self, t, x, *args, **kwargs):
         _, *D = x.shape
-        return self.model(t, x, *args) / self.sde.sigma(t).view(-1, *[1] * len(D))
+        return self.model(t, x, *args, **kwargs) / self.sde.sigma(t).view(-1, *[1] * len(D))
 
 
 class EnergyModel(ScoreModelBase):
@@ -53,25 +53,29 @@ class EnergyModel(ScoreModelBase):
     def loss_fn(self, x, *args):
         return denoising_score_matching(self, x, *args)
 
-    def energy(self, t, x, *args):
+    def energy(self, t, x, *args, **kwargs):
         if self.nn_is_energy:
-            return self._nn_energy(t, x, *args)
+            return self._nn_energy(t, x, *args, **kwargs)
         else:
-            return self._unet_energy(t, x, *args)
+            return self._unet_energy(t, x, *args, **kwargs)
 
-    def _unet_energy(self, t, x, *args):
+    def _unet_energy(self, t, x, *args, **kwargs):
         _, *D = x.shape
         return (
             0.5
             / self.sde.sigma(t)
-            * torch.sum((x - self.model(t, x, *args)) ** 2, dim=list(range(1, 1 + len(D))))
+            * torch.sum(
+                (x - self.model(t, x, *args, **kwargs)) ** 2, dim=list(range(1, 1 + len(D)))
+            )
         )
 
-    def _nn_energy(self, t, x, *args):
-        return self.model(t, x, *args).squeeze(1) / self.sde.sigma(t)
+    def _nn_energy(self, t, x, *args, **kwargs):
+        return self.model(t, x, *args, **kwargs).squeeze(1) / self.sde.sigma(t)
 
-    def score(self, t, x, *args):
+    def score(self, t, x, *args, **kwargs):
         _, *D = x.shape
         # small wrapper to account for input without batch dim from vmap
-        energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0), *args).squeeze(0)
+        energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0), *args, **kwargs).squeeze(
+            0
+        )
         return -vmap(grad(energy, argnums=1))(t, x, *args)  # Don't forget the minus sign!

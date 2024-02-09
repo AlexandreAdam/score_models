@@ -60,7 +60,7 @@ class Solver(ABC):
         B, *D = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N, x.device)
-        trace = kwargs.get("trace", False)
+        trace = kwargs.pop("trace", False)
         if trace:
             path = [x]
         sk = kwargs.pop("sk", 0)  # Set to -1 for Ito SDE, TODO: make sure this is right
