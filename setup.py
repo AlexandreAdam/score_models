@@ -6,24 +6,23 @@ with open("long_description.rst", "r") as fh:
 
 setup(
 	name="score_models",
-	version="0.5.11",
+	version="0.6.0",
     description="A simple pytorch interface for score model and basic diffusion.",
     long_description=long_description,
     author="Alexandre Adam",
     author_email="alexandre.adam@umontreal.ca",
-    url="https://github.com/AlexandreAdam/torch_score_models",
+    url="https://github.com/AlexandreAdam/score_models",
     packages=find_packages(),
     install_requires=[
         "scipy",
-        "torch_ema",
         "h5py",
         "numpy",
         "tqdm"
     ],
     extras_require={
-        'jax': ['jax', 'jaxlib', 'equinox'],
-        'torch': ['torch>=2.0', 'torchvision'],
-        }
+        'jax': ['jax', 'jaxlib', 'equinox', 'distrax', 'optax'],
+        'torch': ['torch>=2.0', 'torchvision', "torch_ema"],
+        },
 	python_requires=">=3.8",
     classifiers=[
         "Development Status :: 3 - Alpha",

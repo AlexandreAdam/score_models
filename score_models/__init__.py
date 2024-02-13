@@ -13,9 +13,9 @@ except ImportError:
 
 # Dynamically load modules based on availability
 if JAX_AVAILABLE:
-    from .jax_dir import *  # Import JAX version
+    from .jax_module import *  # Import JAX version
 elif TORCH_AVAILABLE:
-    from .torch_dir import *  # Import PyTorch version
+    from .torch_module import *  # Import PyTorch version
 else:
     raise ImportError("Neither JAX nor PyTorch is available. Install one of them to use this package.")
 

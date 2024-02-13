@@ -1,14 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import torch
-from torch.distributions import Normal, Independent
-from torch.distributions import Distribution
-from torch import Tensor
+import jax.numpy as jnp
+from jax import random
+from distrax import Normal, Independent
 
 class SDE(ABC):
     """
-    Abstract class for some SDE info important for the score models
+    Abstract class for some SDE info important for the score models in JAX.
     """
     def __init__(self, T=1.0, epsilon=0., **kwargs):
         """
@@ -19,45 +18,44 @@ class SDE(ABC):
         self.epsilon = epsilon
     
     @abstractmethod
-    def sigma(self, t) -> Tensor:
-        ...
+    def sigma(self, t) -> jnp.ndarray:
+        pass
     
     @abstractmethod
     def prior(self, shape) -> Distribution:
         """
         High temperature distribution
         """
-        ...
+        pass
     
     @abstractmethod
-    def diffusion(self, t:Tensor, x: Tensor) -> Tensor:
-        ...
+    def diffusion(self, t: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+        pass
 
     @abstractmethod
-    def drift(self, t, x) -> Tensor:
-        ...
+    def drift(self, t: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+        pass
     
     @abstractmethod
-    def marginal_prob_scalars(self, t) -> Tuple[Tensor, Tensor]:
+    def marginal_prob_scalars(self, t: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """
         Returns scaling functions for the mean and the standard deviation of the marginals
         """
-        ...
+        pass
 
-    def sample_marginal(self, t: Tensor, x0: Tensor) -> Tensor:
+    def sample_marginal(self, t: jnp.ndarray, x0: jnp.ndarray, key) -> jnp.ndarray:
         """
         Sample from the marginal at time t given some initial condition x0
         """
         _, *D = x0.shape
-        z = torch.randn_like(x0)
+        z = random.normal(key, x0.shape)
         mu_t, sigma_t = self.marginal_prob_scalars(t)
-        return mu_t.view(-1, *[1]*len(D)) * x0 + sigma_t.view(-1, *[1]*len(D)) * z
+        return mu_t.reshape(-1, *[1]*len(D)) * x0 + sigma_t.reshape(-1, *[1]*len(D)) * z
 
-    def marginal_prob(self, t, x):
+    def marginal_prob(self, t: jnp.ndarray, x: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
         _, *D = x.shape
         m_t, sigma_t = self.marginal_prob_scalars(t)
-        mean = m_t.view(-1, *[1]*len(D)) * x
-        std = sigma_t.view(-1, *[1]*len(D))
+        mean = m_t.reshape(-1, *[1]*len(D)) * x
+        std = sigma_t.reshape(-1, *[1]*len(D))
         return mean, std
-
 
