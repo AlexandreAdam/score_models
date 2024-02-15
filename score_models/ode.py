@@ -38,7 +38,7 @@ class ODE(ABC):
     def _solve(self, x, N, dx, forward=True, progress_bar=False, **kwargs):
         B, *_ = x.shape
         h = 1 if forward else -1
-        dt = h * self.stepsize(N)
+        dt = h * self.stepsize(N, **kwargs)
         trace = kwargs.pop("trace", False)
         if trace:
             path = [x]
@@ -111,8 +111,10 @@ class ODE(ABC):
         else:
             return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
 
-    def stepsize(self, N, device=None):
-        return torch.tensor((self.sde.t_max - self.sde.t_min) / (N - 1), device=device)
+    def stepsize(self, N, device=None, **kwargs):
+        t_min = kwargs.get("t_min", self.sde.t_min)
+        t_max = kwargs.get("t_max", self.sde.t_max)
+        return torch.tensor((t_max - t_min) / (N - 1), device=device)
 
 
 class EulerODE(ODE):

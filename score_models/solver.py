@@ -59,7 +59,7 @@ class Solver(ABC):
         """base SDE solver"""
         B, *D = x.shape
         h = 1 if forward else -1
-        dt = h * self.stepsize(N, x.device)
+        dt = h * self.stepsize(N, x.device, **kwargs)
         trace = kwargs.pop("trace", False)
         if trace:
             path = [x]
@@ -114,8 +114,10 @@ class Solver(ABC):
         else:
             return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
 
-    def stepsize(self, N, device=None):
-        return torch.tensor((self.sde.t_max - self.sde.t_min) / (N - 1), device=device)
+    def stepsize(self, N, device=None, **kwargs):
+        t_min = kwargs.get("t_min", self.sde.t_min)
+        t_max = kwargs.get("t_max", self.sde.t_max)
+        return torch.tensor((t_max - t_min) / (N - 1), device=device)
 
 
 class EulerMaruyamaSDE(Solver):
