@@ -107,17 +107,17 @@ class ODE(ABC):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(t_min, t_max, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N + 1)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N + 1)[:-1].repeat(B, 1).T
 
     def stepsize(self, N, device=None, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.tensor((t_max - t_min) / (N - 1), device=device)
+        return torch.tensor((t_max - t_min) / N, device=device)
 
 
-class EulerODE(ODE):
+class Euler_ODE(ODE):
     def _step(self, t, x, dt, dx, **kwargs):
         return x + dx(t, x, dt, **kwargs)
 
@@ -125,7 +125,7 @@ class EulerODE(ODE):
         # TODO: this assumes user is going to call forward=False
         B, *D = x.shape
         h = 1 if forward else -1
-        dt = h * self.stepsize(N)
+        dt = h * self.stepsize(N, **kwargs)
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):
@@ -135,7 +135,11 @@ class EulerODE(ODE):
         return log_likelihood
 
 
-class RungeKuttaODE_2(ODE):
+class RK2_ODE(ODE):
+    """
+    Runge Kutta 2nd order ODE solver
+    """
+
     def _step(self, t, x, dt, dx, **kwargs):
         k1 = dx(t, x, dt, **kwargs)
         k2 = dx(t + dt, x + k1, dt, **kwargs)
@@ -144,7 +148,7 @@ class RungeKuttaODE_2(ODE):
     def _log_likelihood(self, x, N, dx, forward=True, **kwargs):
         B, *D = x.shape
         h = 1 if forward else -1
-        dt = h * self.stepsize(N)
+        dt = h * self.stepsize(N, **kwargs)
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):
@@ -158,7 +162,11 @@ class RungeKuttaODE_2(ODE):
         return log_likelihood
 
 
-class RungeKuttaODE_4(ODE):
+class RK4_ODE(ODE):
+    """
+    Runge Kutta 4th order ODE solver
+    """
+
     def _step(self, t, x, dt, dx, **kwargs):
         k1 = dx(t, x, dt, **kwargs)
         k2 = dx(t + dt / 2, x + k1 / 2, dt, **kwargs)
@@ -169,7 +177,7 @@ class RungeKuttaODE_4(ODE):
     def _log_likelihood(self, x, N, dx, forward=True, **kwargs):
         B, *D = x.shape
         h = 1 if forward else -1
-        dt = h * self.stepsize(N)
+        dt = h * self.stepsize(N, **kwargs)
         log_likelihood = 0.0
 
         for t in self.time_steps(N, B, forward):

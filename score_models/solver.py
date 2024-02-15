@@ -110,24 +110,28 @@ class Solver(ABC):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(t_min, t_max, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N + 1)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, N)[1:].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N + 1)[:-1].repeat(B, 1).T
 
     def stepsize(self, N, device=None, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.tensor((t_max - t_min) / (N - 1), device=device)
+        return torch.tensor((t_max - t_min) / N, device=device)
 
 
-class EulerMaruyamaSDE(Solver):
+class EM_SDE(Solver):
+    """
+    Base solver for a stochastic differential equation (SDE) using the Euler-Maruyama method.
+    """
+
     def _step(self, t, x, dt, dx, sk=None, **kwargs):
         """base SDE solver"""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         return x + dx(t, x, dt, dw, **kwargs)
 
 
-class RungeKuttaSDE_2(Solver):
+class RK2_SDE(Solver):
     def _step(self, t, x, dt, dx, sk, **kwargs):
         """Base SDE solver using a 2nd order Runge-Kutta method. For more
         details see Equation 2.5 in chapter 7.2 of the book "Introduction to
@@ -141,7 +145,7 @@ class RungeKuttaSDE_2(Solver):
         return x + (k1 + k2) / 2
 
 
-class RungeKuttaSDE_4(Solver):
+class RK4_SDE(Solver):
     def _step(self, t, x, dt, dx, sk, **kwargs):
         """Base SDE solver using a 4th order Runge-Kutta method. For more
         details see Equation 3.6 in chapter 7.3 of the book "Introduction to

@@ -18,8 +18,8 @@ from contextlib import nullcontext
 
 from .sde import VESDE, VPSDE, TSVESDE, SDE, subVPSDE
 from .utils import load_architecture
-from .solver import EulerMaruyamaSDE, RungeKuttaSDE_2, RungeKuttaSDE_4
-from .ode import EulerODE, RungeKuttaODE_2, RungeKuttaODE_4
+from .solver import EM_SDE, RK2_SDE, RK4_SDE
+from .ode import Euler_ODE, RK2_ODE, RK4_ODE
 
 
 class ScoreModelBase(Module, ABC):
@@ -104,32 +104,32 @@ class ScoreModelBase(Module, ABC):
         """Defines the loss for training the score model (usually a variant of the denoising score matching loss)"""
         ...
 
-    def log_likelihood(self, x, N, method="EulerODE", **kwargs):
-        if method == "EulerODE":
-            ode = EulerODE(self, **kwargs)
-        elif method == "RungeKuttaODE_2":
-            ode = RungeKuttaODE_2(self, **kwargs)
+    def log_likelihood(self, x, N, method="Euler_ODE", **kwargs):
+        if method == "Euler_ODE":
+            ode = Euler_ODE(self, **kwargs)
+        elif method == "RK2_ODE":
+            ode = RK2_ODE(self, **kwargs)
         elif method == "RungeKuttaODE_4":
-            ode = RungeKuttaODE_4(self, **kwargs)
+            ode = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
                 "Method not supported, should be one of 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
             )
         return ode.log_likelihood(x, N, **kwargs)
 
-    def sample(self, shape, N, method="EulerMaruyamaSDE", progress_bar=True, **kwargs):
-        if method == "EulerMaruyamaSDE":
-            solver = EulerMaruyamaSDE(self, **kwargs)
-        elif method == "RungeKuttaSDE_2":
-            solver = RungeKuttaSDE_2(self, **kwargs)
-        elif method == "RungeKuttaSDE_4":
-            solver = RungeKuttaSDE_4(self, **kwargs)
-        elif method == "EulerODE":
-            solver = EulerODE(self, **kwargs)
-        elif method == "RungeKuttaODE_2":
-            solver = RungeKuttaODE_2(self, **kwargs)
-        elif method == "RungeKuttaODE_4":
-            solver = RungeKuttaODE_4(self, **kwargs)
+    def sample(self, shape, N, method="EM_SDE", progress_bar=True, **kwargs):
+        if method == "EM_SDE":
+            solver = EM_SDE(self, **kwargs)
+        elif method == "RK2_SDE_2":
+            solver = RK2_SDE(self, **kwargs)
+        elif method == "RK4_SDE":
+            solver = RK4_SDE(self, **kwargs)
+        elif method == "Euler_ODE":
+            solver = Euler_ODE(self, **kwargs)
+        elif method == "RK2_ODE":
+            solver = RK2_ODE(self, **kwargs)
+        elif method == "RK4_ODE":
+            solver = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
                 "Method not supported, should be one of 'EulerMaruyamaSDE', 'RungeKuttaSDE_2', 'RungeKuttaSDE_4', 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
