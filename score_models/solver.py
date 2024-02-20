@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import torch
 import numpy as np
 from tqdm import tqdm
+from .utils import DEVICE
 
 
 class Solver(ABC):
@@ -106,15 +107,15 @@ class Solver(ABC):
             dw = torch.randn_like(x) * torch.sqrt(torch.abs(dt))
         return self.reverse_f(t, x, **kwargs) * dt + self.sde.diffusion(t, x) * dw
 
-    def time_steps(self, N, B=1, forward=True, **kwargs):
+    def time_steps(self, N, B=1, forward=True, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(t_min, t_max, N + 1)[:-1].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N + 1, device=device)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, N + 1)[:-1].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N + 1, device=device)[:-1].repeat(B, 1).T
 
-    def stepsize(self, N, device=None, **kwargs):
+    def stepsize(self, N, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         return torch.tensor((t_max - t_min) / N, device=device)

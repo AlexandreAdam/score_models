@@ -109,18 +109,18 @@ class ScoreModelBase(Module, ABC):
             ode = Euler_ODE(self, **kwargs)
         elif method == "RK2_ODE":
             ode = RK2_ODE(self, **kwargs)
-        elif method == "RungeKuttaODE_4":
+        elif method == "RK4_ODE":
             ode = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
-                "Method not supported, should be one of 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
+                "Method not supported, should be one of 'Euler_ODE', 'RK2_ODE', 'RK4_ODE'"
             )
         return ode.log_likelihood(x, N, **kwargs)
 
     def sample(self, shape, N, method="EM_SDE", progress_bar=True, **kwargs):
         if method == "EM_SDE":
             solver = EM_SDE(self, **kwargs)
-        elif method == "RK2_SDE_2":
+        elif method == "RK2_SDE":
             solver = RK2_SDE(self, **kwargs)
         elif method == "RK4_SDE":
             solver = RK4_SDE(self, **kwargs)
@@ -132,7 +132,7 @@ class ScoreModelBase(Module, ABC):
             solver = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
-                "Method not supported, should be one of 'EulerMaruyamaSDE', 'RungeKuttaSDE_2', 'RungeKuttaSDE_4', 'EulerODE', 'RungeKuttaODE_2', 'RungeKuttaODE_4'"
+                "Method not supported, should be one of 'EM_SDE', 'RK2_SDE', 'RK4_SDE', 'Euler_ODE', 'RK2_ODE', 'RK4_ODE'"
             )
 
         B, *D = shape

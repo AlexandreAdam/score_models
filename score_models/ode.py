@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.func import vjp
 from tqdm import tqdm
-
+from .utils import DEVICE
 # TODO: maybe merge ODE and Solver into single class?
 
 
@@ -103,15 +103,15 @@ class ODE(ABC):
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
 
-    def time_steps(self, N, B=1, forward=True, **kwargs):
+    def time_steps(self, N, B=1, forward=True, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(t_min, t_max, N + 1)[:-1].repeat(B, 1).T
+            return torch.linspace(t_min, t_max, N + 1, device=device)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, N + 1)[:-1].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N + 1,device=device)[:-1].repeat(B, 1).T
 
-    def stepsize(self, N, device=None, **kwargs):
+    def stepsize(self, N, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         return torch.tensor((t_max - t_min) / N, device=device)
