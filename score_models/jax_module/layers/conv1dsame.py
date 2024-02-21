@@ -3,7 +3,6 @@ import equinox as eqx
 from typing import Union
 from .spectral_normalization import SpectralNorm
 
-
 class Conv1dSame(eqx.Module):
     conv: Union[eqx.nn.Conv1D, SpectralNorm]
     stride: int

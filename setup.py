@@ -20,7 +20,7 @@ setup(
         "tqdm"
     ],
     extras_require={
-        'jax': ['jax', 'jaxlib', 'equinox', 'distrax', 'optax'],
+        'jax': ['jax', 'jaxlib', 'equinox', 'distrax', 'optax', 'flax'],
         'torch': ['torch>=2.0', 'torchvision', "torch_ema"],
         },
 	python_requires=">=3.8",
@@ -31,18 +31,4 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
 )
-
-
-# setup(
-    # name='your_package',
-    # ...
-    # install_requires=[
-        # 'numpy',  # common dependencies
-        # ...
-    # ],
-    # extras_require={
-        # 'torch': ['torch', 'torchvision'],  # PyTorch and its dependencies
-        # 'jax': ['jax', 'jaxlib', 'equinox']  # JAX and its dependencies
-    # }
-# )
 

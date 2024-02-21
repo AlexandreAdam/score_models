@@ -21,7 +21,8 @@ class Conv2dSame(eqx.Module):
         padding_mode: str = 'zeros',
         spectral_norm: bool = False,
     ):
-        conv_layer = eqx.nn.Conv2D(
+        conv_layer = eqx.nn.Conv(
+            num_spatial_dims=2,
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,

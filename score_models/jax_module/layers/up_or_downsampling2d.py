@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import lax
+from .upfirdn2d import upfirdn2d
 
 """Layers used for up-sampling or down-sampling images.
 Many functions are ported from https://github.com/NVlabs/stylegan2.
@@ -91,11 +92,17 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
         w,
         strides=stride,
         padding=((p + 1) // 2 + factor - 1, p // 2 + 1),
-        output_padding=output_padding,
     )
-    return upfirdn2d(
-        x, jnp.array(k, device=x.device), pad=((p + 1) // 2 + factor - 1, p // 2 + 1)
+    x = jnp.pad(
+        x,
+        (
+            (0, 0),
+            (0, 0),
+            (output_padding[0], output_padding[0]),
+            (output_padding[1], output_padding[1]),
+        ),
     )
+    return upfirdn2d(x, jnp.array(k), pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
 
 
 def conv_downsample_2d(x, w, k=None, factor=2, gain=1):
@@ -128,8 +135,8 @@ def conv_downsample_2d(x, w, k=None, factor=2, gain=1):
     k = _setup_kernel(k) * gain
     p = (k.shape[0] - factor) + (convW - 1)
     s = (factor, factor)
-    x = upfirdn2d(x, jnp.array(k, device=x.device), pad=((p + 1) // 2, p // 2))
-    return lax.conv_general_dilated(x, w, window_strides=s, padding="VALID")
+    x = upfirdn2d(x, jnp.array(k), pad=((p + 1) // 2, p // 2))
+    return lax.conv(x, w, window_strides=s, padding="VALID")
 
 
 def _setup_kernel(k):
@@ -170,7 +177,7 @@ def upsample_2d(x, k=None, factor=2, gain=1):
     p = k.shape[0] - factor
     return upfirdn2d(
         x,
-        jnp.array(k, device=x.device),
+        jnp.array(k),
         up=factor,
         pad=((p + 1) // 2 + factor - 1, p // 2),
     )

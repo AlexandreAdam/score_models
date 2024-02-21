@@ -15,7 +15,7 @@ class UpsampleLayer(eqx.Module):
         fir: bool = False,
         fir_kernel: tuple = (1, 3, 3, 1),
         dimensions: int = 2,
-        key: jax.random.KeyArray = jax.random.PRNGKey(0),
+        key = jax.random.PRNGKey(0),
     ):
         super().__init__()
         self.fir = fir
@@ -51,10 +51,10 @@ class UpsampleLayer(eqx.Module):
                 x, shape=(B, self.out_ch, *[d * 2 for d in D]), method="nearest"
             )
             if self.with_conv:
-                h = self.conv_0(h, key)
+                h = self.conv_0(h)
         else:
             if not self.with_conv:
                 h = upsample(x, self.fir_kernel, factor=2, dimensions=len(D))
             else:
-                h = self.conv1d_0(x, key)
+                h = self.conv1d_0(x)
         return h

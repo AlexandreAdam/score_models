@@ -2,7 +2,6 @@ import jax.numpy as jnp
 import jax.lax as lax
 import equinox as eqx
 
-
 class StyleGANConv(eqx.Module):
     weight: jnp.ndarray
     bias: jnp.ndarray = None
@@ -24,6 +23,7 @@ class StyleGANConv(eqx.Module):
         use_bias: bool = True,
         kernel_init: callable = None,
         dimensions: int = 2,
+        key = jax.random.PRNGKey(0),
     ):
         super().__init__()
         assert not (up and down)

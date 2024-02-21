@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import lax
+from .upfirdn3d import upfirdn3d
 
 __all__ = [
     "naive_upsample_3d",
@@ -60,11 +61,18 @@ def upsample_conv_3d(x, w, k=None, factor=2, gain=1):
         w,
         strides=stride,
         padding=((p + 1) // 2 + factor - 1, p // 2 + 1),
-        output_padding=output_padding,
     )
-    return upfirdn3d(
-        x, jnp.array(k, device=x.device), pad=((p + 1) // 2 + factor - 1, p // 2 + 1)
+    x = jnp.pad(
+        x,
+        (
+            (0, 0),
+            (0, 0),
+            (output_padding[0], output_padding[0]),
+            (output_padding[1], output_padding[1]),
+            (output_padding[2], output_padding[2]),
+        ),
     )
+    return upfirdn3d(x, jnp.array(k), pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
 
 
 def conv_downsample_3d(x, w, k=None, factor=2, gain=1):
@@ -79,8 +87,8 @@ def conv_downsample_3d(x, w, k=None, factor=2, gain=1):
     p = (k.shape[0] - factor) + (convW - 1)
     s = (factor, factor, factor)
 
-    x = upfirdn3d(x, jnp.array(k, device=x.device), pad=((p + 1) // 2, p // 2))
-    return lax.conv_general_dilated(x, w, window_strides=s, padding="VALID")
+    x = upfirdn3d(x, jnp.array(k), pad=((p + 1) // 2, p // 2))
+    return lax.conv(x, w, window_strides=s, padding="VALID")
 
 
 def _setup_kernel(k):
@@ -103,7 +111,7 @@ def upsample_3d(x, k=None, factor=2, gain=1):
     p = k.shape[0] - factor
     return upfirdn3d(
         x,
-        jnp.array(k, device=x.device),
+        jnp.array(k),
         up=factor,
         pad=((p + 1) // 2 + factor - 1, p // 2),
     )
@@ -116,5 +124,5 @@ def downsample_3d(x, k=None, factor=2, gain=1):
     k = _setup_kernel(k) * gain
     p = k.shape[0] - factor
     return upfirdn3d(
-        x, jnp.array(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
+        x, jnp.array(k), down=factor, pad=((p + 1) // 2, p // 2)
     )

@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import lax
+from .upfirdn1d import upfirdn1d
 
 __all__ = [
     "naive_upsample_1d",
@@ -67,13 +68,11 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
     x = lax.conv_transpose(
         x,
         w,
-        strides=stride,
+        strides=(stride,),
         padding=((p + 1) // 2 + factor - 1, p // 2 + 1),
-        output_padding=output_padding,
     )
-    return upfirdn1d(
-        x, jnp.array(k, device=x.device), pad=((p + 1) // 2 + factor - 1, p // 2 + 1)
-    )
+    x = jnp.pad(x, pad_width=((0, 0), (0, 0), (output_padding[0], output_padding[0])))
+    return upfirdn1d(x, jnp.array(k), pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
 
 
 def conv_downsample_1d(x, w, k=None, factor=2, gain=1):
@@ -103,7 +102,7 @@ def conv_downsample_1d(x, w, k=None, factor=2, gain=1):
     p = (k.shape[0] - factor) + (convH - 1)
     s = factor
     x = upfirdn1d(x, jnp.array(k, device=x.device), pad=((p + 1) // 2, p // 2))
-    return lax.conv_general_dilated(x, w, window_strides=s, padding="VALID")
+    return lax.conv(x, w, window_strides=(s,), padding="VALID")
 
 
 def _setup_kernel(k):

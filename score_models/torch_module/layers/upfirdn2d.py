@@ -5,23 +5,23 @@ import torch
 from torch.nn import functional as F
 
 
-def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
+def upfirdn2d(x, kernel, up=1, down=1, pad=(0, 0)):
     out = upfirdn2d_native(
-        input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1]
+        x, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1]
     )
     return out
 
 
 def upfirdn2d_native(
-    input, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1, pad_y0, pad_y1
+    x, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1, pad_y0, pad_y1
 ):
-    _, channel, in_h, in_w = input.shape
-    input = input.reshape(-1, in_h, in_w, 1)
+    _, channel, in_h, in_w = x.shape
+    x = x.reshape(-1, in_h, in_w, 1)
 
-    _, in_h, in_w, minor = input.shape
+    _, in_h, in_w, minor = x.shape
     kernel_h, kernel_w = kernel.shape
 
-    out = input.view(-1, in_h, 1, in_w, 1, minor)
+    out = x.view(-1, in_h, 1, in_w, 1, minor)
     out = F.pad(out, [0, 0, 0, up_x - 1, 0, 0, 0, up_y - 1])
     out = out.view(-1, in_h * up_y, in_w * up_x, minor)
 

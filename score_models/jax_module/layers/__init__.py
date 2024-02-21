@@ -1,7 +1,6 @@
 from .style_gan_conv import StyleGANConv
 from .conv_layers import conv3x3, conv1x1
 from .resnet_block_biggan import ResnetBlockBigGANpp
-from .spectral_normalization import SpectralNorm
 from .ddpm_resnet_block import DDPMResnetBlock
 from .ncsn_resnet_block import NCSNResidualBlock
 from .attention_block import SelfAttentionBlock, ScaledAttentionLayer

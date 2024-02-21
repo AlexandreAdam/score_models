@@ -2,23 +2,23 @@ import torch
 from torch.nn import functional as F
 
 
-def upfirdn3d(input, kernel, up=1, down=1, pad=(0, 0)):
+def upfirdn3d(x, kernel, up=1, down=1, pad=(0, 0)):
     out = upfirdn3d_native(
-        input, kernel, up, up, up, down, down, down, pad[0], pad[1], pad[0], pad[1], pad[0], pad[1]
+        x, kernel, up, up, up, down, down, down, pad[0], pad[1], pad[0], pad[1], pad[0], pad[1]
     )
     return out
 
 
 def upfirdn3d_native(
-    input, kernel, up_x, up_y, up_z, down_x, down_y, down_z, pad_x0, pad_x1, pad_y0, pad_y1, pad_z0, pad_z1
+    x, kernel, up_x, up_y, up_z, down_x, down_y, down_z, pad_x0, pad_x1, pad_y0, pad_y1, pad_z0, pad_z1
 ):
-    _, channel, in_h, in_w, in_d = input.shape
-    input = input.reshape(-1, in_h, in_w, in_d, 1)
+    _, channel, in_h, in_w, in_d = x.shape
+    x = x.reshape(-1, in_h, in_w, in_d, 1)
 
-    _, in_h, in_w, in_d, minor = input.shape
+    _, in_h, in_w, in_d, minor = x.shape
     kernel_h, kernel_w, kernel_d = kernel.shape
 
-    out = input.view(-1, in_h, 1, in_w, 1, in_d, 1, minor)
+    out = x.view(-1, in_h, 1, in_w, 1, in_d, 1, minor)
     out = F.pad(out, [0, 0, 0, up_x - 1, 0, 0, 0, up_y - 1, 0, 0, 0, up_z - 1])
     out = out.view(-1, in_h * up_y, in_w * up_x, in_d * up_z, minor)
 

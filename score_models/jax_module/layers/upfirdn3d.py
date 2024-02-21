@@ -2,9 +2,9 @@ import jax.numpy as jnp
 from jax import lax
 
 
-def upfirdn3d(input, kernel, up=1, down=1, pad=(0, 0)):
+def upfirdn3d(x, kernel, up=1, down=1, pad=(0, 0)):
     out = upfirdn3d_native(
-        input,
+        x,
         kernel,
         up,
         up,
@@ -23,7 +23,7 @@ def upfirdn3d(input, kernel, up=1, down=1, pad=(0, 0)):
 
 
 def upfirdn3d_native(
-    input,
+    x,
     kernel,
     up_x,
     up_y,
@@ -38,13 +38,13 @@ def upfirdn3d_native(
     pad_z0,
     pad_z1,
 ):
-    _, channel, in_h, in_w, in_d = input.shape
-    input = input.reshape(-1, in_h, in_w, in_d, 1)
+    _, channel, in_h, in_w, in_d = x.shape
+    x = x.reshape(-1, in_h, in_w, in_d, 1)
 
-    _, in_h, in_w, in_d, minor = input.shape
+    _, in_h, in_w, in_d, minor = x.shape
     kernel_h, kernel_w, kernel_d = kernel.shape
 
-    out = input.reshape(-1, in_h, 1, in_w, 1, in_d, 1, minor)
+    out = x.reshape(-1, in_h, 1, in_w, 1, in_d, 1, minor)
     out = jnp.pad(
         out,
         [
@@ -89,15 +89,7 @@ def upfirdn3d_native(
         ]
     )
     w = jnp.flip(kernel, [0, 1, 2]).reshape(1, 1, kernel_h, kernel_w, kernel_d)
-    out = lax.conv_general_dilated(
-        out,
-        w,
-        window_strides=(down_y, down_x, down_z),
-        padding="VALID",
-        lhs_dilation=(up_y, up_x, up_z),
-        rhs_dilation=(1, 1, 1),
-        dimension_numbers=("NCHWD", "IODHW", "NCHWD"),
-    )
+    out = lax.conv(out, w, window_strides=(1, 1, 1), padding="VALID")
 
     out_h = (in_h * up_y + pad_y0 + pad_y1 - kernel_h) // down_y + 1
     out_w = (in_w * up_x + pad_x0 + pad_x1 - kernel_w) // down_x + 1
