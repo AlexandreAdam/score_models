@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import Callable
 
 import numpy as np
 import torch
+from torch import Tensor
 from torch.func import vjp
 from tqdm import tqdm
 from .utils import DEVICE
+
 # TODO: maybe merge ODE and Solver into single class?
 
 
@@ -35,7 +38,15 @@ class ODE(ABC):
         ) * dt
 
     @torch.no_grad()
-    def _solve(self, x, N, dx, forward=True, progress_bar=False, **kwargs):
+    def _solve(
+        self,
+        x: Tensor,
+        N: int,
+        dx: Callable,
+        forward: bool,
+        progress_bar: bool = False,
+        **kwargs,
+    ):
         B, *_ = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N, **kwargs)
@@ -50,6 +61,8 @@ class ODE(ABC):
                     f"t = {t[0].item():.1g} | sigma = {self.sde.sigma(t)[0].item():.1g} | "
                     f"x = {x.mean().item():.1g} \u00B1 {x.std().item():.1g}"
                 )
+            if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
+                raise ValueError("NaN encountered in SDE solver")
             x = self._step(t, x, dt, dx, **kwargs)
             if trace:
                 path.append(x)
@@ -109,7 +122,7 @@ class ODE(ABC):
         if forward:
             return torch.linspace(t_min, t_max, N + 1, device=device)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, N + 1,device=device)[:-1].repeat(B, 1).T
+            return torch.linspace(t_max, t_min, N + 1, device=device)[:-1].repeat(B, 1).T
 
     def stepsize(self, N, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)

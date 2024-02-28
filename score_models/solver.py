@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import Callable
 
 import torch
+from torch import Tensor
 import numpy as np
 from tqdm import tqdm
 from .utils import DEVICE
@@ -56,7 +58,9 @@ class Solver(ABC):
         return self._solve(xT, N, self.reverse_dx, False, **kwargs)
 
     @torch.no_grad()
-    def _solve(self, x, N, dx, forward, progress_bar=False, **kwargs):
+    def _solve(
+        self, x: Tensor, N: int, dx: Callable, forward: bool, progress_bar: bool = False, **kwargs
+    ):
         """base SDE solver"""
         B, *D = x.shape
         h = 1 if forward else -1
@@ -73,6 +77,8 @@ class Solver(ABC):
                     f"t = {t[0].item():.1g} | sigma = {self.sde.sigma(t)[0].item():.1g} | "
                     f"x = {x.mean().item():.1g} \u00B1 {x.std().item():.1g}"
                 )
+            if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
+                raise ValueError("NaN encountered in SDE solver")
             x = self._step(t, x, dt, dx, sk=sk, **kwargs)
             for _ in range(self.corrector_steps):
                 x = self.corrector(t, x, **kwargs)
