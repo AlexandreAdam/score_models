@@ -1,7 +1,8 @@
+import jax
 import jax.numpy as jnp
 import equinox as eqx
 from typing import Union
-from .spectral_normalization import SpectralNorm
+from flax.linen import SpectralNorm
 
 class Conv3dSame(eqx.Module):
     conv: Union[eqx.Module, SpectralNorm]
@@ -14,24 +15,24 @@ class Conv3dSame(eqx.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
+        key: jax.random.PRNGKey,
         stride: int = 1,
+        padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,
-        padding_mode: str = 'zeros',
         spectral_norm: bool = False,
     ):
-        conv_layer = eqx.nn.Conv3D(
+        conv_layer = eqx.nn.Conv3d(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=stride,
-            padding="SAME" if stride == 1 else "VALID",
+            padding=0,
             dilation=dilation,
             groups=groups,
             use_bias=bias,
-            padding_mode=padding_mode,
-            bias_init=eqx.init.zeros if bias else None,
+            key=key
         )
         self.conv = SpectralNorm(conv_layer) if spectral_norm else conv_layer
         self.stride = stride
@@ -39,6 +40,11 @@ class Conv3dSame(eqx.Module):
         self.kernel_size = kernel_size
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        effective_kernel_size = (self.kernel_size - 1) * self.dilation + 1
+        pad_total = max(effective_kernel_size - self.stride, 0)
+        pad_beg = pad_total // 2
+        pad_end = pad_total - pad_beg
+        x = jnp.pad(x, [(0, 0), (0, 0), (pad_beg, pad_end), (pad_beg, pad_end), (pad_beg, pad_end)], mode='constant')
         x = self.conv(x)
         return x
 
@@ -53,11 +59,12 @@ class ConvTransposed3dSame(eqx.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
+        key: jax.random.PRNGKey,
         stride: int = 1,
+        padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,
-        padding_mode: str = 'zeros',
         spectral_norm: bool = False,
     ):
         conv_layer = eqx.nn.ConvTranspose3D(
@@ -65,12 +72,12 @@ class ConvTransposed3dSame(eqx.Module):
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=stride,
-            padding=dilation * (kernel_size - 1) // 2,
+            padding=0,
             output_padding=stride - 1,
             dilation=dilation,
             groups=groups,
             use_bias=bias,
-            bias_init=eqx.init.zeros if bias else None,
+            key=key
         )
         self.conv = SpectralNorm(conv_layer) if spectral_norm else conv_layer
         self.stride = stride
@@ -78,6 +85,18 @@ class ConvTransposed3dSame(eqx.Module):
         self.kernel_size = kernel_size
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        input_length = x.shape[-1]
+        effective_kernel_size = (self.kernel_size - 1) * self.dilation + 1
+        pad_along_length = max(0, (input_length - 1) * self.stride + effective_kernel_size - input_length)
+        padding = pad_along_length // 2
+        output_padding = (input_length - 1) * self.stride + effective_kernel_size - input_length - 2 * padding
+        x = jnp.pad(x, [
+            (0, 0), 
+            (0, 0), 
+            (padding, padding + output_padding), 
+            (padding, padding + output_padding),
+            (padding, padding + output_padding)
+            ], mode='constant')
         x = self.conv(x)
         return x
 

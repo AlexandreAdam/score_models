@@ -1,4 +1,5 @@
 import equinox as eqx
+import jax
 from jax.nn import relu
 from typing import Optional, Callable
 from score_models.definitions import default_init
@@ -16,7 +17,7 @@ class ResnetBlockBigGANpp(eqx.Module):
     Dropout_0: eqx.Module
     Conv_1: eqx.Module
     Conv_2: Optional[eqx.Module]
-    act: Callable[[eqx.Array], eqx.Array]
+    act: Callable
     dimensions: int
     up: bool
     down: bool
@@ -26,8 +27,9 @@ class ResnetBlockBigGANpp(eqx.Module):
 
     def __init__(
         self,
-        act: Callable[[eqx.Array], eqx.Array],
+        act: Callable,
         in_ch: int,
+        key: jax.random.PRNGKey,
         out_ch: Optional[int] = None,
         temb_dim: Optional[int] = None,
         up: bool = False,
@@ -49,7 +51,7 @@ class ResnetBlockBigGANpp(eqx.Module):
         self.skip_rescale = skip_rescale
 
         self.GroupNorm_0 = eqx.nn.GroupNorm(
-            num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6
+            groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6
         )
         self.Conv_0 = conv3x3(
             in_ch, out_ch, dimensions=dimensions, kernel_init=default_init()

@@ -1,6 +1,8 @@
+from typing import Callable 
 import jax.numpy as jnp
 import jax.lax as lax
 import equinox as eqx
+import jax
 
 class StyleGANConv(eqx.Module):
     weight: jnp.ndarray
@@ -17,13 +19,13 @@ class StyleGANConv(eqx.Module):
         in_ch: int,
         out_ch: int,
         kernel: int,
+        key: jax.random.PRNGKey,
         up: bool = False,
         down: bool = False,
         resample_kernel: tuple = (1, 3, 3, 1),
         use_bias: bool = True,
-        kernel_init: callable = None,
+        kernel_init: Callable = jax.nn.initializers.normal(),
         dimensions: int = 2,
-        key = jax.random.PRNGKey(0),
     ):
         super().__init__()
         assert not (up and down)
@@ -38,11 +40,7 @@ class StyleGANConv(eqx.Module):
         self.dimensions = dimensions
 
         weight_shape = (out_ch, in_ch, *(kernel,) * dimensions)
-        self.weight = (
-            kernel_init(weight_shape)
-            if kernel_init
-            else eqx.nn.initializers.normal()(weight_shape)
-        )
+        self.weight = kernel_init(key, weight_shape)
 
         if use_bias:
             self.bias = jnp.zeros(out_ch)
