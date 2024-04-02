@@ -2,30 +2,23 @@ from typing import Callable
 import jax.numpy as jnp
 import jax.lax as lax
 import equinox as eqx
+from jaxtyping import PRNGKeyArray
 import jax
 
 class StyleGANConv(eqx.Module):
-    weight: jnp.ndarray
-    bias: jnp.ndarray = None
-    up: bool
-    down: bool
-    resample_kernel: tuple
-    kernel: int
-    use_bias: bool
-    dimensions: int
-
     def __init__(
         self,
         in_ch: int,
         out_ch: int,
         kernel: int,
-        key: jax.random.PRNGKey,
         up: bool = False,
         down: bool = False,
         resample_kernel: tuple = (1, 3, 3, 1),
         use_bias: bool = True,
         kernel_init: Callable = jax.nn.initializers.normal(),
         dimensions: int = 2,
+        *,
+        key: PRNGKeyArray,
     ):
         super().__init__()
         assert not (up and down)

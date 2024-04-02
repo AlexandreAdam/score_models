@@ -1,27 +1,22 @@
-import jax
 import jax.numpy as jnp
 import equinox as eqx
-from typing import Union
 from flax.linen import SpectralNorm
+from jaxtyping import PRNGKeyArray
 
 class Conv2dSame(eqx.Module):
-    conv: Union[eqx.nn.Conv2D, SpectralNorm]
-    stride: int
-    dilation: int
-    kernel_size: int
-
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        key: jax.random.PRNGKey,
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,
         spectral_norm: bool = False,
+        *,
+        key: PRNGKeyArray,
     ):
         conv_layer = eqx.nn.Conv(
             num_spatial_dims=2,
@@ -50,23 +45,19 @@ class Conv2dSame(eqx.Module):
         return x
 
 class ConvTransposed2dSame(eqx.Module):
-    conv: Union[eqx.nn.ConvTranspose2D, SpectralNorm]
-    stride: int
-    dilation: int
-    kernel_size: int
-
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        key: jax.random.PRNGKey,
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,
         spectral_norm: bool = False,
+        *,
+        key: PRNGKeyArray,
     ):
         conv_layer = eqx.nn.ConvTranspose2d(
             in_channels=in_channels,
