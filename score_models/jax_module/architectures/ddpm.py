@@ -4,8 +4,10 @@ with slight modifications to make it work on continuous time.
 """
 from typing import Callable
 import jax.numpy as jnp
+from jax import random
 import equinox as eqx
 from functools import partial
+from jaxtyping import Array, PRNGKeyArray
 from ..utils import get_activation
 from ..layers import (
     GaussianFourierProjection,
@@ -18,11 +20,6 @@ from ..layers import (
 
 
 class DDPM(eqx.Module):
-    modules: list
-    act: Callable
-    attention: bool
-    num_resolutions: int
-
     def __init__(
         self,
         channels=1,
@@ -36,6 +33,8 @@ class DDPM(eqx.Module):
         attention=True,
         conditioning=["None"],
         conditioning_channels=None,
+        *,
+        key: PRNGKeyArray
     ):
         if dimensions not in [1, 2, 3]:
             raise ValueError(
@@ -45,6 +44,7 @@ class DDPM(eqx.Module):
         self.act = get_activation(activation_type)
         self.attention = attention
         self.num_resolutions = len(ch_mult)
+        self.num_res_blocks = num_res_blocks
 
         AttnBlock = SelfAttentionBlock
         ResnetBlock = partial(
@@ -56,48 +56,57 @@ class DDPM(eqx.Module):
         )
 
         modules = []
+        key_time, key_rest = random.split(key)
+        key_t1, key_t2, key_t3 = random.split(key_time, 3)
         modules += [
-            GaussianFourierProjection(embed_dim=nf),
-            eqx.nn.Linear(nf, nf * 4),
-            eqx.nn.Linear(nf * 4, nf * 4),
+            GaussianFourierProjection(embed_dim=nf, key=key_t1),
+            eqx.nn.Linear(nf, nf * 4, key=key_t2),
+            eqx.nn.Linear(nf * 4, nf * 4, key=key_t3),
         ]
 
         Downsample = partial(DownsampleLayer, dimensions=dimensions)
-        modules.append(conv3x3(channels, nf))
+        key_input, key_rest = random.split(key_rest)
+        modules.append(conv3x3(channels, nf, key=key_input))
         hs_c = [nf]
         in_ch = nf
         for i_level in range(self.num_resolutions):
             out_ch = nf * ch_mult[i_level]
+            key_layer, key_rest = random.split(key_rest)
             for i_block in range(num_res_blocks):
-                modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch))
+                modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch, key=key_layer))
                 in_ch = out_ch
                 hs_c.append(in_ch)
             if i_level != self.num_resolutions - 1:
-                modules.append(Downsample(in_ch=in_ch, with_conv=resample_with_conv))
+                key_downsample, key_rest = random.split(key_rest)
+                modules.append(Downsample(in_ch=in_ch, with_conv=resample_with_conv, key=key_downsample))
                 hs_c.append(in_ch)
 
         in_ch = hs_c[-1]
-        modules.append(ResnetBlock(in_ch=in_ch))
+        key_bottleneck, key_rest = random.split(key_rest)
+        modules.append(ResnetBlock(in_ch=in_ch, key=key_bottleneck))
         if self.attention:
-            modules.append(AttnBlock(in_ch))
-        modules.append(ResnetBlock(in_ch=in_ch))
+            key_attention, key_rest = random.split(key_rest)
+            modules.append(AttnBlock(in_ch, key=key_attention))
+        key_bottleneck2, key_rest = random.split(key_rest)
+        modules.append(ResnetBlock(in_ch=in_ch, key=key_bottleneck2))
 
         Upsample = partial(UpsampleLayer, dimensions=dimensions)
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(num_res_blocks + 1):
+                key_resnet, key_rest = random.split(key_rest)
                 out_ch = nf * ch_mult[i_level]
-                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(), out_ch=out_ch))
+                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(), out_ch=out_ch, key=key_resnet))
                 in_ch = out_ch
             if i_level != 0:
-                modules.append(Upsample(in_ch=in_ch, with_conv=resample_with_conv))
+                key_upsample, key_rest = random.split(key_rest)
+                modules.append(Upsample(in_ch=in_ch, with_conv=resample_with_conv, key=key_upsample))
 
-        modules.append(
-            eqx.nn.GroupNorm(num_channels=in_ch, num_groups=min(in_ch // 4, 32))
-        )
-        modules.append(conv3x3(in_ch, channels))
+        modules.append(eqx.nn.GroupNorm(channels=in_ch, groups=min(in_ch // 4, 32)))
+        key_output, key_rest = random.split(key_rest)
+        modules.append(conv3x3(in_ch, channels, key=key_output))
         self.modules = modules
 
-    def __call__(self, t, x):
+    def __call__(self, t: Array, x: Array) -> Array:
         m_idx = 0
         temb = t
         for _ in range(3):
