@@ -6,6 +6,7 @@ from jaxtyping import PRNGKeyArray
 import jax
 
 
+# Not used in this implementation
 def uniform_init(key, shape, scale=1e-2):
     return jax.random.uniform(key, shape, minval=-scale, maxval=scale)
 
@@ -46,26 +47,25 @@ class SelfAttentionBlock(eqx.Module):
 
 
 class ScaledAttentionLayer(eqx.Module):
-    def __init__(self, dimensions):
-        self.query = eqx.nn.Linear(dimensions, dimensions)
-        self.key = eqx.nn.Linear(dimensions, dimensions)
-        self.value = eqx.nn.Linear(dimensions, dimensions)
-        self.to_out = eqx.nn.Linear(dimensions, dimensions)
+    def __init__(self, dimensions, *, key: PRNGKeyArray):
+        key_query, key_key, key_value, key_out = jax.random.split(key, 4)
+        self.query = eqx.nn.Linear(dimensions, dimensions, key=key_query)
+        self.key = eqx.nn.Linear(dimensions, dimensions, key=key_key)
+        self.value = eqx.nn.Linear(dimensions, dimensions, key=key_value)
+        self.to_out = eqx.nn.Linear(dimensions, dimensions, key=key_out)
 
         # Manually adjust weights after creation
         bound = 1 / dimensions**0.5
-        for layer in [self.query, self.key, self.value, self.to_out]:
-            layer.weight = eqx.filter_jit(lambda _: True)(
-                jax.nn.initializers.uniform(-bound, bound)
-            )(layer.weight.shape)
-            layer.bias = jnp.zeros_like(layer.bias)
+        for layer, key in zip([self.query, self.key, self.value, self.to_out], [key_query, key_key, key_value, key_out]):
+            layer.weight = uniform(-bound, bound)(shape=layer.weight.shape, key=key)
+            layer.bias = zeros(shape=layer.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, query, context):
         B, C_out, D = query.shape
         query = self.query(query.reshape(B * C_out, D)).reshape(B, C_out, D)
         value = self.value(context.reshape(B * C_out, D)).reshape(B, C_out, D)
         scores = jax.lax.batch_matmul(query, context.transpose((0, 2, 1))) / D**0.5
-        scores = eqx.nn.softmax(scores, axis=-1)
+        scores = jax.nn.softmax(scores, axis=-1)
         attention = jax.lax.batch_matmul(scores, value)
         h = self.to_out(attention)
         return h
