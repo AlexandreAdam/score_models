@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import jax.numpy as jnp
 from jax import random
-from jax.distrax import Distribution
+from distrax import Distribution
 from jaxtyping import PRNGKeyArray, Array
 
 class SDE(ABC):
@@ -30,21 +29,21 @@ class SDE(ABC):
         pass
     
     @abstractmethod
-    def diffusion(self, t: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+    def diffusion(self, t: Array, x: Array) -> Array:
         pass
 
     @abstractmethod
-    def drift(self, t: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+    def drift(self, t: Array, x: Array) -> Array:
         pass
     
     @abstractmethod
-    def marginal_prob_scalars(self, t: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    def marginal_prob_scalars(self, t: Array) -> Tuple[Array, Array]:
         """
         Returns scaling functions for the mean and the standard deviation of the marginals
         """
         pass
 
-    def sample_marginal(self, t: jnp.ndarray, x0: jnp.ndarray, key) -> jnp.ndarray:
+    def sample_marginal(self, t: Array, x0: Array, key: PRNGKeyArray) -> Array:
         """
         Sample from the marginal at time t given some initial condition x0
         """
@@ -53,7 +52,7 @@ class SDE(ABC):
         mu_t, sigma_t = self.marginal_prob_scalars(t)
         return mu_t.reshape(-1, *[1]*len(D)) * x0 + sigma_t.reshape(-1, *[1]*len(D)) * z
 
-    def marginal_prob(self, t: jnp.ndarray, x: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    def marginal_prob(self, t: Array, x: Array) -> Tuple[Array, Array]:
         _, *D = x.shape
         m_t, sigma_t = self.marginal_prob_scalars(t)
         mean = m_t.reshape(-1, *[1]*len(D)) * x

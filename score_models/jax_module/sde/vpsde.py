@@ -1,46 +1,37 @@
-import torch
-from torch import Tensor
-from .sde import SDE
-from torch.distributions import Independent, Normal
-from score_models.utils import DEVICE
+import jax.numpy as jnp
+from distrax import Independent, Normal, Distribution
+from jaxtyping import Array
 
-
-class VPSDE(SDE):
-    def __init__(
-        self,
-        beta_min: float = 0.1,
-        beta_max: float = 20,
-        T: float = 1.0,
-        epsilon: float = 1e-5,
-        **kwargs
-    ):
-        super().__init__(T, epsilon)
+class VPSDE:
+    def __init__(self, beta_min: float = 0.1, beta_max: float = 20, T: float = 1.0, epsilon: float = 1e-5):
         self.beta_min = beta_min
         self.beta_max = beta_max
-    
-    def beta(self, t: Tensor):
+        self.T = T
+        self.epsilon = epsilon
+
+    def beta(self, t: Array) -> Array:
         return self.beta_min + (self.beta_max - self.beta_min) * t
 
-    def sigma(self, t: Tensor) -> Tensor:
+    def sigma(self, t: Array) -> Array
         return self.marginal_prob_scalars(t)[1]
-        
-    def prior(self, shape, device=DEVICE):
-        mu = torch.zeros(shape).to(device)
-        return Independent(Normal(loc=mu, scale=1., validate_args=False), len(shape))
 
-    def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
+    def prior(self, shape) -> Distribution:
+        mu = jnp.zeros(shape)
+        return Independent(Normal(loc=mu, scale=1.), reinterpreted_batch_ndims=len(shape))
+
+    def diffusion(self, t: Array, x: Array) -> Array:
         _, *D = x.shape
-        return torch.sqrt(self.beta(t)).view(-1, *[1]*len(D))
+        return jnp.sqrt(self.beta(t)).reshape(-1, *[1]*len(D))
 
-    def drift(self, t: Tensor, x: Tensor) -> Tensor:
+    def drift(self, t: Array, x: Array) -> Array:
         _, *D = x.shape
-        return -0.5 * self.beta(t).view(-1, *[1]*len(D)) * x
+        return -0.5 * self.beta(t).reshape(-1, *[1]*len(D)) * x
 
-    def marginal_prob_scalars(self, t: Tensor) -> tuple[Tensor, Tensor]:
+    def marginal_prob_scalars(self, t: Array) -> tuple[Array, Array]:
         """
         See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
         """
-        log_coeff = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t # integral of b(t)
-        std = torch.sqrt(1. - torch.exp(- log_coeff))
-        return torch.exp(-0.5*log_coeff), std
+        log_coeff = 0.5 * (self.beta_max - self.beta_min) * t**2 + self.beta_min * t  # integral of beta(t)
+        std = jnp.sqrt(1. - jnp.exp(-log_coeff))
+        return jnp.exp(-0.5 * log_coeff), std
 

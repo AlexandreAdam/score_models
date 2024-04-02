@@ -1,20 +1,9 @@
-import torch
-from .sde import SDE
-from torch import Tensor
-import numpy as np
-from torch.distributions import Normal, Independent
-from score_models.utils import DEVICE
+import jax.numpy as jnp
+from distrax import Independent, Normal, Distribution
+from jaxtyping import Array
 
-
-class VESDE(SDE):
-    def __init__(
-            self,
-            sigma_min: float,
-            sigma_max: float,
-            T:float=1.0,
-            epsilon:float=0.0,
-            **kwargs
-    ):
+class VESDE:
+    def __init__(self, sigma_min: float, sigma_max: float, T: float = 1.0, epsilon: float = 0.0):
         """
         Variance Exploding stochastic differential equation 
         
@@ -24,33 +13,33 @@ class VESDE(SDE):
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
-        super().__init__(T, epsilon)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
+        self.T = T
+        self.epsilon = epsilon
 
-    def sigma(self, t: Tensor) -> Tensor:
-        return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t/self.T)
-    
-    def prior(self, shape, mu=None, device=DEVICE):
+    def sigma(self, t: Array) -> Array:
+        return self.sigma_min * (self.sigma_max / self.sigma_min) ** (t / self.T)
+
+    def prior(self, shape, mu=None) -> Distribution:
         """
         Technically, VESDE does not change the mean of the 0 temperature distribution, 
         so I give the option to provide for more accuracy. In practice, 
         sigma_max is chosen large enough to make this choice irrelevant
         """
         if mu is None:
-            mu = torch.zeros(shape).to(device)
+            mu = jnp.zeros(shape)
         else:
-            assert mu.shape == shape 
-        return Independent(Normal(loc=mu, scale=self.sigma_max, validate_args=False), len(shape))
-    
-    def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
-        return torch.ones_like(t), self.sigma(t)
+            assert mu.shape == shape
+        return Independent(Normal(loc=mu, scale=self.sigma_max), reinterpreted_batch_ndims=len(shape))
 
-    def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
-        _, *D = x.shape # broadcast diffusion coefficient to x shape
-        return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2 * (np.log(self.sigma_max) - np.log(self.sigma_min)))
+    def marginal_prob_scalars(self, t: Array) -> tuple[Array, Array]:
+        return jnp.ones_like(t), self.sigma(t)
 
-    def drift(self, t: Tensor, x: Tensor) -> Tensor:
-        return torch.zeros_like(x)
+    def diffusion(self, t: Array, x: Array) -> Array:
+        _, *D = x.shape  # broadcast diffusion coefficient to x shape
+        return self.sigma(t).reshape(-1, *[1]*len(D)) * jnp.sqrt(2 * (jnp.log(self.sigma_max) - jnp.log(self.sigma_min)))
 
+    def drift(self, t: Array, x: Array) -> Array:
+        return jnp.zeros_like(x)
 
