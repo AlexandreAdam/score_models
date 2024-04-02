@@ -3,7 +3,8 @@ from typing import Tuple
 
 import jax.numpy as jnp
 from jax import random
-from distrax import Normal, Independent
+from jax.distrax import Distribution
+from jaxtyping import PRNGKeyArray, Array
 
 class SDE(ABC):
     """
@@ -18,7 +19,7 @@ class SDE(ABC):
         self.epsilon = epsilon
     
     @abstractmethod
-    def sigma(self, t) -> jnp.ndarray:
+    def sigma(self, t) -> Array:
         pass
     
     @abstractmethod

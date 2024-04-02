@@ -6,7 +6,7 @@ import json
 from glob import glob
 import re
 import numpy as np
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 
 def get_norm_layer(norm_type="instance"):
@@ -31,7 +31,7 @@ def get_norm_layer(norm_type="instance"):
     return norm_layer
 
 
-def get_activation(activation_type="elu"):
+def get_activation(activation_type: Optional[str]):
     """Return a JAX activation function."""
     if activation_type is None or activation_type.lower() == "none":
         return lambda x: x

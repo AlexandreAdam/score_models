@@ -43,7 +43,7 @@ class ResnetBlockBigGANpp(eqx.Module):
         self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6)
 
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv0)
-        if temb_dim is not None
+        if temb_dim is not None:
             self.Dense_0 = eqx.nn.Linear(temb_dim, out_ch, key=key_dense0)
         self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch, eps=1e-6)
         self.Dropout_0 = eqx.nn.Dropout(dropout)

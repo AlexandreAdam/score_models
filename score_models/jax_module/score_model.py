@@ -1,12 +1,19 @@
-from .base import ScoreModelBase, Union, Module
+import jax.numpy as jnp
+from jax import grad, vmap
+from .base import ScoreModelBase
 from .dsm import denoising_score_matching
 from .sde import SDE
-from torch.func import grad
-from torch import vmap
-import torch
+from typing import Union, Optional
+from equinox.nn import Module
+
 
 class ScoreModel(ScoreModelBase):
-    def __init__(self, model: Union[str, Module] = None, sde: SDE=None, checkpoints_directory=None, **hyperparameters):
+    def __init__(
+            self,
+            model: Optional[Union[str, Module]] = None,
+            sde: Optional[Union[SDE, str]] = None,
+            checkpoints_directory: Optional[str] = None,
+            **hyperparameters):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
     
     def loss_fn(self, x, *args):
@@ -14,13 +21,18 @@ class ScoreModel(ScoreModelBase):
 
     def score(self, t, x, *args):
         _, *D = x.shape
-        return self.model(t, x, *args) / self.sde.sigma(t).view(-1, *[1]*len(D))
-    
+        return self.model(t, x, *args) / self.sde.sigma(t).reshape(-1, *[1]*len(D))
+
 
 class EnergyModel(ScoreModelBase):
-    def __init__(self, model: Union[str, Module] = None, sde: SDE=None, checkpoints_directory=None, **hyperparameters):
+    def __init__(
+            self, 
+            model: Optional[Union[str, Module]] = None, 
+            sde: Optional[Union[str, SDE]] = None, 
+            checkpoints_directory: Optional[str] = None, 
+            **hyperparameters):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
-        nn_is_energy = self.model.hyperparameters.get("nn_is_energy", False)
+        nn_is_energy = self.hyperparameters.get("nn_is_energy", False)
         self.nn_is_energy = nn_is_energy
 
     def loss_fn(self, x, *args):
@@ -34,14 +46,14 @@ class EnergyModel(ScoreModelBase):
 
     def _unet_energy(self, t, x, *args):
         _, *D = x.shape
-        return 0.5 / self.sde.sigma(t) * torch.sum((x - self.model(t, x, *args))**2, dim=list(range(1, 1+len(D))))
+        return 0.5 / self.sde.sigma(t) * jnp.sum((x - self.model(t, x, *args))**2, axis=tuple(range(1, 1+len(D))))
     
     def _nn_energy(self, t, x, *args):
-        return self.model(t, x, *args).squeeze(1) / self.sde.sigma(t) 
+        return self.model(t, x, *args).squeeze(1) / self.sde.sigma(t)
     
     def score(self, t, x, *args):
         _, *D = x.shape
         # small wrapper to account for input without batch dim from vmap
-        energy = lambda t, x: self.energy(t.unsqueeze(0), x.unsqueeze(0), *args).squeeze(0)
-        return -vmap(grad(energy, argnums=1))(t, x, *args) # Don't forget the minus sign!
-    
+        energy = lambda t, x: self.energy(t[None], x[None], *args).squeeze(0)
+        return -vmap(grad(energy, argnums=1))(t, x, *args)
+
