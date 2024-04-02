@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 from jax import random
 from scipy.stats import norm
+from jaxtyping import PRNGKeyArray
 
 def variance_scaling(
     scale,
@@ -18,7 +19,7 @@ def variance_scaling(
         fan_out = shape[out_axis] * receptive_field_size
         return fan_in, fan_out
 
-    def init(key: random.PRNGKey, shape, dtype=dtype):
+    def init(shape, dtype=dtype, *, key: PRNGKeyArray):
         fan_in, fan_out = _compute_fans(shape, in_axis, out_axis)
         if mode == "fan_in":
             denominator = fan_in

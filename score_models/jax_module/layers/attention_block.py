@@ -1,6 +1,8 @@
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
+from jax.nn.initializers import uniform, zeros
+from jaxtyping import PRNGKeyArray
 import jax
 
 
@@ -12,23 +14,21 @@ class SelfAttentionBlock(eqx.Module):
     to_qkv: eqx.nn.Conv
     to_out: eqx.nn.Conv
 
-    def __init__(self, channels, init_scale=1e-2, dimensions=2):
-        conv = {1: eqx.nn.Conv1D, 2: eqx.nn.Conv2D, 3: eqx.nn.Conv3D}[dimensions]
-        self.to_qkv = conv(channels, 3 * channels, kernel_size=1)
-        self.to_out = conv(channels, channels, kernel_size=1)
+    def __init__(self, channels, init_scale=1e-2, dimensions=2, *, key: PRNGKeyArray): 
+        key_qkv, key_out = jax.random.split(key)
+
+        conv = {1: eqx.nn.Conv1d, 2: eqx.nn.Conv2d, 3: eqx.nn.Conv3d}[dimensions] 
+        self.to_qkv = conv(channels, 3 * channels, kernel_size=1, key=key_qkv)
+        self.to_out = conv(channels, channels, kernel_size=1, key=key_out)
 
         # Manually adjust weights after creation
         bound_qkv = 1 / channels**0.5
-        self.to_qkv.weight = eqx.filter_jit(lambda _: True)(
-            jax.nn.initializers.uniform(-bound_qkv, bound_qkv)
-        )(self.to_qkv.weight.shape)
-        self.to_qkv.bias = jnp.zeros_like(self.to_qkv.bias)
+        self.to_qkv.weight = uniform(-bound_qkv, bound_qkv)(shape=self.to_qkv.weight.shape, key=key_qkv)
+        self.to_qkv.bias = zeros(shape=self.to_qkv.bias.shape, key=jax.random.PRNGKey(0))
 
         bound_out = init_scale / channels**0.5
-        self.to_out.weight = eqx.filter_jit(lambda _: True)(
-            jax.nn.initializers.uniform(-bound_out, bound_out)
-        )(self.to_out.weight.shape)
-        self.to_out.bias = jnp.zeros_like(self.to_out.bias)
+        self.to_out.weight = uniform(-bound_out, bound_out)(shape=self.to_out.weight.shape, key=key_out)
+        self.to_out.bias = zeros(shape=self.to_out.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, x):
         B, C, *D = x.shape
@@ -39,20 +39,13 @@ class SelfAttentionBlock(eqx.Module):
         v = v.reshape(B, np.prod(D), C)
 
         w = jax.lax.batch_matmul(q, k) * (C ** (-0.5))
-        w = eqx.nn.softmax(w, axis=-1)
+        w = jax.nn.softmax(w, axis=-1)
         attention = jax.lax.batch_matmul(w, v)
-        attention = attention.reshape(B, *D, C).transpose(
-            (0, -1) + tuple(range(1, len(D) + 1))
-        )
+        attention = attention.reshape(B, *D, C).transpose((0, -1) + tuple(range(1, len(D) + 1)))
         return self.to_out(attention) + x
 
 
 class ScaledAttentionLayer(eqx.Module):
-    query: eqx.nn.Linear
-    key: eqx.nn.Linear
-    value: eqx.nn.Linear
-    to_out: eqx.nn.Linear
-
     def __init__(self, dimensions):
         self.query = eqx.nn.Linear(dimensions, dimensions)
         self.key = eqx.nn.Linear(dimensions, dimensions)

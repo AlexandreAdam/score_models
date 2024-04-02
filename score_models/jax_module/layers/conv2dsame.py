@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import equinox as eqx
 from flax.linen import SpectralNorm
-from jaxtyping import PRNGKeyArray
+from jaxtyping import PRNGKeyArray, Array
 
 class Conv2dSame(eqx.Module):
     def __init__(
@@ -35,7 +35,7 @@ class Conv2dSame(eqx.Module):
         self.dilation = dilation
         self.kernel_size = kernel_size
 
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: Array) -> Array:
         effective_kernel_size = (self.kernel_size - 1) * self.dilation + 1
         pad_total = max(effective_kernel_size - self.stride, 0)
         pad_beg = pad_total // 2
@@ -76,7 +76,7 @@ class ConvTransposed2dSame(eqx.Module):
         self.dilation = dilation
         self.kernel_size = kernel_size
 
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: Array) -> Array:
         input_length = x.shape[-1]
         effective_kernel_size = (self.kernel_size - 1) * self.dilation + 1
         pad_along_length = max(0, (input_length - 1) * self.stride + effective_kernel_size - input_length)

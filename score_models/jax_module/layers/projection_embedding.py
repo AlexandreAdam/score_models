@@ -3,12 +3,13 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 from jax.lax import stop_gradient
+from jaxtyping import PRNGKeyArray
 
 
 class GaussianFourierProjection(eqx.Module):
     W: jax.Array
 
-    def __init__(self, key, embed_dim: int, scale: float = 30.0):
+    def __init__(self, embed_dim: int, scale: float = 30.0, *, key: PRNGKeyArray):
         self.W = jax.random.normal(key, shape=(embed_dim // 2,)) * scale
 
     def __call__(self, t: jnp.ndarray) -> jax.Array:
@@ -20,7 +21,7 @@ class GaussianFourierProjection(eqx.Module):
 class PositionalEncoding(eqx.Module):
     W: jax.Array
 
-    def __init__(self, key, channels: int, embed_dim: int, scale: float = 30.0):
+    def __init__(self, channels: int, embed_dim: int, scale: float = 30.0, *, key: PRNGKeyArray):
         self.W = jax.random.normal(key, shape=(embed_dim // 2, channels)) * scale
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
