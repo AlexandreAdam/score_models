@@ -1,35 +1,21 @@
 import equinox as eqx
 import jax
+from jaxtyping import PRNGKeyArray
 from jax.nn import relu
 from typing import Optional, Callable
-from score_models.definitions import default_init
 from .conv_layers import conv1x1, conv3x3
 from .up_or_downsampling import upsample, downsample, naive_upsample, naive_downsample
+from jaxtyping import Array
 
 SQRT2 = 1.41421356237
 
 
 class ResnetBlockBigGANpp(eqx.Module):
-    GroupNorm_0: eqx.Module
-    Conv_0: eqx.Module
-    Dense_0: Optional[eqx.Module]
-    GroupNorm_1: eqx.Module
-    Dropout_0: eqx.Module
-    Conv_1: eqx.Module
-    Conv_2: Optional[eqx.Module]
-    act: Callable
-    dimensions: int
-    up: bool
-    down: bool
-    fir: bool
-    fir_kernel: tuple
-    skip_rescale: bool
 
     def __init__(
         self,
         act: Callable,
         in_ch: int,
-        key: jax.random.PRNGKey,
         out_ch: Optional[int] = None,
         temb_dim: Optional[int] = None,
         up: bool = False,
@@ -38,8 +24,9 @@ class ResnetBlockBigGANpp(eqx.Module):
         fir: bool = False,
         fir_kernel: tuple = (1, 3, 3, 1),
         skip_rescale: bool = True,
-        init_scale: float = 0.0,
         dimensions: int = 2,
+        *,
+        key: PRNGKeyArray,
     ):
         self.act = act
         self.dimensions = dimensions
@@ -49,37 +36,22 @@ class ResnetBlockBigGANpp(eqx.Module):
         self.fir = fir
         self.fir_kernel = fir_kernel
         self.skip_rescale = skip_rescale
+        self.in_ch = in_ch
+        self.out_ch = out_ch
+        
+        key_conv0, key_dense0, key_conv1, key_conv2 = jax.random.split(key, 4)
+        self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6)
 
-        self.GroupNorm_0 = eqx.nn.GroupNorm(
-            groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6
-        )
-        self.Conv_0 = conv3x3(
-            in_ch, out_ch, dimensions=dimensions, kernel_init=default_init()
-        )
-        self.Dense_0 = (
-            eqx.nn.Linear(
-                temb_dim, out_ch, kernel_init=default_init(), bias_init=eqx.init.zeros
-            )
-            if temb_dim is not None
-            else None
-        )
-        self.GroupNorm_1 = eqx.nn.GroupNorm(
-            num_groups=min(out_ch // 4, 32), num_channels=out_ch, eps=1e-6
-        )
+        self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv0)
+        if temb_dim is not None
+            self.Dense_0 = eqx.nn.Linear(temb_dim, out_ch, key=key_dense0)
+        self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch, eps=1e-6)
         self.Dropout_0 = eqx.nn.Dropout(dropout)
-        self.Conv_1 = conv3x3(
-            out_ch,
-            out_ch,
-            dimensions=dimensions,
-            init_scale=init_scale,
-            kernel_init=default_init(),
-        )
+        self.Conv_1 = conv3x3(out_ch, out_ch, dimensions=dimensions, key=key_conv1)
         if in_ch != out_ch or up or down:
-            self.Conv_2 = conv1x1(
-                in_ch, out_ch, dimensions=dimensions, kernel_init=default_init()
-            )
+            self.Conv_2 = conv1x1(in_ch, out_ch, dimensions=dimensions, key=key_conv2)
 
-    def __call__(self, x, temb: Optional[eqx.Array] = None):
+    def __call__(self, x, temb: Optional[Array] = None):
         B, *_ = x.shape
         h = self.act(self.GroupNorm_0(x))
 
