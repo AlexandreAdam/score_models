@@ -7,6 +7,7 @@ import jax.nn as nn
 
 __all__ = ["TSVESDE"]
 
+
 class TSVESDE:
     def __init__(self, sigma_min: float, sigma_max: float, t_star: float, beta: float, T:float=1.0, epsilon:float=0.0, beta_fn="relu", alpha=30):
         self.sigma_min = sigma_min

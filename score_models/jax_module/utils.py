@@ -9,8 +9,7 @@ from glob import glob
 import re
 import numpy as np
 import equinox as eqx
-import pickle
-from typing import Union, Callable, Optional
+from typing import Optional
 
 
 def stop_gradient(func):
@@ -90,6 +89,14 @@ def update_model_params(model, state_dict):
                 setattr(module, key, state_dict[key])
     update(model, "")
     return model
+
+
+def model_state_dict(model, prefix=''):
+    state_dict = {}
+    for key, value in model.__dict__.items():
+        if isinstance(value, eqx.Module):
+            state_dict.update(model_state_dict(value, prefix=f"{prefix}{key}."))  # Recursive call for nested modules
+    return state_dict
 
 
 def load_model_from_pt(path: str, model: nn.Module) -> nn.Module:

@@ -4,24 +4,23 @@ from abc import ABC, abstractmethod
 import jax
 import jax.numpy as jnp
 import optax
+import equinox as eqx
 from jaxtyping import PRNGKeyArray, Array
-from equinox.nn import Module
 from jax import vjp
-# from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
 from datetime import datetime
 import time
 import os, glob, re, json
 import numpy as np
-
 from .sde import VESDE, VPSDE, TSVESDE, SDE
-from .utils import load_architecture, stop_gradient
+from .utils import load_architecture, stop_gradient, update_model_params, load_state_dict_from_pt
+from .ema import ExponentialMovingAverage
 
 
-class ScoreModelBase(Module, ABC):
+class ScoreModelBase(eqx.Module, ABC):
     def __init__(
             self, 
-            model: Optional[Union[str, Module]] = None, 
+            model: Optional[Union[str, eqx.Module]] = None, 
             sde: Optional[Union[str, SDE]] = None, 
             checkpoints_directory: Optional[str] = None, 
             model_checkpoint: Optional[int] = None, 
@@ -252,7 +251,7 @@ class ScoreModelBase(Module, ABC):
         logdir=None,
         n_iterations_in_epoch=None,
         logname_prefix="score_model",
-        verbose=0
+        verbose=0,
     ):
         """
         Train the model on the provided dataset.
@@ -282,8 +281,12 @@ class ScoreModelBase(Module, ABC):
         Returns:
             list: List of loss values during training.
         """
+        if seed is None:
+            key = jax.random.PRNGKey(0)
+        else:
+            key = jax.random.PRNGKey(seed)
         optimizer = optax.adam(learning_rate)
-        # ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
+        ema = ExponentialMovingAverage(self.model, decay=ema_decay)
         
         if n_iterations_in_epoch is None:
             n_iterations_in_epoch = len(dataloader)
@@ -296,7 +299,7 @@ class ScoreModelBase(Module, ABC):
             preprocessing_name = None
             preprocessing_fn = lambda x: x
          
-       # ==== Take care of where to write checkpoints and stuff =================================================================
+        # ==== Take care of where to write checkpoints and stuff =================================================================
         if checkpoints_directory is not None:
             if os.path.isdir(checkpoints_directory):
                 logname = os.path.split(checkpoints_directory)[-1]
@@ -344,28 +347,48 @@ class ScoreModelBase(Module, ABC):
                     json.dump(self.hyperparameters, f, indent=4)
 
             # ======= Load model if model_id is provided ===============================================================
-            paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
-            opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
+            paths_pt = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
+            paths_pkl = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.eqx"))
+            if len(paths_pt) > 0 and len(paths_pkl) > 0:
+                print("Found pt and pkl File. Loading the eqx files.")
+            if len(paths_pkl) > 0:
+                paths = paths_pkl
+                opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.eqx"))
+                extension = "eqx"
+            else:
+                paths = paths_pt
+                opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
+                extension = "pt"
             checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
             scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
             if checkpoint_indices:
                 if model_checkpoint is not None:
                     checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
-                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.model.device))
-                    optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
+                    if extension == "eqx":
+                        with open(checkpoint_path, "rb") as f:
+                            self.model = eqx.tree_deserialise_leaves(f, self.model)
+                        with open(opt_paths[checkpoint_indices.index(model_checkpoint)], "rb") as f:
+                            optimizer = eqx.tree_deserialise_leaves(f, optimizer)
+                    else:
+                        self.model = update_model_params(self.model, load_state_dict_from_pt(checkpoint_path))
+                        optimizer = update_model_params(optimizer, load_state_dict_from_pt(opt_paths[checkpoint_indices.index(model_checkpoint)]))
                     print(f"Loaded checkpoint {model_checkpoint} of {logname}")
                     latest_checkpoint = model_checkpoint
                 else:
                     max_checkpoint_index = np.argmax(checkpoint_indices)
                     checkpoint_path = paths[max_checkpoint_index]
                     opt_path = opt_paths[max_checkpoint_index]
-                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
+                    if extension == "eqx":
+                        with open(checkpoint_path, "rb") as f:
+                            self.model = eqx.tree_deserialise_leaves(f, self.model)
+                        with open(opt_paths[checkpoint_indices.index(model_checkpoint)], "rb") as f:
+                            optimizer = eqx.tree_deserialise_leaves(f, optimizer)
+                    else:
+                        self.model = update_model_params(self.model, load_state_dict_from_pt(checkpoint_path))
+                        optimizer = update_model_params(optimizer, load_state_dict_from_pt(opt_path))
                     print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
                     latest_checkpoint = checkpoint_indices[max_checkpoint_index]
 
-        if seed is not None:
-            torch.manual_seed(seed)
         best_loss = float('inf')
         losses = []
         step = 0

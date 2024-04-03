@@ -1,12 +1,14 @@
 from typing import Union
-import torch
-from torch import Tensor
+from jaxtyping import Array, PRNGKeyArray
+import jax.numpy as jnp
+from jax import random
 
-def denoising_score_matching(score_model: Union["ScoreModel", "EnergyModel"], samples: Tensor, *args: list[Tensor]):
+def denoising_score_matching(key: PRNGKeyArray, score_model: Union["ScoreModel", "EnergyModel"], samples: Array, *args: list[Array]):
     B, *D = samples.shape
     sde = score_model.sde
-    z = torch.randn_like(samples)
-    t = torch.rand(B).to(score_model.device) * (sde.T - sde.epsilon) + sde.epsilon
+    keyz, keyt = random.split(key)
+    z = random.normal(keyz, samples.shape)
+    t = random.uniform(keyt, (B,)) * (sde.T - sde.epsilon) + sde.epsilon
     mean, sigma = sde.marginal_prob(t, samples)
-    return torch.sum((z + score_model.model(t, mean + sigma * z, *args)) ** 2) / B
+    return jnp.sum((z + score_model.model(t, mean + sigma * z, *args)) ** 2) / B
 

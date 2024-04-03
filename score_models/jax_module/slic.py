@@ -1,7 +1,7 @@
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 
-from torch.nn import Module
-from torch.func import vjp
+import equinox as eqx
+from jax import vjp
 from .sde import SDE
 from .score_model import ScoreModel
 
@@ -11,10 +11,10 @@ class SLIC(ScoreModel):
     """
     def __init__(
             self, 
-            model: Union[str, Module] = None, 
-            forward_model: Callable = None, # need to be differentiable
-            sde: SDE=None, 
-            checkpoints_directory=None,
+            forward_model: Callable,
+            model: Optional[Union[str, eqx.Module]] = None, 
+            sde: Optional[SDE] = None, 
+            checkpoints_directory: Optional[str] = None,
             **hyperparameters
             ):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)

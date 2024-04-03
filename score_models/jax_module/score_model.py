@@ -4,7 +4,7 @@ from .base import ScoreModelBase
 from .dsm import denoising_score_matching
 from .sde import SDE
 from typing import Union, Optional
-from equinox.nn import Module
+import equinox as eqx
 
 
 __all__ = ["ScoreModel", "EnergyModel"]
@@ -13,7 +13,7 @@ __all__ = ["ScoreModel", "EnergyModel"]
 class ScoreModel(ScoreModelBase):
     def __init__(
             self,
-            model: Optional[Union[str, Module]] = None,
+            model: Optional[Union[str, eqx.Module]] = None,
             sde: Optional[Union[SDE, str]] = None,
             checkpoints_directory: Optional[str] = None,
             **hyperparameters):
@@ -30,7 +30,7 @@ class ScoreModel(ScoreModelBase):
 class EnergyModel(ScoreModelBase):
     def __init__(
             self, 
-            model: Optional[Union[str, Module]] = None, 
+            model: Optional[Union[str, eqx.Module]] = None, 
             sde: Optional[Union[str, SDE]] = None, 
             checkpoints_directory: Optional[str] = None, 
             **hyperparameters):

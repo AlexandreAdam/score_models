@@ -5,6 +5,7 @@ from jaxtyping import Array
 
 __all__ = ["VESDE"]
 
+
 class VESDE:
     def __init__(self, sigma_min: float, sigma_max: float, T: float = 1.0, epsilon: float = 0.0):
         """

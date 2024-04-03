@@ -5,6 +5,10 @@ from jax import random
 from distrax import Distribution
 from jaxtyping import PRNGKeyArray, Array
 
+
+__all__ = ["SDE"]
+
+
 class SDE(ABC):
     """
     Abstract class for some SDE info important for the score models in JAX.

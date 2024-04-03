@@ -5,6 +5,7 @@ from jaxtyping import Array
 
 __all__ = ["VPSDE"]
 
+
 class VPSDE:
     def __init__(self, beta_min: float = 0.1, beta_max: float = 20, T: float = 1.0, epsilon: float = 1e-5):
         self.beta_min = beta_min
@@ -15,7 +16,7 @@ class VPSDE:
     def beta(self, t: Array) -> Array:
         return self.beta_min + (self.beta_max - self.beta_min) * t
 
-    def sigma(self, t: Array) -> Array
+    def sigma(self, t: Array) -> Array:
         return self.marginal_prob_scalars(t)[1]
 
     def prior(self, shape) -> Distribution:
