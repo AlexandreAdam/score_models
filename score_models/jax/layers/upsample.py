@@ -13,13 +13,12 @@ class UpsampleLayer(eqx.Module):
     with_conv: bool
     fir_kernel: tuple
     out_ch: Optional[int]
-    in_ch: Optional[int]
     conv_0: eqx.Module
     conv1d_0: eqx.Module
     
     def __init__(
         self,
-        in_ch: Optional[int] = None,
+        in_ch: int,
         out_ch: Optional[int] = None,
         with_conv: bool = False,
         fir: bool = False,
@@ -41,8 +40,10 @@ class UpsampleLayer(eqx.Module):
                 self.conv_0 = conv3x3(
                     in_ch, self.out_ch, dimensions=dimensions, key=key
                 )
+                self.conv1d_0 = None
         else:
             if with_conv:
+                self.cont_0 = None
                 self.conv1d_0 = StyleGANConv(
                     in_ch,
                     self.out_ch,
@@ -54,6 +55,9 @@ class UpsampleLayer(eqx.Module):
                     dimensions=dimensions,
                     key=key,
                 )
+        if not with_conv:
+            self.conv_0 = None
+            self.conv1d_0 = None
 
     def __call__(self, x, key=jax.random.PRNGKey(0)):
         B, C, *D = x.shape

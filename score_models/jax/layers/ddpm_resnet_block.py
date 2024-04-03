@@ -92,8 +92,10 @@ class DDPMResnetBlock(eqx.Module):
         if in_ch != out_ch:
             if conv_shortcut:
                 self.Conv_2 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv2)
+                self.NIN_0 = None
             else:
                 self.NIN_0 = NIN(in_ch, out_ch, key=key_conv2)
+                self.Conv_2 = None
         else: # Have to initialize it to None in jax...
             self.Conv_2 = None
             self.NIN_0 = None
