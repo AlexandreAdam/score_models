@@ -1,4 +1,4 @@
 from .score_model import *
-# from .slic import SLIC
+from .slic import *
 from .architectures import *
 from .sde import *

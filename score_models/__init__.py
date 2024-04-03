@@ -26,22 +26,22 @@ except ImportError:
 
 # Select backend based on preference and availability
 if PREFERRED_BACKEND == 'jax' and JAX_AVAILABLE:
-    from .jax import *  # Import JAX version
+    from .jax import *
     from .jax import layers
     backend = 'jax'
 
 elif PREFERRED_BACKEND == 'torch' and TORCH_AVAILABLE:
-    from .torch import *  # Import PyTorch version
+    from .torch import *
     from .torch import layers
     backend = 'torch'
     
 elif JAX_AVAILABLE:
-    from .jax import *  # Fallback to JAX if available
+    from .jax import *
     from .jax import layers
     backend = 'jax'
     
 elif TORCH_AVAILABLE:
-    from .torch import *  # Fallback to PyTorch if available
+    from .torch import *
     from .torch import layers
     backend = 'torch'
     

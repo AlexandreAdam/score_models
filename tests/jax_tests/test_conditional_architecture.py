@@ -1,4 +1,4 @@
-from score_models import NCSNpp, DDPM, MLP
+from score_models.jax import NCSNpp, DDPM, MLP
 
 import jax.numpy as jnp
 from flax import linen as nn
@@ -8,12 +8,14 @@ import pytest
 
 def test_discrete_timelike_conditional():
     nf = 32
+    key = jax.random.PRNGKey(0)
 
     net = NCSNpp(
         nf=nf,
         ch_mult=(1, 1),
         condition=["discrete_timelike"],
         condition_num_embedding=[10],
+        key=key
     )
 
     B = 10

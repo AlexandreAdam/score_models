@@ -1,8 +1,8 @@
 import jax.numpy as jnp
-from score_models.utils import load_architecture
-from score_models import ScoreModel, EnergyModel, SLIC
-from score_models.architectures import MLP, NCSNpp, DDPM
-from score_models.sde import VESDE, VPSDE, TSVESDE
+from score_models.jax.utils import load_architecture
+from score_models.jax import ScoreModel, EnergyModel, SLIC
+from score_models.jax.architectures import MLP, NCSNpp, DDPM
+from score_models.jax.sde import VESDE, VPSDE, TSVESDE
 import pytest
 
 

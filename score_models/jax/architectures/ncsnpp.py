@@ -317,7 +317,7 @@ class NCSNpp(eqx.Module):
 
         self.all_modules = modules
 
-    def forward(self, t, x, *args):
+    def __call__(self, t, x, *args):
         B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules

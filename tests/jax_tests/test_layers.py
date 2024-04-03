@@ -1,9 +1,9 @@
 import jax.numpy as jnp
 from jax import random
-from score_models.layers import StyleGANConv, UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp
-from score_models.layers.attention_block import SelfAttentionBlock, ScaledAttentionLayer
-from score_models.definitions import default_init
-from score_models.utils import get_activation
+from score_models.jax.layers import StyleGANConv, UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp
+from score_models.jax.layers.attention_block import SelfAttentionBlock, ScaledAttentionLayer
+from score_models.jax.definitions import default_init
+from score_models.jax.utils import get_activation
 
 
 def init_test_fn(shape, dtype=jnp.float32):
