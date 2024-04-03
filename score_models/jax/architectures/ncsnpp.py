@@ -9,7 +9,7 @@ from ..layers import (
         conv3x3, 
         PositionalEncoding
         )
-from typing import Optional
+from typing import Optional, Callable
 from jaxtyping import PRNGKeyArray
 from ..utils import get_activation
 from ..definitions import default_init
@@ -49,6 +49,26 @@ class NCSNpp(eqx.Module):
         attention (bool): Whether or not to use attention. Default is True.
 
     """
+    conditioned: bool
+    condition_type: tuple[str,...]
+    condition_num_embedding: Optional[tuple[int,...]]
+    condition_input_channels: Optional[int]
+    condition_vector_channels: Optional[int]
+    dimensions: int
+    channels: int
+    hyperparameters: dict
+    act: Callable
+    attention: bool
+    nf: int
+    num_res_blocks: int
+    num_resolutions: int
+    skip_rescale: bool
+    progressive: str
+    progressive_input: str
+    resblock_type: str
+    condition_embedding_layers: list
+    all_modules: list
+
     def __init__(
             self,
             channels=1,
@@ -174,7 +194,7 @@ class NCSNpp(eqx.Module):
                     time_input_nf += nf
                     key_layer, key = jax.random.split(key)
                     condition_embedding_layers.append(PositionalEncoding(channels=self.condition_vector_channels, embed_dim=nf, scale=fourier_scale, key=key_layer))
-            self.condition_embedding_layers = nn.ModuleList(condition_embedding_layers)
+            self.condition_embedding_layers = condition_embedding_layers
                 
         # Condition on continuous time (second layer receives a concatenation of all the embeddings)
         key1, key2, key3, key = jax.random.split(key, 4)

@@ -1,4 +1,5 @@
 from jaxtyping import PRNGKeyArray
+from typing import Callable
 from ..layers import GaussianFourierProjection, ScaledAttentionLayer
 from ..utils import get_activation
 import jax
@@ -10,6 +11,17 @@ __all__ = ["MLP"]
 
 
 class MLP(eqx.Module):
+    activation: Callable
+    gaussian_fourier_projection: GaussianFourierProjection
+    time_branch: list
+    main_branch: list
+    bottleneck_in: eqx.nn.Linear
+    bottleneck_out: eqx.nn.Linear
+    temb_to_bottleneck: eqx.nn.Linear
+    attention_layer: ScaledAttentionLayer
+    output_layer: eqx.nn.Linear
+    output_activation: Callable
+
     def __init__(
         self,
         dimensions,
