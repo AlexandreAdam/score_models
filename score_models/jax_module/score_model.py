@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+from jaxtyping import Array, PRNGKeyArray
 from jax import grad, vmap
 from .base import ScoreModelBase
 from .dsm import denoising_score_matching
@@ -19,8 +20,8 @@ class ScoreModel(ScoreModelBase):
             **hyperparameters):
         super().__init__(model, sde=sde, checkpoints_directory=checkpoints_directory, **hyperparameters)
     
-    def loss_fn(self, x, *args):
-        return denoising_score_matching(self, x, *args)
+    def loss_fn(self, key: PRNGKeyArray, x: Array, *args):
+        return denoising_score_matching(key, self, x, *args)
 
     def score(self, t, x, *args):
         _, *D = x.shape
@@ -38,8 +39,8 @@ class EnergyModel(ScoreModelBase):
         nn_is_energy = self.hyperparameters.get("nn_is_energy", False)
         self.nn_is_energy = nn_is_energy
 
-    def loss_fn(self, x, *args):
-        return denoising_score_matching(self, x, *args)
+    def loss_fn(self, key: PRNGKeyArray, x: Array, *args):
+        return denoising_score_matching(key, self, x, *args)
     
     def energy(self, t, x, *args):
         if self.nn_is_energy:

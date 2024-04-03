@@ -2,8 +2,10 @@ from jax import vjp
 import jax.numpy as jnp
 from jax import random
 from jaxtyping import PRNGKeyArray
+import equinox as eqx
 
-# Kept here for reference, but not currently used
+
+@eqx.filter_value_and_grad
 def time_weighted_sliced_score_matching_loss(key: PRNGKeyArray, model, samples, t, lambda_t, n_cotangent_vectors=1,  noise_type="rademacher"):
     """
     Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of
@@ -35,6 +37,7 @@ def time_weighted_sliced_score_matching_loss(key: PRNGKeyArray, model, samples, 
     return loss
 
 
+@eqx.filter_value_and_grad
 def sliced_score_matching_loss(key: PRNGKeyArray, model, samples, n_cotangent_vectors=1,  noise_type="rademacher"):
     """
     Score matching loss with the Hutchinson trace estimator trick. See Theorem 1 of

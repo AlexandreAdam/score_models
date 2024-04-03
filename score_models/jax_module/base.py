@@ -98,7 +98,7 @@ class ScoreModelBase(eqx.Module, ABC):
         ...
     
     @abstractmethod
-    def loss_fn(self, x, *args) -> Array:
+    def loss_fn(self, key: PRNGKeyArray, x: Array, *args) -> Array:
         ...
     
     def ode_drift(self, t, x, *args) -> Array:
@@ -286,10 +286,14 @@ class ScoreModelBase(eqx.Module, ABC):
         else:
             key = jax.random.PRNGKey(seed)
         optimizer = optax.adam(learning_rate)
+        opt_state = optimizer.init(self.model)
         ema = ExponentialMovingAverage(self.model, decay=ema_decay)
         
         if n_iterations_in_epoch is None:
-            n_iterations_in_epoch = len(dataloader)
+            try:
+                n_iterations_in_epoch = len(dataloader)
+            except Exception as e:
+                raise ValueError("Could not determine the number of iterations in the epoch. Please provide n_iterations_in_epoch.")
         if checkpoints_directory is None:
             checkpoints_directory = self.checkpoints_directory
         
@@ -395,6 +399,13 @@ class ScoreModelBase(eqx.Module, ABC):
         global_start = time.time()
         estimated_time_for_epoch = 0
         out_of_time = False
+        
+        @eqx.filter_jit
+        def make_step(key, opt_state, x, *args):
+            loss, grads = self.loss_fn(key, x, *args)
+            updates, opt_state = optimizer.update(grads, opt_state)
+            model = eqx.apply_updates(self.model, updates)
+            return loss, model, opt_state
 
         data_iter = iter(dataloader)
         for epoch in (pbar := tqdm(range(epochs))):
@@ -403,7 +414,7 @@ class ScoreModelBase(eqx.Module, ABC):
             epoch_start = time.time()
             time_per_step_epoch_mean = 0
             cost = 0
-            for _ in range(n_iterations_in_epoch):
+            for iteration in range(n_iterations_in_epoch):
                 start = time.time()
                 try:
                     X = next(data_iter)
@@ -417,27 +428,26 @@ class ScoreModelBase(eqx.Module, ABC):
                     args = []
                 if preprocessing_fn is not None:
                     x = preprocessing_fn(x)
-                optimizer.zero_grad()
-                loss = self.loss_fn(x, *args)
-                loss.backward()
+                
+                key_step, key = jax.random.split(key)
+                loss, self.model, opt_state = make_step(key_step, opt_state, x, *args)
 
-                if step < warmup:
-                    for g in optimizer.param_groups:
-                        g['lr'] = learning_rate * np.minimum(step / warmup, 1.0)
+                # if step < warmup:
+                    # for g in optimizer.param_groups:
+                        # g['lr'] = learning_rate * np.minimum(step / warmup, 1.0)
 
-                if clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=clip)
+                # if clip > 0:
+                    # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=clip)
 
-                optimizer.step()
-                ema.update()
+                ema.update(self.model)
 
                 _time = time.time() - start
                 time_per_step_epoch_mean += _time
                 cost += float(loss)
                 step += 1
 
-            time_per_step_epoch_mean /= len(dataloader)
-            cost /= len(dataloader)
+            time_per_step_epoch_mean /= n_iterations_in_epoch
+            cost /= n_iterations_in_epoch
             pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost:.1e} |")
             losses.append(cost)
             if verbose >= 2:
@@ -465,8 +475,10 @@ class ScoreModelBase(eqx.Module, ABC):
                     with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
                         f.write(f"{latest_checkpoint} {cost}\n")
                     with ema.average_parameters():
-                        torch.save(self.model.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
-                    torch.save(optimizer.state_dict(), os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.pt"))
+                        with open(os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.eqx"), "wb") as f:
+                            eqx.tree_serialise_leaves(f, self.model)
+                    with open(os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.eqx"), "wb") as f:
+                        eqx.tree_serialise_leaves(f, optimizer)
                     paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
                     checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
                     scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
@@ -489,6 +501,4 @@ class ScoreModelBase(eqx.Module, ABC):
                 estimated_time_for_epoch = time.time() - epoch_start
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
-        # Save EMA weights in the model
-        ema.copy_to(self.parameters())
-        return losses
+        return losses, ema
