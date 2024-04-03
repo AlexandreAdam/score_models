@@ -31,11 +31,13 @@ def test_discrete_timelike_conditional():
 
 def test_continuous_timelike_conditional():
     nf = 32
+    key = jax.random.PRNGKey(0)
 
     net = NCSNpp(
         nf=nf,
         ch_mult=(1, 1),
-        condition=["continuous_timelike"]
+        condition=["continuous_timelike"],
+        key=key
     )
 
     B = 10
@@ -52,12 +54,14 @@ def test_continuous_timelike_conditional():
 def test_continuous_input_conditional():
     nf = 32
     C_cond = 3
+    key = jax.random.PRNGKey(0)
 
     net = NCSNpp(
         nf=nf,
         ch_mult=(1, 1),
         condition=["input"],
-        condition_input_channels=3
+        condition_input_channels=3,
+        key=key
     )
 
     B = 10
@@ -73,12 +77,14 @@ def test_continuous_input_conditional():
 def test_vector_condition():
     nf = 32
     C_cond = 3
+    key = jax.random.PRNGKey(0)
 
     net = NCSNpp(
         nf=nf,
         ch_mult=(1, 1),
         condition=["vector"],
-        condition_vector_channels=3
+        condition_vector_channels=3,
+        key=key
     )
 
     B = 10
@@ -94,6 +100,7 @@ def test_vector_condition():
 def test_mix_condition_type():
     nf = 32
     C_cond = 3
+    key = jax.random.PRNGKey(0)
 
     net = NCSNpp(
         nf=nf,
@@ -101,6 +108,7 @@ def test_mix_condition_type():
         condition=["input", "discrete_timelike", "continuous_timelike", "continuous_timelike"],
         condition_input_channels=3,
         condition_num_embedding=(15,),
+        key=key
     )
 
     B = 10
@@ -124,6 +132,7 @@ def test_conditional_architecture_raising_errors():
             nf=nf,
             ch_mult=(1, 1),
             condition=["discrete_timelike"],
+            key=jax.random.PRNGKey(0)
         )
 
     with pytest.raises(ValueError):
@@ -131,7 +140,8 @@ def test_conditional_architecture_raising_errors():
             nf=nf,
             ch_mult=(1, 1),
             condition=["discrete_timelike"],
-            condition_num_embedding=15
+            condition_num_embedding=15,
+            key=jax.random.PRNGKey(0)
         )
 
     with pytest.raises(ValueError):
@@ -139,6 +149,7 @@ def test_conditional_architecture_raising_errors():
             nf=nf,
             ch_mult=(1, 1),
             condition=["input"],
+            key=jax.random.PRNGKey(0)
         )
 
     with pytest.raises(ValueError):
@@ -146,4 +157,5 @@ def test_conditional_architecture_raising_errors():
             nf=nf,
             ch_mult=(1, 1),
             condition="input",
+            key=jax.random.PRNGKey(0)
         )

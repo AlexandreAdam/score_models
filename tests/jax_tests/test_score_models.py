@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+from jax import random
 from score_models.jax.utils import load_architecture
 from score_models.jax import ScoreModel, EnergyModel, SLIC
 from score_models.jax.architectures import MLP, NCSNpp, DDPM
@@ -9,13 +10,13 @@ import pytest
 def local_test_loading_model_and_score_fn():
     # local test only
     path = "/home/alexandre/Desktop/Projects/data/score_models/ncsnpp_ct_g_220912024942"
-    model, hparams = load_architecture(path)
+    model, hparams, _  = load_architecture(path)
     
     score = ScoreModel(checkpoints_directory=path)
     print(score.sde)
     x = jnp.ones((1, 1, 256, 256))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
 
 def test_loading_from_string():
@@ -23,67 +24,69 @@ def test_loading_from_string():
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2, nn_is_energy=True)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
     score = EnergyModel("ncsnpp", sigma_min=1e-2, sigma_max=10, nf=32)
     print(score.sde)
     x = jnp.ones((1, 1, 16, 16))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
 
 def test_loading_with_nn():
-    net = MLP(dimensions=2)
+    key =  random.PRNGKey(0)
+    net = MLP(dimensions=2, key=key)
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
-    net = MLP(dimensions=2)
+    net = MLP(dimensions=2, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
-    net = MLP(dimensions=2, nn_is_energy=True)
+    net = MLP(dimensions=2, nn_is_energy=True, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
-    net = NCSNpp(nf=32)
+    net = NCSNpp(nf=32, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 1, 16, 16))
     t = jnp.ones((1,))
-    score(t, x)
+    score(t=t, x=x)
 
 def test_init_score():
-    net = MLP(10)
+    key = random.PRNGKey(0)
+    net = MLP(10, key=key)
     with pytest.raises(KeyError):
         score = ScoreModel(net)
 
 def test_log_likelihood():
-    net = MLP(dimensions=2)
+    net = MLP(dimensions=2, key=random.PRNGKey(0))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = jnp.ones((3, 2))
-    ll = score.log_likelihood(x, ode_steps=10, verbose=1)
+    ll = score.log_likelihood(random.PRNGKey(1), x, ode_steps=10, verbose=1)
     print(ll)
     assert ll.shape == (3,)
 
@@ -91,30 +94,31 @@ def test_log_likelihood():
     # This test is not directly translatable to JAX due to lack of vjp functionality
 
 def test_sample_fn():
-    net = NCSNpp(1, nf=8, ch_mult=(2, 2))
+    key = random.PRNGKey(0)
+    net = NCSNpp(1, nf=8, ch_mult=(2, 2), key=key)
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
-    score.sample(shape=[5, 1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], steps=10, key=key)
 
-    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    net = DDPM(1, nf=32, ch_mult=(2, 2), key=key)
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
-    score.sample(shape=[5, 1, 16, 16], steps=10)
+    score.sample(shape=[5, 1, 16, 16], steps=10, key=key)
 
 def test_slic_score():
     def forward_model(x):
         return jnp.sum(x, axis=1, keepdims=True)  # Function R^C to R
     C = 100
-    net = MLP(dimensions=C)
+    net = MLP(dimensions=C, key=random.PRNGKey(0))
     # Check that we can get the score without a forward_model
     score = SLIC(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = jnp.ones((3, C))
     t = jnp.ones((3,))
-    s = score(t, x)
+    s = score(t=t, x=x)
     print(s)
     assert s.shape == (3, C)
 
     # Now check slic score
-    net = MLP(dimensions=1)  # Define SLIC in output space of forward model
+    net = MLP(dimensions=1, key=random.PRNGKey(0))  # Define SLIC in output space of forward model
     score = SLIC(net, forward_model, beta_min=1e-2, beta_max=10)
     y = forward_model(x)
     print(score.sde)
@@ -127,7 +131,8 @@ def test_slic_score():
 
 
 def test_loading_different_sdes():
-    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    key = random.PRNGKey(0)
+    net = DDPM(1, nf=32, ch_mult=(2, 2), key=key)
     score = ScoreModel(net, beta_min=1e-2, beta_max=10, epsilon=1e-3)
     assert isinstance(score.sde, VPSDE)
     assert score.sde.beta_min == 1e-2

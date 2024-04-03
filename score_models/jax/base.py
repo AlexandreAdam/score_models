@@ -90,7 +90,7 @@ class ScoreModelBase(eqx.Module, ABC):
         self.model = model
         self.sde = sde
 
-    def forward(self, t, x, *args) -> Array:
+    def __call__(self, t, x, *args) -> Array:
         return self.score(t, x, *args)
    
     @abstractmethod
