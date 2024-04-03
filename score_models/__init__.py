@@ -1,6 +1,6 @@
 import os
 
-PREFERRED_BACKEND = os.environ.get('MY_PACKAGE_BACKEND', None)
+PREFERRED_BACKEND = os.environ.get('SCORE_MODELS_BACKEND', None)
 JAX_AVAILABLE = False
 TORCH_AVAILABLE = False
 
