@@ -56,3 +56,4 @@ def radial_acceptance_probability(gamma, n):
     """
     c = (2 * (n ** (1/2)))
     return norm.cdf(c * (gamma - 1) + 3 * gamma) - norm.cdf(c * (gamma - 1) - 3 * gamma)
+

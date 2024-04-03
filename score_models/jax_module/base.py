@@ -1,33 +1,30 @@
-from typing import Callable, Union
-
-import torch
-from torch import Tensor
-from torch.nn import Module
-from torch.utils.data import DataLoader, Dataset
-from torch.func import vjp
-from torch_ema import ExponentialMovingAverage
-from .utils import DEVICE
-from typing import Union
+from typing import Callable, Union, Optional
 from abc import ABC, abstractmethod
+
+import jax
+import jax.numpy as jnp
+import optax
+from jaxtyping import PRNGKeyArray, Array
+from equinox.nn import Module
+from jax import vjp
+# from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
+from datetime import datetime
 import time
 import os, glob, re, json
 import numpy as np
-from datetime import datetime
-from contextlib import nullcontext
 
 from .sde import VESDE, VPSDE, TSVESDE, SDE
-from .utils import load_architecture
+from .utils import load_architecture, stop_gradient
 
 
 class ScoreModelBase(Module, ABC):
     def __init__(
             self, 
-            model: Union[str, Module]=None, 
-            sde:Union[str, SDE]=None, 
-            checkpoints_directory=None, 
-            model_checkpoint:int=None, 
-            device=DEVICE, 
+            model: Optional[Union[str, Module]] = None, 
+            sde: Optional[Union[str, SDE]] = None, 
+            checkpoints_directory: Optional[str] = None, 
+            model_checkpoint: Optional[int] = None, 
             **hyperparameters
             ):
         super().__init__()
@@ -37,7 +34,6 @@ class ScoreModelBase(Module, ABC):
             model, hyperparams, self.loaded_checkpoint = load_architecture(
                     checkpoints_directory, 
                     model=model, 
-                    device=device, 
                     hyperparameters=hyperparameters, 
                     model_checkpoint=model_checkpoint
                     )
@@ -61,78 +57,80 @@ class ScoreModelBase(Module, ABC):
             if sde.lower() not in ["ve", "vp", "tsve"]:
                 raise ValueError(f"The SDE {sde} provided is no supported")
             hyperparameters["sde"] = sde.lower()
-        if "T" not in hyperparameters.keys():
-            hyperparameters["T"] = 1.
-        if sde.lower() == "ve":
-            sde = VESDE(sigma_min=hyperparameters["sigma_min"], sigma_max=hyperparameters["sigma_max"], T=hyperparameters["T"])
-        elif sde.lower() == "vp":
-            if "epsilon" not in hyperparameters.keys():
-                hyperparameters["epsilon"] = 1e-5
-            sde = VPSDE(
-                    beta_min=hyperparameters["beta_min"], 
-                    beta_max=hyperparameters["beta_max"], 
-                    T=hyperparameters["T"],
-                    epsilon=hyperparameters["epsilon"]
-                    )
-        elif sde.lower() == "tsve":
-            if "epsilon" not in hyperparameters.keys():
-                hyperparameters["epsilon"] = 0
-            sde = TSVESDE(
-                    sigma_min=hyperparameters["sigma_min"], 
-                    sigma_max=hyperparameters["sigma_max"], 
-                    t_star=hyperparameters["t_star"],
-                    beta=hyperparameters["beta"],
-                    T=hyperparameters["T"],
-                    epsilon=hyperparameters["epsilon"]
-                    )
+            if "T" not in hyperparameters.keys():
+                hyperparameters["T"] = 1.
+            if sde.lower() == "ve":
+                sde = VESDE(
+                        sigma_min=hyperparameters["sigma_min"], 
+                        sigma_max=hyperparameters["sigma_max"], 
+                        T=hyperparameters["T"])
+            elif sde.lower() == "vp":
+                if "epsilon" not in hyperparameters.keys():
+                    hyperparameters["epsilon"] = 1e-5
+                sde = VPSDE(
+                        beta_min=hyperparameters["beta_min"], 
+                        beta_max=hyperparameters["beta_max"], 
+                        T=hyperparameters["T"],
+                        epsilon=hyperparameters["epsilon"]
+                        )
+            elif sde.lower() == "tsve":
+                if "epsilon" not in hyperparameters.keys():
+                    hyperparameters["epsilon"] = 0
+                sde = TSVESDE(
+                        sigma_min=hyperparameters["sigma_min"], 
+                        sigma_max=hyperparameters["sigma_max"], 
+                        t_star=hyperparameters["t_star"],
+                        beta=hyperparameters["beta"],
+                        T=hyperparameters["T"],
+                        epsilon=hyperparameters["epsilon"]
+                        )
 
         hyperparameters["model_architecture"] = model.__class__.__name__
         self.hyperparameters = hyperparameters
         self.checkpoints_directory = checkpoints_directory
         self.model = model
-        self.model.to(device)
         self.sde = sde
-        self.device = device
 
-    def forward(self, t, x, *args) -> Tensor:
+    def forward(self, t, x, *args) -> Array:
         return self.score(t, x, *args)
    
     @abstractmethod
-    def score(self, t, x, *args) -> Tensor:
+    def score(self, t, x, *args) -> Array:
         ...
     
     @abstractmethod
-    def loss_fn(self, x, *args) -> Tensor:
+    def loss_fn(self, x, *args) -> Array:
         ...
     
-    def ode_drift(self, t, x, *args):
+    def ode_drift(self, t, x, *args) -> Array:
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
         f_tilde = f - 0.5 * g**2 * self.score(t, x, *args)
         return f_tilde
     
-    def hessian(self, t, x, *args, **kwargs):
+    def hessian(self, t, x, *args, **kwargs) -> Array:
         return self.divergence(self.drift_fn, t, x, *args, **kwargs)
     
-    def divergence(self, drift_fn, t, x, *args, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Tensor:
+    def divergence(self, key: PRNGKeyArray, drift_fn, t, x, *args, n_cotangent_vectors: int = 1, noise_type="rademacher") -> Array:
         B, *D = x.shape
         # duplicate noisy samples for for the Hutchinson trace estimator
-        samples = torch.tile(x, [n_cotangent_vectors, *[1]*len(D)])
+        samples = jnp.tile(x, [n_cotangent_vectors, *[1]*len(D)])
         # TODO also duplicate args
-        t = torch.tile(t, [n_cotangent_vectors])
+        t = jnp.tile(t, [n_cotangent_vectors])
         # sample cotangent vectors
-        vectors = torch.randn_like(samples)
+        vectors = jax.random.normal(shape=samples.shape, key=key)
         if noise_type == 'rademacher':
-            vectors = vectors.sign()
+            vectors = jnp.sign(vectors)
         # Compute the trace of the Jacobian of the drift functions (Hessian if drift is just the score) 
         f = lambda x: drift_fn(t, x, *args)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
     
-    @torch.no_grad()
+    @stop_gradient
     def log_likelihood(
             self, 
+            key: PRNGKeyArray,
             x,
             *args,
             ode_steps: int, 
@@ -141,8 +139,8 @@ class ScoreModelBase(Module, ABC):
             verbose=0,
             method="Euler",
             t0:int=0,
-            t1:int=1
-            ) -> Tensor:
+            t1:int=1,
+            ) -> Array:
         """
         A basic implementation of Euler discretisation method of the ODE associated 
         with the marginals of the learned SDE.
@@ -163,61 +161,38 @@ class ScoreModelBase(Module, ABC):
         disable = False if verbose else True  
         B, *D = x.shape
         log_p = 0.
-        t = torch.ones([B]).to(self.device) * t0
+        t = jnp.ones([B]) * t0
         dt = (t1 - t0) / ode_steps
         # Small wrappers to make the notation a bit more readable
         f = lambda t, x: self.ode_drift(t, x, *args)
-        div = lambda t, x: self.divergence(self.ode_drift, t, x, *args, **kwargs)
+        div = lambda key, t, x: self.divergence(key, self.ode_drift, t, x, *args, **kwargs)
         for _ in tqdm(range(ode_steps), disable=disable):
             if method == "Euler":
                 x = x + f(t, x) * dt
-                log_p += div(t, x) * dt
+                key_div, key = jax.random.split(key)
+                log_p += div(key_div, t, x) * dt
                 t = t + dt
             elif method == "Heun":
                 previous_x = x.clone()
                 drift = f(t, x)
                 new_x = x + drift * dt
                 x = x + 0.5 * (drift + f(t+dt, new_x)) * dt
-                log_p += 0.5 * (div(t, previous_x) + div(t+dt, x)) * dt
+                key_div1, key_div2, key = jax.random.split(key, 3)
+                log_p += 0.5 * (div(key_div1, t, previous_x) + div(key_div2, t+dt, x)) * dt
                 t = t + dt
             else:
                 raise NotImplementedError("Invalid method, please select either Euler or Heun")
         log_p += self.sde.prior(D).log_prob(x)
         return log_p
     
-    # def score_at_zero_temperature(
-            # self, 
-            # x,
-            # *args,
-            # ode_steps: int, 
-            # n_cotangent_vectors: int = 1, 
-            # noise_type="rademacher", 
-            # verbose=0,
-            # return_ll=False
-            # ) -> Tensor:
-        # """
-        # Takes a gradient through the log_likelihood solver to compute the score 
-        # at zero temperature. 
-        # """
-        # kwargs = {"ode_steps": ode_steps, 
-                  # "n_cotangent_vectors": n_cotangent_vectors, 
-                  # "verbose": verbose,
-                  # "noise_type": noise_type
-                  # }
-        # wrapped_ll = lambda x: self.log_likelihood(x, *args, **kwargs)
-        # ll, vjp_func = vjp(wrapped_ll, x)
-        # score = vjp_func(torch.ones_like(ll))
-        # if return_ll:
-            # return score, ll
-        # return score
-    
-    @torch.no_grad()
+    @stop_gradient
     def sample(
             self, 
+            key: PRNGKeyArray,
             shape, # TODO change this so that specifying C, H, W is optional. Maybe save C, H, W in model hparams in the future
             steps, 
             condition:list=[],
-            likelihood_score_fn:Callable=None,
+            likelihood_score_fn: Optional[Callable] = None,
             guidance_factor=1.
             ):
         """
@@ -234,9 +209,10 @@ class ScoreModelBase(Module, ABC):
         sampling_from = "prior" if likelihood_score_fn is None else "posterior"
         if likelihood_score_fn is None:
             likelihood_score_fn = lambda t, x: 0.
-        x = self.sde.prior(D).sample([B]).to(self.device)
+        key_prior, key = jax.random.split(key)
+        x = self.sde.prior(D).sample(seed=key_prior, sample_shape=shape)
         dt = -(self.sde.T - self.sde.epsilon) / steps
-        t = torch.ones(B).to(self.device) * self.sde.T
+        t = jnp.ones(B) * self.sde.T
         for _ in (pbar := tqdm(range(steps))):
             pbar.set_description(f"Sampling from the {sampling_from} | t = {t[0].item():.1f} | sigma = {self.sde.sigma(t)[0].item():.1e}"
                                  f"| scale ~ {x.std().item():.1e}")
@@ -245,22 +221,22 @@ class ScoreModelBase(Module, ABC):
                 break
             g = self.sde.diffusion(t, x)
             f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x))
-            dw = torch.randn_like(x) * (-dt)**(1/2)
+            key_sample, key = jax.random.split(key)
+            dw = jax.random.normal(key_sample, x.shape) * (-dt)**(1/2)
             x_mean = x + f * dt
             x = x_mean + g * dw 
-            if torch.any(torch.isnan(x)):
+            if jnp.any(jnp.isnan(x)):
                 print("Diffusion is not stable, NaN were produced. Stopped sampling.")
                 break
         return x_mean
 
     def fit(
         self,
-        dataset: Dataset,
+        dataloader,
         preprocessing_fn=None,
         epochs=100,
         learning_rate=1e-4,
         ema_decay=0.9999,
-        batch_size=1,
         shuffle=False,
         patience=float('inf'),
         tolerance=0,
@@ -282,7 +258,7 @@ class ScoreModelBase(Module, ABC):
         Train the model on the provided dataset.
 
         Parameters:
-            dataset (torch.utils.data.Dataset): The training dataset.
+            dataloader: The dataloader to use for training.
             preprocessing_fn (function, optional): A function to preprocess the input data. Default is None.
             learning_rate (float, optional): The learning rate for optimizer. Default is 1e-4.
             ema_decay (float, optional): The decay rate for Exponential Moving Average. Default is 0.9999.
@@ -306,9 +282,9 @@ class ScoreModelBase(Module, ABC):
         Returns:
             list: List of loss values during training.
         """
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
-        ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
+        optimizer = optax.adam(learning_rate)
+        # ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
+        
         if n_iterations_in_epoch is None:
             n_iterations_in_epoch = len(dataloader)
         if checkpoints_directory is None:
@@ -344,7 +320,6 @@ class ScoreModelBase(Module, ABC):
                             "preprocessing": preprocessing_name,
                             "learning_rate": learning_rate,
                             "ema_decay": ema_decay,
-                            "batch_size": batch_size,
                             "shuffle": shuffle,
                             "epochs": epochs,
                             "patience": patience,

@@ -42,9 +42,9 @@ class DownsampleLayer(eqx.Module):
         self.fir_kernel = fir_kernel
         
         if not fir and with_conv:
-            self.conv = conv3x3(in_ch, out_ch, stride=2, dimensions=dimensions, key=key)
+            self.Conv_0 = conv3x3(in_ch, out_ch, stride=2, dimensions=dimensions, key=key)
         elif fir and with_conv:
-            self.conv = StyleGANConv(
+            self.Conv_0 = StyleGANConv(
                 in_ch,
                 out_ch,
                 kernel=3,
@@ -61,12 +61,12 @@ class DownsampleLayer(eqx.Module):
             if self.with_conv:
                 pad_width = [(0, 0), (0, 0)] + [(0, 1) for _ in range(self.dimensions)]
                 x = jnp.pad(x, pad_width)
-                x = self.conv(x)
+                x = self.Conv_0(x)
             else:
                 x = avg_pool(x, self.dimensions)
         else:
             if not self.with_conv:
                 x = downsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:
-                x = self.conv(x)
+                x = self.Conv_0(x)
         return x

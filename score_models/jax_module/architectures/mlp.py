@@ -6,6 +6,9 @@ import jax.numpy as jnp
 import equinox as eqx
 
 
+__all__ = ["MLP"]
+
+
 class MLP(eqx.Module):
     def __init__(
         self,

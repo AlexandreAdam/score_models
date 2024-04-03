@@ -2,7 +2,6 @@
 Code ported from Yang Song's repo https://github.com/yang-song/score_sde_pytorch/blob/main/
 with slight modifications to make it work on continuous time.
 """
-from typing import Callable
 import jax.numpy as jnp
 from jax import random
 import equinox as eqx
@@ -17,6 +16,9 @@ from ..layers import (
     SelfAttentionBlock,
     conv3x3,
 )
+
+
+__all__ = ["DDPM"]
 
 
 class DDPM(eqx.Module):

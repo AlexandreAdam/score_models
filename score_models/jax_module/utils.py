@@ -1,12 +1,24 @@
 import jax.numpy as jnp
 import flax.linen as nn
+from jax import lax
+import functools
 import jax
 import os
 import json
 from glob import glob
 import re
 import numpy as np
+import equinox as eqx
+import pickle
 from typing import Union, Callable, Optional
+
+
+def stop_gradient(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        return lax.stop_gradient(result)
+    return wrapper
 
 
 def get_norm_layer(norm_type="instance"):
@@ -47,9 +59,46 @@ def get_activation(activation_type: Optional[str]):
         raise NotImplementedError(f"activation layer [{activation_type}] is not found")
 
 
-def load_architecture(
-    checkpoints_directory, model=None, dimensions=2, hyperparameters=None
-):
+def torch_state_to_jax(torch_state_dict):
+    """Convert PyTorch state dict to a format suitable for JAX/Equinox models."""
+    jax_state_dict = {}
+    for k, v in torch_state_dict.items():
+        jax_state_dict[k] = jnp.array(v.cpu().numpy())
+    return jax_state_dict
+
+
+def load_state_dict_from_pt(path: str) -> dict:
+    try:
+        import torch
+    except ImportError:
+        raise ImportError("torch is required to load PyTorch checkpoints." 
+                          " You can install the cpu version of torch to avoid conflicting cuda dependencies."
+                          " Instructions to install the cpu version can be found here https://pytorch.org/get-started/locally/")
+    state_dict = torch.load(path, map_location=torch.device('cpu'))
+    state_dict = torch_state_to_jax(state_dict)
+    return state_dict
+
+
+def update_model_params(model, state_dict):
+    def update(module, name):
+        for key, value in module.__dict__.items():
+            if isinstance(value, eqx.Module):
+                update(value, f"{name}.{key}")
+            elif key in state_dict and name:
+                setattr(module, key, state_dict[f"{name}.{key}"])
+            elif key in state_dict:
+                setattr(module, key, state_dict[key])
+    update(model, "")
+    return model
+
+
+def load_model_from_pt(path: str, model: nn.Module) -> nn.Module:
+    state_dict = load_state_dict_from_pt(path)
+    model = update_model_params(model, state_dict)
+    return model
+
+
+def load_architecture(checkpoints_directory, model=None, model_checkpoint=None, hyperparameters=None):
     if hyperparameters is None:
         hyperparameters = {}
     if model is None:
@@ -57,17 +106,17 @@ def load_architecture(
             hparams = json.load(f)
         hyperparameters.update(hparams)
         model_architecture = hparams.get("model_architecture", "ncsnpp")
+        
         if model_architecture.lower() == "ncsnpp":
             from score_models.architectures import NCSNpp
-
             model = NCSNpp(**hyperparameters)
+            
         elif model_architecture.lower() == "ddpm":
             from score_models.architectures import DDPM
-
             model = DDPM(**hyperparameters)
+            
         elif model_architecture.lower() == "mlp":
             from score_models.architectures import MLP
-
             model = MLP(**hyperparameters)
         else:
             raise ValueError(f"{model_architecture} not supported")
@@ -76,44 +125,54 @@ def load_architecture(
         pass
 
     if "sde" in hyperparameters:
-        if hyperparameters["sde"] == "vpsde":
+        if hyperparameters["sde"] == "vesde":
             hyperparameters["sde"] = "vp"
         elif hyperparameters["sde"] == "vesde":
             hyperparameters["sde"] = "ve"
 
     if checkpoints_directory is not None:
-        paths = glob(
-            os.path.join(checkpoints_directory, "checkpoint*.pt")
-        )
-        checkpoints = [
-            int(re.findall(r"\d+", os.path.basename(path))[-1]) for path in paths
-        ]
-        if not paths:
-            print(
-                f"Directory {checkpoints_directory} might not have checkpoint files. Cannot load architecture."
-            )
+        paths_pt = glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
+        paths_pkl = glob(os.path.join(checkpoints_directory, "checkpoint*.eqx"))
+        
+        if len(paths_pt) > 0 and len(paths_pkl) > 0:
+            print("Found pt and pkl File. Loading the eqx files.")
+        if len(paths_pkl) > 0:
+            paths = paths_pkl
+            extension = "eqx"
+        elif len(paths_pt) > 0:
+            paths = paths_pt
+            extension = "pt"
+        else:
+            print(f"Directory {checkpoints_directory} might not have checkpoint files. Cannot load architecture.")
             return model, hyperparameters, None
+
+        checkpoints = [int(re.findall(r"\d+", os.path.basename(path))[-1]) for path in paths]
         if model_checkpoint is None:
             checkpoint = np.argmax(checkpoints)
             path = paths[checkpoint]
         else:
-            path = os.path.join(
-                checkpoints_directory, f"checkpoint_{model_checkpoint}.pt"
-            )  # Adjust file naming
+            checkpoint = model_checkpoint
+            path = os.path.join(checkpoints_directory, f"checkpoint_{checkpoint}.{extension}")
             if not os.path.exists(path):
-                print(
-                    f"Checkpoint {model_checkpoint} not found. Loading latest checkpoint."
-                )
+                print(f"Checkpoint {model_checkpoint} not found. Loading latest checkpoint.")
                 checkpoint = np.argmax(checkpoints)
                 path = paths[checkpoint]
+        
+        if extension == "pt":
+            try:
+                model = load_model_from_pt(path, model)
+            except (KeyError, RuntimeError):
+                # Maybe the ScoreModel instance was used when saving the weights, in which case we hack the loading process
+                from score_models import ScoreModel
+                model = ScoreModel(model, **hyperparameters)
+                model = load_model_from_pt(path, model)
+        else: # eqx
+            with open(path, "rb") as f:
+                model = eqx.tree_deserialise_leaves(f, model)
+            
+        model_dir = os.path.split(checkpoints_directory)[-1]
+        print(f"Loaded checkpoint {checkpoints[checkpoint]} of {model_dir}")
+        return model, hyperparameters, checkpoint
 
-        with open(path, "rb") as f:
-            bytes_input = f.read()
-            params = serialization.from_bytes(
-                model.init(jax.random.PRNGKey(0), jnp.ones((1, dimensions))),
-                bytes_input,
-            )
-            model = model.bind(params)
-            print(f"Loaded checkpoint from {path}")
+    return model, hyperparameters, None
 
-    return model, hyperparameters, checkpoint

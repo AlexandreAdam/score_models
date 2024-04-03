@@ -2,6 +2,9 @@ import jax.numpy as jnp
 from distrax import Independent, Normal, Distribution
 from jaxtyping import Array
 
+
+__all__ = ["VPSDE"]
+
 class VPSDE:
     def __init__(self, beta_min: float = 0.1, beta_max: float = 20, T: float = 1.0, epsilon: float = 1e-5):
         self.beta_min = beta_min

@@ -7,6 +7,9 @@ from typing import Union, Optional
 from equinox.nn import Module
 
 
+__all__ = ["ScoreModel", "EnergyModel"]
+
+
 class ScoreModel(ScoreModelBase):
     def __init__(
             self,
