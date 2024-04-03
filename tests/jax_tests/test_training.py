@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 from jax import random
 from score_models import ScoreModel, EnergyModel, MLP, NCSNpp
-from score_models.utils import load_architecture
+from score_models.jax.utils import load_architecture
 import shutil
 import os
 import numpy as np

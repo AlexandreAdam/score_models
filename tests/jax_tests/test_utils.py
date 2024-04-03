@@ -1,7 +1,7 @@
 import jax
 import equinox as eqx
 import jax.numpy as jnp
-from score_models.jax_module.utils import model_state_dict, update_model_params
+from score_models.jax.utils import model_state_dict, update_model_params
 
 
 class TestModel(eqx.Module):
