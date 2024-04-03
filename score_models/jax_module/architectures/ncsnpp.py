@@ -1,44 +1,82 @@
-import jax.numpy as jnp
-import functools
-from jax import random
+from ..layers import (
+        DDPMResnetBlock, 
+        GaussianFourierProjection, 
+        SelfAttentionBlock,
+        UpsampleLayer, 
+        DownsampleLayer, 
+        Combine, 
+        ResnetBlockBigGANpp, 
+        conv3x3, 
+        PositionalEncoding
+        )
+from typing import Optional
+from jaxtyping import PRNGKeyArray
+from ..utils import get_activation
+from ..definitions import default_init
+from jax.nn.initializers import normal, zeros
+from equinox import nn
 import equinox as eqx
-from functools import partial
-from typing import List, Optional, Tuple
+import functools
+import jax.numpy as jnp
+import jax
 
 
 class NCSNpp(eqx.Module):
-    modules: List[eqx.Module]
-    act: Callable
-    attention: bool
-    conditioned: bool
-    condition_type: Tuple[str, ...]
-    condition_embedding_layers: List[eqx.Module]
-    all_modules: eqx.ModuleList
+    """
+    NCSN++ model
 
-    def __init__(self,
-                 channels: int = 1,
-                 dimensions: int = 2,
-                 nf: int = 128,
-                 ch_mult: Tuple[int, ...] = (2, 2, 2, 2),
-                 num_res_blocks: int = 2,
-                 activation_type: str = "swish",
-                 dropout: float = 0.,
-                 resample_with_conv: bool = True,
-                 fir: bool = True,
-                 fir_kernel: Tuple[int, ...] = (1, 3, 3, 1),
-                 skip_rescale: bool = True,
-                 progressive: str = "output_skip",
-                 progressive_input: str = "input_skip",
-                 init_scale: float = 1e-2,
-                 fourier_scale: float = 16.,
-                 resblock_type: str = "biggan",
-                 combine_method: str = "sum",
-                 attention: bool = True,
-                 condition: Optional[Tuple[str, ...]] = ("None",),
-                 condition_num_embedding: Optional[Tuple[int, ...]] = None,
-                 condition_input_channels: Optional[int] = None,
-                 condition_vector_channels: Optional[int] = None,
-                 **kwargs):
+    Args:
+        channels (int): Number of input channels. Default is 1.
+        dimensions (int): Number of dimensions of the input data. Default is 2.
+        nf (int): Number of filters in the first layer. Default is 128.
+        ch_mult (tuple): Channel multiplier for each layer. Default is (2, 2, 2, 2).
+        num_res_blocks (int): Number of residual blocks in each layer. Default is 2.
+        activation_type (str): Type of activation function. Default is "swish".
+        dropout (float): Dropout probability. Default is 0.
+        resample_with_conv (bool): Whether to use convolutional resampling. Default is True.
+        fir (bool): Whether to use finite impulse response filtering. Default is True.
+        fir_kernel (tuple): FIR filter kernel. Default is (1, 3, 3, 1).
+        skip_rescale (bool): Whether to rescale skip connections. Default is True.
+        progressive (str): Type of progressive training. Default is "output_skip".
+        progressive_input (str): Type of progressive
+        init_scale (float): The initial scale for the function. Default is 1e-2.
+        fourier_scale (float): The Fourier scale for the function. Default is 16.
+        resblock_type (str): The type of residual block to use. Default is "biggan".
+        combine_method (str): The method to use for combining the results. Default is "sum".
+        attention (bool): Whether or not to use attention. Default is True.
+
+    """
+    def __init__(
+            self,
+            channels=1,
+            dimensions=2,
+            nf=128,
+            ch_mult=(2, 2, 2, 2),
+            num_res_blocks=2,
+            activation_type="swish",
+            dropout=0.,
+            resample_with_conv=True,
+            fir=True,
+            fir_kernel=(1, 3, 3, 1),
+            skip_rescale=True,
+            progressive="output_skip",
+            progressive_input="input_skip",
+            init_scale=1e-2,
+            fourier_scale=16.,
+            resblock_type="biggan",
+            combine_method="sum",
+            attention=True,
+            condition: tuple[str,...] = ["None"], # discrete_time, continuous_time, vector, input
+            condition_num_embedding: Optional[tuple[int,...]] = None,
+            condition_input_channels: Optional[int] = None,
+            condition_vector_channels: Optional[int] = None,
+            # fourier_features=False,
+            # n_min=7,
+            # n_max=8,
+            *,
+            key: PRNGKeyArray,
+            **kwargs,
+          ):
         super().__init__()
         if dimensions not in [1, 2, 3]:
             raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
@@ -71,6 +109,7 @@ class NCSNpp(eqx.Module):
         self.condition_num_embedding = condition_num_embedding
         self.condition_input_channels = 0 if condition_input_channels is None else condition_input_channels
         self.condition_vector_channels = condition_vector_channels
+        
         self.dimensions = dimensions
         self.channels = channels
         self.hyperparameters = {
@@ -111,93 +150,307 @@ class NCSNpp(eqx.Module):
         assert progressive in ['none', 'output_skip', 'residual']
         assert progressive_input in ['none', 'input_skip', 'residual']
         combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
- 
-
-        condition_embedding_layers = []
-        if condition is not None:
-            for c in condition:
-                if c.lower() == "discrete_timelike":
-                    # Assuming an embedding layer for discrete conditions
-                    key, subkey = random.split(key)
-                    condition_embedding_layers.append(eqx.nn.Embedding(num_embeddings=condition_num_embedding[discrete_index], embedding_dim=nf, key=subkey))
+       
+        # Timelike condition branch, to be appended to the time embedding
+        time_input_nf = nf
+        discrete_index = 0
+        if self.conditioned:
+            condition_embedding_layers = []
+            for c_type in self.condition_type:
+                if c_type.lower() == "discrete_timelike":
+                    time_input_nf += nf
+                    key_layer, key = jax.random.split(key)
+                    condition_embedding_layers.append(nn.Embedding(num_embeddings=self.condition_num_embedding[discrete_index], 
+                                                         embedding_size=nf, key=key_layer))
                     discrete_index += 1
-                elif c.lower() == "continuous_timelike":
-                    # Assuming GaussianFourierProjection for continuous conditions
-                    key, subkey = random.split(key)
-                    condition_embedding_layers.append(GaussianFourierProjection(embed_dim=nf, scale=fourier_scale, key=subkey))
-                elif c.lower() == "vector":
-                    # Assuming PositionalEncoding for vector conditions
-                    key, subkey = random.split(key)
-                    condition_embedding_layers.append(PositionalEncoding(channels=condition_vector_channels, embed_dim=nf, scale=fourier_scale, key=subkey))
-
-        self.condition_embedding_layers = eqx.ModuleList(condition_embedding_layers)
-
-        # Model building
-        modules = []
-        # Add initial time embedding module
-        key, subkey = random.split(key)
-        modules.append(GaussianFourierProjection(embed_dim=nf, scale=fourier_scale, key=subkey))
-
-        # Continue adding other modules as in the original implementation...
-
-        self.all_modules = eqx.ModuleList(modules)
-        self.act = get_activation(activation_type)
-        self.attention = attention
+                elif c_type.lower() == "continuous_timelike":
+                    time_input_nf += nf
+                    key_layer, key = jax.random.split(key)
+                    condition_embedding_layers.append(GaussianFourierProjection(embed_dim=nf, scale=fourier_scale, key=key_layer))
+                elif c_type.lower() == "vector":
+                    time_input_nf += nf
+                    key_layer, key = jax.random.split(key)
+                    condition_embedding_layers.append(PositionalEncoding(channels=self.condition_vector_channels, embed_dim=nf, scale=fourier_scale, key=key_layer))
+            self.condition_embedding_layers = nn.ModuleList(condition_embedding_layers)
+                
+        # Condition on continuous time (second layer receives a concatenation of all the embeddings)
+        key1, key2, key3, key = jax.random.split(key, 4)
+        modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale, key=key1), nn.Linear(time_input_nf, nf * 4, key=key2), nn.Linear(nf * 4, nf * 4, key=key3)]
         
-        
-        AttnBlock = SelfAttentionBlock
-        Upsample = partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, 
-                           fir_kernel=fir_kernel, dimensions=dimensions)
-        Downsample = partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, 
-                             fir_kernel=fir_kernel, dimensions=dimensions)
+        key1, key2, key = jax.random.split(key, 3)
+        modules[1].weight = default_init()(shape=modules[1].weight.shape, key=key1)
+        modules[1].bias = zeros(shape=modules[1].bias.shape, key=key)
+        modules[2].weight.data = default_init()(shape=modules[2].weight.shape, key=key2)
+        modules[2].bias = zeros(shape=modules[2].bias.shape, key=key)
 
-        ResnetBlock = partial(ResnetBlockBigGANpp, act=self.act, temb_dim=4 * nf,
-                              dropout=dropout, fir=fir, fir_kernel=fir_kernel,
-                              init_scale=init_scale, skip_rescale=skip_rescale,
-                              dimensions=dimensions)
+        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
+        Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
 
-        modules = []
-        # Time embedding layers
-        modules += [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), 
-                    eqx.nn.Linear(nf, nf * 4), eqx.nn.Linear(nf * 4, nf * 4)]
+        if progressive == 'output_skip':
+            self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False, key=key)
+        elif progressive == 'residual':
+            pyramid_upsample = functools.partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True, dimensions=self.dimensions)
 
-        # Initial conv layer
-        modules.append(conv3x3(channels, nf, dimensions=dimensions))
-        in_ch = nf
+        Downsample = functools.partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
+
+        if progressive_input == 'input_skip':
+            self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False, key=key)
+        elif progressive_input == 'residual':
+            pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
+            
+        if resblock_type == 'ddpm':
+            ResnetBlock = functools.partial(DDPMResnetBlock,
+                                            act=act,
+                                            dropout=dropout,
+                                            temb_dim=nf * 4,
+                                            dimensions=self.dimensions
+                                            )
+
+        elif resblock_type == 'biggan':
+            ResnetBlock = functools.partial(ResnetBlockBigGANpp,
+                                            act=act,
+                                            dropout=dropout,
+                                            fir=fir,
+                                            fir_kernel=fir_kernel,
+                                            init_scale=init_scale,
+                                            skip_rescale=skip_rescale,
+                                            temb_dim=nf * 4,
+                                            dimensions=self.dimensions
+                                            )
+
+        else:
+            raise ValueError(f'resblock type {resblock_type} unrecognized.')
+
+        # Downsampling block
+        input_pyramid_ch = channels + self.condition_input_channels
+        key_input, key = jax.random.split(key)
+        modules.append(conv3x3(channels + self.condition_input_channels, nf, dimensions=dimensions, key=key_input))
         hs_c = [nf]
-        
-        # Downsample layers
-        for i_level in range(self.num_resolutions):
-            out_ch = nf * ch_mult[i_level]
+        in_ch = nf #+ fourier_feature_channels
+        for i_level in range(num_resolutions):
+            # Residual blocks for this resolution
             for i_block in range(num_res_blocks):
-                modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch))
+                out_ch = nf * ch_mult[i_level]
+                key_layer, key = jax.random.split(key)
+                modules.append(ResnetBlock(in_ch=in_ch, out_ch=out_ch, key=key_layer))
                 in_ch = out_ch
                 hs_c.append(in_ch)
-            if i_level != self.num_resolutions - 1:
-                modules.append(Downsample(in_ch=in_ch))
+            if i_level != num_resolutions - 1:
+                key_downsample, key = jax.random.split(key)
+                if resblock_type == 'ddpm':
+                    modules.append(Downsample(in_ch=in_ch, key=key_downsample))
+                else:
+                    modules.append(ResnetBlock(down=True, in_ch=in_ch, key=key_downsample))
+
+                if progressive_input == 'input_skip':
+                    key_skip, key = jax.random.split(key)
+                    modules.append(combiner(in_ch=input_pyramid_ch, out_ch=in_ch, key=key_skip))
+                    if combine_method == 'cat':
+                        in_ch *= 2
+
+                elif progressive_input == 'residual':
+                    key_residual, key = jax.random.split(key)
+                    modules.append(pyramid_downsample(in_ch=input_pyramid_ch, out_ch=in_ch, key=key_residual))
+                    input_pyramid_ch = in_ch
                 hs_c.append(in_ch)
 
-        # Middle layers
-        modules.append(ResnetBlock(in_ch=in_ch))
+        in_ch = hs_c[-1]
+        key1, key2, key = jax.random.split(key, 3)
+        modules.append(ResnetBlock(in_ch=in_ch, key=key1))
         if self.attention:
-            modules.append(AttnBlock(channels=in_ch, dimensions=dimensions))
-        modules.append(ResnetBlock(in_ch=in_ch))
+            key_att, key = jax.random.split(key)
+            modules.append(AttnBlock(channels=in_ch, key=key_att))
+        modules.append(ResnetBlock(in_ch=in_ch, key=key2))
 
-        # Upsample layers
-        for i_level in reversed(range(self.num_resolutions)):
-            out_ch = nf * ch_mult[i_level]
+        pyramid_ch = 0
+        # Upsampling block
+        for i_level in reversed(range(num_resolutions)):
             for i_block in range(num_res_blocks + 1):
-                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(), out_ch=out_ch))
+                out_ch = nf * ch_mult[i_level]
+                key_layer, key = jax.random.split(key)
+                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(), out_ch=out_ch, key=key_layer))
                 in_ch = out_ch
+
+            if progressive != 'none':
+                if i_level == num_resolutions - 1:
+                    if progressive == 'output_skip':
+                        key_skip, key = jax.random.split(key)
+                        modules.append(nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6))
+                        modules.append(conv3x3(in_ch, channels, init_scale=init_scale, dimensions=dimensions, key=key_skip))
+                        pyramid_ch = channels
+                    elif progressive == 'residual':
+                        key_residual, key = jax.random.split(key)
+                        modules.append(nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6))
+                        modules.append(conv3x3(in_ch, in_ch, bias=True, dimensions=dimensions, key=key_residual))
+                        pyramid_ch = in_ch
+                    else:
+                        raise ValueError(f'{progressive} is not a valid name.')
+                else:
+                    if progressive == 'output_skip':
+                        key_skip, key = jax.random.split(key)
+                        modules.append(nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6))
+                        modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale, dimensions=dimensions, key=key_skip))
+                        pyramid_ch = channels
+                    elif progressive == 'residual':
+                        key_residual, key = jax.random.split(key)
+                        modules.append(pyramid_upsample(in_ch=pyramid_ch, out_ch=in_ch, key=key_residual))
+                        pyramid_ch = in_ch
+                    else:
+                        raise ValueError(f'{progressive} is not a valid name')
+
             if i_level != 0:
-                modules.append(Upsample(in_ch=in_ch))
+                key_resnet, key = jax.random.split(key)
+                if resblock_type == 'ddpm':
+                    modules.append(Upsample(in_ch=in_ch, key=key_resnet))
+                else:
+                    modules.append(ResnetBlock(in_ch=in_ch, up=True, key=key_resnet))
 
-        modules.append(eqx.nn.GroupNorm(num_channels=in_ch, num_groups=min(in_ch // 4, 32)))
-        modules.append(conv3x3(in_ch, channels, dimensions=dimensions))
-        self.modules = modules
+        assert not hs_c
 
+        if progressive != 'output_skip':
+            key_output, key = jax.random.split(key)
+            modules.append(nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6))
+            modules.append(conv3x3(in_ch, channels, init_scale=1., dimensions=dimensions, key=key_output))
 
-    def __call__(self, t, x, *condition_args, key=None):
-        # Implementation of the forward pass, handling conditions, etc.
-        pass
+        self.all_modules = modules
+
+    def forward(self, t, x, *args):
+        B, *D = x.shape
+        # timestep/noise_level embedding; only for continuous training
+        modules = self.all_modules
+        m_idx = 0
+        # Gaussian Fourier features embeddings.
+        temb = modules[m_idx](t).view(B, -1)
+        m_idx += 1
+        
+        c_idx = 0
+        if self.conditioned:
+            if len(args) != len(self.condition_type):
+                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
+            for j, condition in enumerate(args):
+                if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
+                    # embedding and concatenation of the 'timelike' conditions
+                    c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
+                    temb = jnp.concatenate([temb, c_emb], axis=1)
+                    c_idx += 1
+                
+        temb = modules[m_idx](temb)
+        m_idx += 1
+        temb = modules[m_idx](self.act(temb))
+        m_idx += 1
+        
+        
+        if self.conditioned:
+            for j, condition in enumerate(args):
+                if self.condition_type[j].lower() == "input":
+                    x = jnp.concatenate([x, condition], axis=1)
+        
+        # Add Fourier features
+        # if self.fourier_features:
+            # ffeatures = self.fourier_features(x)
+            # x = torch.concat([x, ffeatures], axis=1)
+        
+        # Downsampling block
+        input_pyramid = None
+        if self.progressive_input != 'none':
+            input_pyramid = x
+
+        hs = [modules[m_idx](x)]
+        m_idx += 1
+        for i_level in range(self.num_resolutions):
+            # Residual blocks for this resolution
+            for i_block in range(self.num_res_blocks):
+                h = modules[m_idx](hs[-1], temb)
+                m_idx += 1
+                hs.append(h)
+
+            if i_level != self.num_resolutions - 1:
+                if self.resblock_type == 'ddpm':
+                    h = modules[m_idx](hs[-1])
+                    m_idx += 1
+                else:
+                    h = modules[m_idx](hs[-1], temb)
+                    m_idx += 1
+                if self.progressive_input == 'input_skip':
+                    input_pyramid = self.pyramid_downsample(input_pyramid)
+                    h = modules[m_idx](input_pyramid, h)
+                    m_idx += 1
+                elif self.progressive_input == 'residual':
+                    input_pyramid = modules[m_idx](input_pyramid)
+                    m_idx += 1
+                    if self.skip_rescale:
+                        input_pyramid = (input_pyramid + h) / jnp.sqrt(2.)
+                    else:
+                        input_pyramid = input_pyramid + h
+                    h = input_pyramid
+                hs.append(h)
+
+        h = hs[-1]
+        h = modules[m_idx](h, temb)
+        m_idx += 1
+        if self.attention:
+            h = modules[m_idx](h)
+            m_idx += 1
+        h = modules[m_idx](h, temb)
+        m_idx += 1
+
+        pyramid = None
+
+        # Upsampling block
+        for i_level in reversed(range(self.num_resolutions)):
+            for i_block in range(self.num_res_blocks + 1):
+                h = modules[m_idx](jnp.concatenate([h, hs.pop()], axis=1), temb)
+                m_idx += 1
+
+            if self.progressive != 'none':
+                if i_level == self.num_resolutions - 1:
+                    if self.progressive == 'output_skip':
+                        pyramid = self.act(modules[m_idx](h))
+                        m_idx += 1
+                        pyramid = modules[m_idx](pyramid)
+                        m_idx += 1
+                    elif self.progressive == 'residual':
+                        pyramid = self.act(modules[m_idx](h))
+                        m_idx += 1
+                        pyramid = modules[m_idx](pyramid)
+                        m_idx += 1
+                    else:
+                        raise ValueError(f'{self.progressive} is not a valid name.')
+                else:
+                    if self.progressive == 'output_skip':
+                        pyramid = self.pyramid_upsample(pyramid)
+                        pyramid_h = self.act(modules[m_idx](h))
+                        m_idx += 1
+                        pyramid_h = modules[m_idx](pyramid_h)
+                        m_idx += 1
+                        pyramid = pyramid + pyramid_h
+                    elif self.progressive == 'residual':
+                        pyramid = modules[m_idx](pyramid)
+                        m_idx += 1
+                        if self.skip_rescale:
+                            pyramid = (pyramid + h) / jnp.sqrt(2.)
+                        else:
+                            pyramid = pyramid + h
+                        h = pyramid
+                    else:
+                        raise ValueError(f'{self.progressive} is not a valid name')
+            if i_level != 0:
+                if self.resblock_type == 'ddpm':
+                    h = modules[m_idx](h)
+                    m_idx += 1
+                else:
+                    h = modules[m_idx](h, temb)
+                    m_idx += 1
+        assert not hs
+
+        if self.progressive == 'output_skip':
+            h = pyramid
+        else:
+            h = self.act(modules[m_idx](h))
+            m_idx += 1
+            h = modules[m_idx](h)
+            m_idx += 1
+        assert m_idx == len(modules)
+
+        return h
 

@@ -24,6 +24,7 @@ class ResnetBlockBigGANpp(eqx.Module):
         fir: bool = False,
         fir_kernel: tuple = (1, 3, 3, 1),
         skip_rescale: bool = True,
+        init_scale: float = 0.0,
         dimensions: int = 2,
         *,
         key: PRNGKeyArray,

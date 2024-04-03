@@ -1,5 +1,7 @@
 import equinox as eqx
 import jax
+from typing import Optional
+from jaxtyping import PRNGKeyArray
 from .conv_layers import conv3x3
 from .style_gan_conv import StyleGANConv
 from .up_or_downsampling import upsample
@@ -9,13 +11,14 @@ from ..definitions import default_init
 class UpsampleLayer(eqx.Module):
     def __init__(
         self,
-        in_ch: int = None,
-        out_ch: int = None,
+        in_ch: Optional[int] = None,
+        out_ch: Optional[int] = None,
         with_conv: bool = False,
         fir: bool = False,
         fir_kernel: tuple = (1, 3, 3, 1),
         dimensions: int = 2,
-        key = jax.random.PRNGKey(0),
+        *,
+        key: PRNGKeyArray,
     ):
         super().__init__()
         self.fir = fir
@@ -39,7 +42,7 @@ class UpsampleLayer(eqx.Module):
                     up=True,
                     resample_kernel=fir_kernel,
                     use_bias=True,
-                    kernel_init=default_init(key),
+                    kernel_init=default_init(),
                     dimensions=dimensions,
                     key=key,
                 )
