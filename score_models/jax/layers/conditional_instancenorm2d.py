@@ -2,9 +2,16 @@ import equinox as eqx
 import jax
 from jaxtyping import PRNGKeyArray
 from jax.nn.initializers import zeros, normal
+from typing import Optional, Union
 
 
 class ConditionalInstanceNorm2d(eqx.Module):
+    num_features: int
+    bias: bool
+    num_classes: Optional[int]
+    instance_norm: eqx.nn.LayerNorm
+    embed: Union[eqx.nn.Linear, eqx.nn.Embedding]
+
     def __init__(self, num_features, num_classes=None, bias=True, *, key: PRNGKeyArray):
         self.num_features = num_features
         self.bias = bias

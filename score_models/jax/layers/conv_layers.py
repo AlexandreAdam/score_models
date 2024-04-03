@@ -48,6 +48,7 @@ def conv3x3(
         stride=stride,
         dilation=dilation,
         bias=bias,
+        key=key
     )
     conv.weight = default_init(init_scale)(conv.weight.shape, key=key)
     if bias:

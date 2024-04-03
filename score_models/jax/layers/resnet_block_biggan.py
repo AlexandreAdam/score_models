@@ -11,6 +11,23 @@ SQRT2 = 1.41421356237
 
 
 class ResnetBlockBigGANpp(eqx.Module):
+    activation: Callable
+    dimensions: int
+    out_ch: Optional[int]
+    up: bool
+    down: bool
+    fir: bool
+    fir_kernel: tuple
+    skip_rescale: bool
+    in_ch: int
+    out_ch: int
+    GroupNorm_0: eqx.nn.GroupNorm
+    Conv_0: eqx.nn.Conv
+    Dense_0: Optional[eqx.nn.Linear]
+    GroupNorm_1: eqx.nn.GroupNorm
+    Dropout_0: eqx.nn.Dropout
+    Conv_1: eqx.nn.Conv
+    Conv_2: Optional[eqx.nn.Conv]
 
     def __init__(
         self,

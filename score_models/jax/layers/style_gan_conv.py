@@ -1,11 +1,23 @@
 from typing import Callable 
+from jaxtyping import PRNGKeyArray, Array
+import equinox as eqx
 import jax.numpy as jnp
 import jax.lax as lax
 import equinox as eqx
-from jaxtyping import PRNGKeyArray
 import jax
 
 class StyleGANConv(eqx.Module):
+    up: bool
+    down: bool
+    resample_kernel: tuple
+    kernel: int
+    use_bias: bool
+    dimensions: int
+    weight: Array
+    bias: Array
+    upsample_conv: Callable
+    downsample_conv: Callable
+
     def __init__(
         self,
         in_ch: int,

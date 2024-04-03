@@ -5,6 +5,7 @@ with slight modifications to make it work on continuous time.
 import jax.numpy as jnp
 from jax import random
 import equinox as eqx
+from typing import Callable
 from functools import partial
 from jaxtyping import Array, PRNGKeyArray
 from ..utils import get_activation
@@ -22,6 +23,12 @@ __all__ = ["DDPM"]
 
 
 class DDPM(eqx.Module):
+    activation: Callable
+    attention: bool
+    num_resolutions: int
+    num_res_blocks: int
+    modules: list
+    
     def __init__(
         self,
         channels=1,

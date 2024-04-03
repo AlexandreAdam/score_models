@@ -1,11 +1,18 @@
 from jax.nn.initializers import zeros, normal
 from jaxtyping import PRNGKeyArray
+from typing import Optional, Union
 import equinox as eqx
 import jax.numpy as jnp
 import jax
 
 
 class ConditionalInstanceNorm2dPlus(eqx.Module):
+    num_features: int
+    bias: bool
+    instance_norm: eqx.nn.LayerNorm
+    embed: Union[eqx.nn.Embedding, eqx.nn.Linear]
+    num_classes: Optional[int]
+
     def __init__(self, num_features, num_classes=None, bias=True, *, key: PRNGKeyArray):
         self.num_features = num_features
         self.bias = bias

@@ -23,6 +23,13 @@ def avg_pool(x, dimensions, kernel_size=2, stride=2):
 
 
 class DownsampleLayer(eqx.Module):
+    dimensions: int
+    with_conv: bool
+    out_ch: Optional[int]
+    fir: bool
+    fir_kernel: tuple
+    Conv_0: eqx.Module
+
     def __init__(
         self,
         in_ch: Optional[int] = None,

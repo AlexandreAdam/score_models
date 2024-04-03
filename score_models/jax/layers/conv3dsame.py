@@ -5,6 +5,11 @@ from flax.linen import SpectralNorm
 from jaxtyping import PRNGKeyArray
 
 class Conv3dSame(eqx.Module):
+    conv: Union[eqx.Module, SpectralNorm]
+    stride: int
+    dilation: int
+    kernel_size: int
+
     def __init__(
         self,
         in_channels: int,

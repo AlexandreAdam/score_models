@@ -71,6 +71,16 @@ class ConvMeanPool(eqx.Module):
 
 
 class NCSNResidualBlock(eqx.Module):
+    non_linearity: Callable
+    input_dim: int
+    output_dim: int
+    resample: Optional[str]
+    normalize1: eqx.nn.GroupNorm
+    conv1: eqx.Module
+    normalize2: eqx.nn.GroupNorm
+    conv2: eqx.Module
+    shortcut: Optional[eqx.Module]
+
     def __init__(
         self,
         input_dim: int,

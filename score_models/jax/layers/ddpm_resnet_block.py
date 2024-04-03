@@ -1,7 +1,7 @@
 """
 Code ported from Yang Song's repo https://github.com/yang-song/score_sde_pytorch/blob/main/models/layers.py
 """
-from typing import Optional
+from typing import Optional, Callable
 import jax.numpy as jnp
 import equinox as eqx
 from .conv1dsame import Conv1dSame
@@ -51,6 +51,19 @@ class NIN(eqx.Module):
 
 
 class DDPMResnetBlock(eqx.Module):
+    GroupNorm_0: eqx.nn.GroupNorm
+    activation: Callable
+    Conv_0: eqx.nn.Conv
+    Dense_0: Optional[eqx.nn.Linear]
+    GroupNorm_1: eqx.nn.GroupNorm
+    Dropout_0: eqx.nn.Dropout
+    Conv_1: eqx.nn.Conv
+    Conv_2: Optional[eqx.nn.Conv]
+    NIN_0: Optional[NIN]
+    out_ch: int
+    in_ch: int
+    conv_shortcut: bool
+
     def __init__(
         self,
         act,

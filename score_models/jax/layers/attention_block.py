@@ -47,6 +47,11 @@ class SelfAttentionBlock(eqx.Module):
 
 
 class ScaledAttentionLayer(eqx.Module):
+    query: eqx.nn.Linear
+    key: eqx.nn.Linear
+    value: eqx.nn.Linear
+    to_out: eqx.nn.Linear
+
     def __init__(self, dimensions, *, key: PRNGKeyArray):
         key_query, key_key, key_value, key_out = jax.random.split(key, 4)
         self.query = eqx.nn.Linear(dimensions, dimensions, key=key_query)

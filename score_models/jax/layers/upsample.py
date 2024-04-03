@@ -9,6 +9,14 @@ from ..definitions import default_init
 
 
 class UpsampleLayer(eqx.Module):
+    fir: bool
+    with_conv: bool
+    fir_kernel: tuple
+    out_ch: Optional[int]
+    in_ch: Optional[int]
+    conv_0: eqx.Module
+    conv1d_0: eqx.Module
+    
     def __init__(
         self,
         in_ch: Optional[int] = None,
