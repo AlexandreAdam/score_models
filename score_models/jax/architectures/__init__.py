@@ -1,3 +1,3 @@
-# from .ncsnpp import NCSNpp
+from .ncsnpp import *
 from .ddpm import *
 from .mlp import *

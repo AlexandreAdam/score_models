@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 from .sde import SDE
 from torch.distributions import Independent, Normal
-from score_models.utils import DEVICE
+from ..utils import DEVICE
 
 
 class VPSDE(SDE):

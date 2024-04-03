@@ -21,6 +21,9 @@ import jax.numpy as jnp
 import jax
 
 
+__all__ = ["NCSNpp"]
+
+
 class NCSNpp(eqx.Module):
     """
     NCSN++ model

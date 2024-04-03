@@ -1,4 +1,4 @@
-from score_models.architectures import NCSNpp, DDPM, MLP
+from score_models.jax.architectures import NCSNpp, DDPM, MLP
 from jax import random
 
 
