@@ -84,6 +84,8 @@ class DDPMResnetBlock(eqx.Module):
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv0)
         if temb_dim is not None:
             self.Dense_0 = eqx.nn.Linear(temb_dim, out_ch, key=key_dense0)
+        else:
+            self.Dense_0 = None
         self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch)
         self.Dropout_0 = eqx.nn.Dropout(p=dropout)
         self.Conv_1 = conv3x3(out_ch, out_ch, dimensions=dimensions, key=key_conv1)
@@ -92,6 +94,9 @@ class DDPMResnetBlock(eqx.Module):
                 self.Conv_2 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv2)
             else:
                 self.NIN_0 = NIN(in_ch, out_ch, key=key_conv2)
+        else: # Have to initialize it to None in jax...
+            self.Conv_2 = None
+            self.NIN_0 = None
         self.out_ch = out_ch
         self.in_ch = in_ch
         self.conv_shortcut = conv_shortcut

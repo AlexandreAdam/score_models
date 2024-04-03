@@ -28,3 +28,4 @@ class SLIC(ScoreModel):
         """
         y_hat, vjp_func = vjp(self.forward_model, x)
         return - vjp_func(self.score(t, y - y_hat))[0]
+

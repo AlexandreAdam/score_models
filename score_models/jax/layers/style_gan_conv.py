@@ -1,5 +1,6 @@
 from typing import Callable 
 from jaxtyping import PRNGKeyArray, Array
+from typing import Optional
 import equinox as eqx
 import jax.numpy as jnp
 import jax.lax as lax
@@ -14,7 +15,7 @@ class StyleGANConv(eqx.Module):
     use_bias: bool
     dimensions: int
     weight: Array
-    bias: Array
+    bias: Optional[Array]
     upsample_conv: Callable
     downsample_conv: Callable
 
@@ -49,20 +50,21 @@ class StyleGANConv(eqx.Module):
 
         if use_bias:
             self.bias = jnp.zeros(out_ch)
+        else:
+            self.bias = None
 
         if dimensions == 1:
             from .up_or_downsampling1d import upsample_conv_1d, conv_downsample_1d
-
             self.upsample_conv = upsample_conv_1d
             self.downsample_conv = conv_downsample_1d
+            
         elif dimensions == 2:
             from .up_or_downsampling2d import upsample_conv_2d, conv_downsample_2d
-
             self.upsample_conv = upsample_conv_2d
             self.downsample_conv = conv_downsample_2d
+            
         elif dimensions == 3:
             from .up_or_downsampling3d import upsample_conv_3d, conv_downsample_3d
-
             self.upsample_conv = upsample_conv_3d
             self.downsample_conv = conv_downsample_3d
 

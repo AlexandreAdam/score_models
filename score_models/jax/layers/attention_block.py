@@ -22,14 +22,14 @@ class SelfAttentionBlock(eqx.Module):
         self.to_qkv = conv(channels, 3 * channels, kernel_size=1, key=key_qkv)
         self.to_out = conv(channels, channels, kernel_size=1, key=key_out)
 
-        # Manually adjust weights after creation
-        bound_qkv = 1 / channels**0.5
-        self.to_qkv.weight = uniform(-bound_qkv, bound_qkv)(shape=self.to_qkv.weight.shape, key=key_qkv)
-        self.to_qkv.bias = zeros(shape=self.to_qkv.bias.shape, key=jax.random.PRNGKey(0))
+        # Init
+        # bound_qkv = 1 / channels**0.5
+        # self.to_qkv.weight = uniform(-bound_qkv, bound_qkv)(shape=self.to_qkv.weight.shape, key=key_qkv)
+        # self.to_qkv.bias = zeros(shape=self.to_qkv.bias.shape, key=jax.random.PRNGKey(0))
 
-        bound_out = init_scale / channels**0.5
-        self.to_out.weight = uniform(-bound_out, bound_out)(shape=self.to_out.weight.shape, key=key_out)
-        self.to_out.bias = zeros(shape=self.to_out.bias.shape, key=jax.random.PRNGKey(0))
+        # bound_out = init_scale / channels**0.5
+        # self.to_out.weight = uniform(-bound_out, bound_out)(shape=self.to_out.weight.shape, key=key_out)
+        # self.to_out.bias = zeros(shape=self.to_out.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, x):
         B, C, *D = x.shape
@@ -59,11 +59,11 @@ class ScaledAttentionLayer(eqx.Module):
         self.value = eqx.nn.Linear(dimensions, dimensions, key=key_value)
         self.to_out = eqx.nn.Linear(dimensions, dimensions, key=key_out)
 
-        # Manually adjust weights after creation
-        bound = 1 / dimensions**0.5
-        for layer, key in zip([self.query, self.key, self.value, self.to_out], [key_query, key_key, key_value, key_out]):
-            layer.weight = uniform(-bound, bound)(shape=layer.weight.shape, key=key)
-            layer.bias = zeros(shape=layer.bias.shape, key=jax.random.PRNGKey(0))
+        # Init
+        # bound = 1 / dimensions**0.5
+        # for layer, key in zip([self.query, self.key, self.value, self.to_out], [key_query, key_key, key_value, key_out]):
+            # layer.weight = uniform(-bound, bound)(shape=layer.weight.shape, key=key)
+            # layer.bias = zeros(shape=layer.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, query, context):
         B, C_out, D = query.shape

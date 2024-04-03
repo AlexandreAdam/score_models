@@ -62,6 +62,8 @@ class DownsampleLayer(eqx.Module):
                 dimensions=dimensions,
                 key=key,
             )
+        else:
+            self.Conv_0 = None
 
     def __call__(self, x):
         if not self.fir:

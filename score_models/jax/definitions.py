@@ -2,6 +2,7 @@ import jax.numpy as jnp
 from jax import random
 from scipy.stats import norm
 from jaxtyping import PRNGKeyArray
+import numpy as np
 
 def variance_scaling(
     scale,
@@ -14,7 +15,7 @@ def variance_scaling(
     """Ported from Yang Song repo"""
 
     def _compute_fans(shape, in_axis=1, out_axis=0):
-        receptive_field_size = jnp.prod(shape) / shape[in_axis] / shape[out_axis]
+        receptive_field_size = np.prod(shape) / shape[in_axis] / shape[out_axis]
         fan_in = shape[in_axis] * receptive_field_size
         fan_out = shape[out_axis] * receptive_field_size
         return fan_in, fan_out

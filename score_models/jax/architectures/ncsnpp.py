@@ -201,10 +201,11 @@ class NCSNpp(eqx.Module):
         modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale, key=key1), nn.Linear(time_input_nf, nf * 4, key=key2), nn.Linear(nf * 4, nf * 4, key=key3)]
         
         key1, key2, key = jax.random.split(key, 3)
-        modules[1].weight = default_init()(shape=modules[1].weight.shape, key=key1)
-        modules[1].bias = zeros(shape=modules[1].bias.shape, key=key)
-        modules[2].weight.data = default_init()(shape=modules[2].weight.shape, key=key2)
-        modules[2].bias = zeros(shape=modules[2].bias.shape, key=key)
+        # Custom initialization in jax does't work like this...
+        # modules[1].weight = default_init()(shape=modules[1].weight.shape, key=key1)
+        # modules[1].bias = zeros(shape=modules[1].bias.shape, key=key)
+        # modules[2].weight.data = default_init()(shape=modules[2].weight.shape, key=key2)
+        # modules[2].bias = zeros(shape=modules[2].bias.shape, key=key)
 
         AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
         Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)

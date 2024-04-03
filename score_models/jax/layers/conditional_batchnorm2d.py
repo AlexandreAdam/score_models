@@ -19,8 +19,8 @@ class ConditionalBatchNorm2d(eqx.Module):
         if num_classes is None:
             embed_output_dim = num_features * 2 if bias else num_features
             self.embed = eqx.nn.Linear(1, embed_output_dim, use_bias=bias, key=key)
-            if bias:
-                self.embed.bias = zeros(key=jax.random.PRNGKey(0), shape=self.embed.bias.shape)
+            # if bias:
+                # self.embed.bias = zeros(key=jax.random.PRNGKey(0), shape=self.embed.bias.shape)
             
         else:
             self.num_classes = num_classes
@@ -28,7 +28,7 @@ class ConditionalBatchNorm2d(eqx.Module):
             self.embed = eqx.nn.Embedding(num_classes, embed_output_dim)
 
         # Initialize weights
-        self.embed.weight = normal(stddev=0.02)(shape=self.embed.weight.shape, key=key)
+        # self.embed.weight = normal(stddev=0.02)(shape=self.embed.weight.shape, key=key)
 
     def __call__(self, x, condition):
         condition = condition[:, None] if self.num_classes is None else condition

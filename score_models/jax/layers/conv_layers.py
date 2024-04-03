@@ -23,9 +23,10 @@ def conv1x1(
     conv = CONVS[dimensions](
         in_planes, out_planes, kernel_size=1, stride=stride, bias=bias
     )
-    conv.weight = default_init(init_scale)(conv.weight.shape, key=key)
-    if bias:
-        conv.bias = zeros(jax.random.PRNGKey(0), conv.bias.shape)
+    # Custom init in jax is harder....
+    # conv.conv.weight = default_init(init_scale)(shape=conv.conv.weight.shape, key=key)
+    # if bias:
+        # conv.conv.bias = zeros(jax.random.PRNGKey(0), conv.conv.bias.shape)
     return conv
 
 
@@ -50,7 +51,7 @@ def conv3x3(
         bias=bias,
         key=key
     )
-    conv.weight = default_init(init_scale)(conv.weight.shape, key=key)
-    if bias:
-        conv.bias = zeros(jax.random.PRNGKey(0), conv.bias.shape)
+    # conv.conv.weight = default_init(init_scale)(shape=conv.conv.weight.shape, key=key)
+    # if bias:
+        # conv.conv.bias = zeros(jax.random.PRNGKey(0), conv.conv.bias.shape)
     return conv
