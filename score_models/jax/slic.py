@@ -9,6 +9,8 @@ class SLIC(ScoreModel):
     """
     Original implementation of SLIC
     """
+    forward_model: Callable
+
     def __init__(
             self, 
             forward_model: Callable,

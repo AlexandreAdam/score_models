@@ -18,6 +18,12 @@ from .ema import ExponentialMovingAverage
 
 
 class ScoreModelBase(eqx.Module, ABC):
+    model: eqx.Module
+    sde: SDE
+    hyperparameters: dict
+    checkpoints_directory: Optional[str]
+    loaded_checkpoint: Optional[int]
+
     def __init__(
             self, 
             model: Optional[Union[str, eqx.Module]] = None, 

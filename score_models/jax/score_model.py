@@ -29,6 +29,8 @@ class ScoreModel(ScoreModelBase):
 
 
 class EnergyModel(ScoreModelBase):
+    nn_is_energy: bool
+
     def __init__(
             self, 
             model: Optional[Union[str, eqx.Module]] = None, 
