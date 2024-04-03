@@ -4,9 +4,9 @@ with slight modifications to make it work on continuous time.
 """
 import torch
 from torch import nn
-from score_models.utils import get_activation
-from score_models.layers import DDPMResnetBlock, SelfAttentionBlock, GaussianFourierProjection, UpsampleLayer, DownsampleLayer
-from score_models.layers.ddpm_resnet_block import conv3x3
+from ..utils import get_activation
+from ..layers import DDPMResnetBlock, SelfAttentionBlock, GaussianFourierProjection, UpsampleLayer, DownsampleLayer
+from ..layers.ddpm_resnet_block import conv3x3
 import functools
 
 
@@ -53,7 +53,7 @@ class DDPM(nn.Module):
             "conditioning": conditioning
         }
         self.dimensions = dimensions
-        self.act = act = get_activation(activation_type=activation_type)
+        self.activation = act = get_activation(activation_type=activation_type)
         self.attention = attention
         self.channels = channels
         self.nf = nf
@@ -146,7 +146,7 @@ class DDPM(nn.Module):
                 m_idx += 1
 
         assert not hs
-        h = self.act(modules[m_idx](h))
+        h = self.activatio(modules[m_idx](h))
         m_idx += 1
         h = modules[m_idx](h)
         m_idx += 1

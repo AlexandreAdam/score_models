@@ -63,7 +63,7 @@ class DDPMResnetBlock(eqx.Module):
         *,
         key: PRNGKeyArray
     ):
-        self.act = act
+        self.activation = act
         out_ch = out_ch if out_ch is not None else in_ch
         
         key_conv0, key_conv1, key_conv2, key_dense0 = jax.random.split(key, 4)
@@ -85,12 +85,12 @@ class DDPMResnetBlock(eqx.Module):
 
     def __call__(self, x: Array, temb: Optional[Array] = None):
         B, C, *D = x.shape
-        h = self.act(self.GroupNorm_0(x))
+        h = self.activation(self.GroupNorm_0(x))
         h = self.Conv_0(h)
         if temb is not None and self.Dense_0 is not None:
-            temb_act = self.act(temb)
+            temb_act = self.activation(temb)
             h += self.Dense_0(temb_act).reshape((B, -1) + (1,) * len(D))
-        h = self.act(self.GroupNorm_1(h))
+        h = self.activation(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)
         if C != self.out_ch:

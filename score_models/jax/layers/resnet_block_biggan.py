@@ -29,7 +29,7 @@ class ResnetBlockBigGANpp(eqx.Module):
         *,
         key: PRNGKeyArray,
     ):
-        self.act = act
+        self.activation = act
         self.dimensions = dimensions
         out_ch = out_ch if out_ch is not None else in_ch
         self.up = up
@@ -54,7 +54,7 @@ class ResnetBlockBigGANpp(eqx.Module):
 
     def __call__(self, x, temb: Optional[Array] = None):
         B, *_ = x.shape
-        h = self.act(self.GroupNorm_0(x))
+        h = self.activation(self.GroupNorm_0(x))
 
         if self.up:
             if self.fir:
@@ -74,7 +74,7 @@ class ResnetBlockBigGANpp(eqx.Module):
         h = self.Conv_0(h)
         if temb is not None and self.Dense_0 is not None:
             h += self.Dense_0(relu(temb)).reshape(B, -1, *([1] * self.dimensions))
-        h = self.act(self.GroupNorm_1(h))
+        h = self.activation(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)
 

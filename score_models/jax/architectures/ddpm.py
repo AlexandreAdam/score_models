@@ -43,7 +43,7 @@ class DDPM(eqx.Module):
                 f"Input must have 1, 2, or 3 spatial dimensions, received {dimensions}."
             )
 
-        self.act = get_activation(activation_type)
+        self.activation = get_activation(activation_type)
         self.attention = attention
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
@@ -51,7 +51,7 @@ class DDPM(eqx.Module):
         AttnBlock = SelfAttentionBlock
         ResnetBlock = partial(
             DDPMResnetBlock,
-            act=self.act,
+            act=self.activation,
             temb_dim=4 * nf,
             dropout=dropout,
             dimensions=dimensions,
@@ -143,7 +143,7 @@ class DDPM(eqx.Module):
                 h = self.modules[m_idx](h)
                 m_idx += 1
 
-        h = self.act(self.modules[m_idx](h))
+        h = self.activation(self.modules[m_idx](h))
         m_idx += 1
         h = self.modules[m_idx](h)
         m_idx += 1

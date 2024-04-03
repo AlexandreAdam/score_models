@@ -33,7 +33,7 @@ class ResnetBlockBigGANpp(nn.Module):
         self.fir = fir
         self.fir_kernel = fir_kernel
         self.skip_rescale = skip_rescale
-        self.act = act
+        self.activation = act
         self.in_ch = in_ch
         self.out_ch = out_ch
 
@@ -55,7 +55,7 @@ class ResnetBlockBigGANpp(nn.Module):
 
     def forward(self, x, temb=None):
         B, *_ = x.shape
-        h = self.act(self.GroupNorm_0(x))
+        h = self.activation(self.GroupNorm_0(x))
 
         if self.up:
             if self.fir:
@@ -75,8 +75,8 @@ class ResnetBlockBigGANpp(nn.Module):
         h = self.Conv_0(h)
         # Add bias to each feature map conditioned on the time embedding
         if temb is not None:
-            h += self.Dense_0(self.act(temb)).view(B, -1, *[1]*self.dimensions)
-        h = self.act(self.GroupNorm_1(h))
+            h += self.Dense_0(self.activation(temb)).view(B, -1, *[1]*self.dimensions)
+        h = self.activation(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)
 

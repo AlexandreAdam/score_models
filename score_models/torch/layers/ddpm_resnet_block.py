@@ -48,7 +48,7 @@ class DDPMResnetBlock(nn.Module):
         if out_ch is None:
             out_ch = in_ch
         self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
-        self.act = act
+        self.activation = act
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
         if temb_dim is not None:
             self.Dense_0 = nn.Linear(temb_dim, out_ch)
@@ -71,12 +71,12 @@ class DDPMResnetBlock(nn.Module):
         B, C, H, W = x.shape
         assert C == self.in_ch
         out_ch = self.out_ch if self.out_ch else self.in_ch
-        h = self.act(self.GroupNorm_0(x))
+        h = self.activation(self.GroupNorm_0(x))
         h = self.Conv_0(h)
         # Add bias to each feature map conditioned on the time embedding
         if temb is not None:
-            h += self.Dense_0(self.act(temb))[:, :, None, None]
-        h = self.act(self.GroupNorm_1(h))
+            h += self.Dense_0(self.activation(temb))[:, :, None, None]
+        h = self.activation(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)
         if C != out_ch:

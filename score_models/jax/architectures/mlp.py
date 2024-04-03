@@ -31,7 +31,7 @@ class MLP(eqx.Module):
         super().__init__()
         key_proj, key_time_branch, key_main_branch, key_bottleneck, key_output = jax.random.split(key, 5)
         
-        self.act = get_activation(activation)
+        self.activation = get_activation(activation)
         self.gaussian_fourier_projection = GaussianFourierProjection(time_embedding_dimensions, scale=embedding_scale, key=key_proj)
 
         # Time branch layers
@@ -63,14 +63,14 @@ class MLP(eqx.Module):
     def __call__(self, t, x):
         temb = self.gaussian_fourier_projection(t)
         for layer in self.time_branch:
-            temb = self.act(layer(temb))
+            temb = self.activation(layer(temb))
 
         x = jnp.concatenate([x, temb], axis=1)
         for layer in self.main_branch:
-            x = self.act(layer(x))
+            x = self.activation(layer(x))
 
         if self.bottleneck_in is not None:
-            x = self.act(self.bottleneck_in(x))
+            x = self.activation(self.bottleneck_in(x))
 
         if self.attention_layer is not None:
             temb = self.temb_to_bottleneck(temb)
@@ -80,7 +80,7 @@ class MLP(eqx.Module):
             ).reshape(-1, self.bottleneck_out.out_features)
 
         if self.bottleneck_out is not None:
-            x = self.act(self.bottleneck_out(x))
+            x = self.activation(self.bottleneck_out(x))
 
         x = self.output_layer(x)
         if self.output_activation is not None:

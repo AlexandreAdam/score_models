@@ -1,7 +1,7 @@
-from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, \
+from ..layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, \
         UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3, PositionalEncoding
-from score_models.utils import get_activation
-from score_models.definitions import default_init
+from ..utils import get_activation
+from ..definitions import default_init
 import torch.nn as nn
 import functools
 import torch
