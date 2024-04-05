@@ -67,9 +67,9 @@ def test_multiple_channels_ncsnpp():
     B = 5
     size = 2 * B
     dataset = Dataset(size, C, [D] * dim)
-    net = NCSNpp(nf=8, channels=C, ch_mult=(1, 1))
+    net = NCSNpp(nf=8, channels=C, ch_mult=(1, 1), key=random.PRNGKey(0))
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    model.fit(dataset, epochs=2)
 
 
 def test_training_conditioned_input_ncsnpp():
@@ -79,9 +79,9 @@ def test_training_conditioned_input_ncsnpp():
     B = 5
     size = 2 * B
     dataset = Dataset(size, C, [D] * dim, conditioning="input")
-    net = NCSNpp(nf=8, ch_mult=(1, 1), condition=["input"], condition_input_channels=C)
+    net = NCSNpp(nf=8, ch_mult=(1, 1), condition=["input"], condition_input_channels=C, key=random.PRNGKey(0))
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    model.fit(dataset, epochs=2)
 
 
 def test_training_conditioned_continuous_timelike_ncsnpp():
@@ -91,9 +91,9 @@ def test_training_conditioned_continuous_timelike_ncsnpp():
     B = 5
     size = 2 * B
     dataset = Dataset(size, C, [D] * dim, conditioning="time")
-    net = NCSNpp(nf=8, ch_mult=(1, 1), condition=["continuous_timelike"])
+    net = NCSNpp(nf=8, ch_mult=(1, 1), condition=["continuous_timelike"], key=random.PRNGKey(0))
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    model.fit(dataset, epochs=2)
 
 
 def test_training_conditioned_discrete_timelike_ncsnpp():
@@ -108,9 +108,10 @@ def test_training_conditioned_discrete_timelike_ncsnpp():
         ch_mult=(1, 1),
         condition=["discrete_timelike"],
         condition_num_embedding=(10,),
+        key=random.PRNGKey(0)
     )
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    model.fit(dataset, epochs=2)
 
 
 def test_training_conditioned_discrete_and_timelike_ncsnpp():
@@ -125,9 +126,10 @@ def test_training_conditioned_discrete_and_timelike_ncsnpp():
         ch_mult=(1, 1),
         condition=["continuous_timelike", "discrete_timelike"],
         condition_num_embedding=(10,),
+        key=random.PRNGKey(0)
     )
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    model.fit(dataset, epochs=2)
 
 
 
@@ -169,28 +171,28 @@ def test_loading_from_string():
     score(t, x)
 
 def test_loading_with_nn():
-    net = MLP(dimensions=2)
+    net = MLP(dimensions=2, key=random.PRNGKey(0))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = random.normal(random.PRNGKey(0), (1, 2))
     t = jnp.ones(1)
     score(t, x)
 
-    net = MLP(dimensions=2)
+    net = MLP(dimensions=2, key=random.PRNGKey(0))
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = random.normal(random.PRNGKey(0), (1, 2))
     t = jnp.ones(1)
     score(t, x)
 
-    net = MLP(dimensions=2, nn_is_energy=True)
+    net = MLP(dimensions=2, nn_is_energy=True, key=random.PRNGKey(0))
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = random.normal(random.PRNGKey(0), (1, 2))
     t = jnp.ones(1)
     score(t, x)
 
-    net = NCSNpp(nf=32)
+    net = NCSNpp(nf=32, key=random.PRNGKey(0))
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = random.normal(random.PRNGKey(0), (1, 1, 16, 16))
@@ -198,12 +200,12 @@ def test_loading_with_nn():
     score(t, x)
 
 def test_init_score():
-    net = MLP(10)
+    net = MLP(10, key=random.PRNGKey(0))
     with pytest.raises(KeyError):
         score = ScoreModel(net)
 
 def test_log_likelihood():
-    net = MLP(dimensions=2)
+    net = MLP(dimensions=2, key=random.PRNGKey(0))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = random.normal(random.PRNGKey(0), (3, 2))
@@ -215,11 +217,11 @@ def test_log_likelihood():
     # Placeholder for test function
 
 def test_sample_fn():
-    net = NCSNpp(1, nf=8, ch_mult=(2, 2))
+    net = NCSNpp(1, nf=8, ch_mult=(2, 2), key=random.PRNGKey(0))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
-    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    net = DDPM(1, nf=32, ch_mult=(2, 2), key=random.PRNGKey(0))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
@@ -227,11 +229,11 @@ def test_slic_score():
     def forward_model(x):
         return jnp.sum(x, axis=1, keepdims=True) # Function R^C to R
     C = 100
-    net = MLP(dimensions=C)
+    net = MLP(dimensions=C, key=random.PRNGKey(0))
     # Placeholder for SLIC score testing
 
 def test_loading_different_sdes():
-    net = DDPM(1, nf=32, ch_mult=(2, 2))
+    net = DDPM(1, nf=32, ch_mult=(2, 2), key=random.PRNGKey(0))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10, epsilon=1e-3)
     # Placeholder for loading different SDEs
 

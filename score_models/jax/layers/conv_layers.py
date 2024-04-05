@@ -21,7 +21,7 @@ def conv1x1(
 ):
     """1x1 convolution with DDPM initialization."""
     conv = CONVS[dimensions](
-        in_planes, out_planes, kernel_size=1, stride=stride, bias=bias
+        in_planes, out_planes, kernel_size=1, stride=stride, bias=bias, key=key
     )
     # Custom init in jax is harder....
     # conv.conv.weight = default_init(init_scale)(shape=conv.conv.weight.shape, key=key)

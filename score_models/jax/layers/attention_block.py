@@ -3,7 +3,11 @@ import equinox as eqx
 import numpy as np
 from jax.nn.initializers import uniform, zeros
 from jaxtyping import PRNGKeyArray
+from jax import vmap
 import jax
+
+
+__all__ = ["SelfAttentionBlock", "ScaledAttentionLayer"]
 
 
 # Not used in this implementation
@@ -32,17 +36,18 @@ class SelfAttentionBlock(eqx.Module):
         # self.to_out.bias = zeros(shape=self.to_out.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, x):
-        B, C, *D = x.shape
+        C, *D = x.shape
         qkv = self.to_qkv(x)
-        q, k, v = jnp.split(qkv, 3, axis=1)
-        q = q.reshape(B, np.prod(D), C)
-        k = k.reshape(B, C, np.prod(D))
-        v = v.reshape(B, np.prod(D), C)
+        q, k, v = jnp.split(qkv, 3, axis=0)
+        
+        q = jnp.transpose(q.reshape(C, -1))
+        k = k.reshape(C, -1)
+        v = jnp.transpose(v.reshape(C, -1))
 
-        w = jax.lax.batch_matmul(q, k) * (C ** (-0.5))
+        w = jnp.matmul(q, k) * (C ** (-0.5))
         w = jax.nn.softmax(w, axis=-1)
-        attention = jax.lax.batch_matmul(w, v)
-        attention = attention.reshape(B, *D, C).transpose((0, -1) + tuple(range(1, len(D) + 1)))
+        attention = jnp.matmul(w, v)
+        attention = jnp.transpose(attention).reshape(C, *D)
         return self.to_out(attention) + x
 
 
@@ -66,11 +71,14 @@ class ScaledAttentionLayer(eqx.Module):
             # layer.bias = zeros(shape=layer.bias.shape, key=jax.random.PRNGKey(0))
 
     def __call__(self, query, context):
-        B, C_out, D = query.shape
-        query = self.query(query.reshape(B * C_out, D)).reshape(B, C_out, D)
-        value = self.value(context.reshape(B * C_out, D)).reshape(B, C_out, D)
-        scores = jax.lax.batch_matmul(query, context.transpose((0, 2, 1))) / D**0.5
-        scores = jax.nn.softmax(scores, axis=-1)
-        attention = jax.lax.batch_matmul(scores, value)
-        h = self.to_out(attention)
+        C_out, D = query.shape
+        C_in, D = context.shape
+        
+        query = vmap(self.query)(query)
+        value = vmap(self.value)(context)
+        scores = jnp.matmul(query, context.transpose()) / D**0.5 # scaled attention matrix, QK^T / sqrt(d)
+        scores = jax.nn.softmax(scores, axis=1)
+        attention = jnp.matmul(scores, value)
+        h = vmap(self.to_out)(attention)
         return h
+

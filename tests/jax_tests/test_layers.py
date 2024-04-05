@@ -4,6 +4,7 @@ from score_models.jax.layers import StyleGANConv, UpsampleLayer, DownsampleLayer
 from score_models.jax.layers.attention_block import SelfAttentionBlock, ScaledAttentionLayer
 from score_models.jax.definitions import default_init
 from score_models.jax.utils import get_activation
+from jax import vmap
 
 
 def init_test_fn(shape, dtype=jnp.float32):
@@ -14,13 +15,13 @@ def test_attention():
     key = random.PRNGKey(0)
     x = random.normal(key, shape=[10, 4, 8, 8])
     print(x[0, 0, 0, 0], x[0, 0, 0, 1])
-    att = SelfAttentionBlock(4, key=key)
+    att = vmap(SelfAttentionBlock(4, key=key))
     y = att(x)
     print(y[0, 0, 0, 0], y[0, 0, 0, 1])
     x = random.normal(key, shape=[10, 4, 8, 8, 8])
-    SelfAttentionBlock(4, dimensions=3, key=key)(x)
+    vmap(SelfAttentionBlock(4, dimensions=3, key=key))(x)
     x = random.normal(key, shape=[10, 4, 8])
-    SelfAttentionBlock(4, dimensions=1, key=key)(x)
+    vmap(SelfAttentionBlock(4, dimensions=1, key=key))(x)
     
     x = random.normal(key, shape=(10, 5)) * 100
     B, D = x.shape
@@ -28,7 +29,7 @@ def test_attention():
     context = jnp.stack([x, temb], axis=1)
     print("context shape", context.shape)
     att = ScaledAttentionLayer(dimensions=5, key=key)
-    out = att(x.reshape(B, 1, D), context)
+    out = vmap(att)(x.reshape(B, 1, D), context)
     print("shape",out.shape)
     print("out", out)
 
