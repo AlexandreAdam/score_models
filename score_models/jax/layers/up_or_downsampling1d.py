@@ -13,16 +13,16 @@ __all__ = [
 
 
 def naive_upsample_1d(x, factor=2):
-    _N, C, H = x.shape
-    x = jnp.reshape(x, (-1, C, H, 1))
-    x = jnp.tile(x, (1, 1, 1, factor))
-    return jnp.reshape(x, (-1, C, H * factor))
+    C, H = x.shape
+    x = jnp.reshape(x, (C, H, 1))
+    x = jnp.tile(x, (1, 1, factor))
+    return jnp.reshape(x, (C, H * factor))
 
 
 def naive_downsample_1d(x, factor=2):
-    _N, C, H = x.shape
-    x = jnp.reshape(x, (-1, C, H // factor, factor))
-    return jnp.mean(x, axis=3)
+    C, H = x.shape
+    x = jnp.reshape(x, (C, H // factor, factor))
+    return jnp.mean(x, axis=2)
 
 
 def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
@@ -33,7 +33,7 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
     calculation
     using standard TensorFlow ops. It supports gradients of arbitrary order.
     Args:
-      x:            Input tensor of the shape `[N, C, D]`.
+      x:            Input tensor of the shape `[C, D]`.
       w:            Weight tensor of the shape `[filterD, inChannels, outChannels]`.
                  Grouped convolution can be performed by `inChannels = x.shape[0] // numGroups`.
       k:            FIR filter of the shape `[firN]`
@@ -42,7 +42,7 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
       factor:       Integer upsampling factor (default: 2).
       gain:         Scaling factor for signal magnitude (default: 1.0).
     Returns:
-      Tensor of the shape `[N, C, D * factor]` and same datatype as `x`.
+      Tensor of the shape `[C, D * factor]` and same datatype as `x`.
     """
 
     assert isinstance(factor, int) and factor >= 1
@@ -57,7 +57,7 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
     # Determine data dimensions.
     stride = factor
     output_shape = ((x.shape[2] - 1) * factor + convH,)
-    output_padding = ((output_shape[0] - (x.shape[2] - 1) * stride - convH),)
+    output_padding = ((output_shape[0] - (x.shape[1] - 1) * stride - convH),)
     num_groups = x.shape[1] // inC
 
     # Transpose weights.
@@ -71,7 +71,7 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
         strides=(stride,),
         padding=((p + 1) // 2 + factor - 1, p // 2 + 1),
     )
-    x = jnp.pad(x, pad_width=((0, 0), (0, 0), (output_padding[0], output_padding[0])))
+    x = jnp.pad(x, pad_width=((0, 0), (output_padding[0], output_padding[0])))
     return upfirdn1d(x, jnp.array(k), pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
 
 
@@ -82,7 +82,7 @@ def conv_downsample_1d(x, w, k=None, factor=2, gain=1):
     calculation
     using standard TensorFlow ops. It supports gradients of arbitrary order.
     Args:
-        x:            Input tensor of the shape `[N, C, D]`
+        x:            Input tensor of the shape `[C, D]`
         w:            Weight tensor of the shape `[filterD, inChannels, outChannels]`.
                   Grouped convolution can be performed by `inChannels = x.shape[0] // numGroups`.
         k:            FIR filter of the shape `[firN]`
@@ -101,7 +101,7 @@ def conv_downsample_1d(x, w, k=None, factor=2, gain=1):
     k = _setup_kernel(k) * gain
     p = (k.shape[0] - factor) + (convH - 1)
     s = factor
-    x = upfirdn1d(x, jnp.array(k, device=x.device), pad=((p + 1) // 2, p // 2))
+    x = upfirdn1d(x, jnp.array(k), pad=((p + 1) // 2, p // 2))
     return lax.conv(x, w, window_strides=(s,), padding="VALID")
 
 
@@ -137,7 +137,7 @@ def upsample_1d(x, k=None, factor=2, gain=1):
     p = k.shape[0] - factor
     return upfirdn1d(
         x,
-        jnp.array(k, device=x.device),
+        jnp.array(k),
         up=factor,
         pad=((p + 1) // 2 + factor - 1, p // 2),
     )
@@ -168,5 +168,5 @@ def downsample_1d(x, k=None, factor=2, gain=1):
     k = _setup_kernel(k) * gain
     p = k.shape[0] - factor
     return upfirdn1d(
-        x, jnp.array(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
+        x, jnp.array(k), down=factor, pad=((p + 1) // 2, p // 2)
     )

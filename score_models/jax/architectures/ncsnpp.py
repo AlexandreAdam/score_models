@@ -12,8 +12,6 @@ from ..layers import (
 from typing import Optional, Callable
 from jaxtyping import PRNGKeyArray
 from ..utils import get_activation
-from ..definitions import default_init
-from jax.nn.initializers import normal, zeros
 from equinox import nn
 import equinox as eqx
 import functools

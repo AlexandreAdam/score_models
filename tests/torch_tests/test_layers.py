@@ -188,7 +188,7 @@ def test_transposed_conv():
         x = torch.randn(B, C, *[D]*dim)
         layer_ = [Conv1dSame, Conv2dSame, Conv3dSame][dim-1]
         layer = layer_(C, C, K, stride=2)
-        x_down= layer(x)
+        x_down = layer(x)
         print("Down", x_down.shape)
         assert x_down.shape == torch.Size([B, C, *[D//2]*dim])
         
@@ -196,5 +196,5 @@ def test_transposed_conv():
         layer = layer_(C, C, K, stride=2)
         y = layer(x_down)
         print("Up", x.shape)
-        assert x.shape == torch.Size([B, C, *[D]*dim])
+        assert y.shape == torch.Size([B, C, *[D]*dim])
         

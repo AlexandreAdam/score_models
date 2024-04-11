@@ -104,12 +104,12 @@ class DDPMResnetBlock(eqx.Module):
         self.conv_shortcut = conv_shortcut
 
     def __call__(self, x: Array, temb: Optional[Array] = None):
-        B, C, *D = x.shape
+        C, *D = x.shape
         h = self.activation(self.GroupNorm_0(x))
         h = self.Conv_0(h)
         if temb is not None and self.Dense_0 is not None:
             temb_act = self.activation(temb)
-            h += self.Dense_0(temb_act).reshape((B, -1) + (1,) * len(D))
+            h += self.Dense_0(temb_act).reshape((-1,) + (1,) * len(D))
         h = self.activation(self.GroupNorm_1(h))
         h = self.Dropout_0(h)
         h = self.Conv_1(h)

@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import random
-from score_models.jax import ScoreModel, EnergyModel, MLP, NCSNpp
+from score_models.jax import ScoreModel, EnergyModel, MLP, NCSNpp, DDPM
 from score_models.jax.utils import load_architecture
 import shutil
 import os
@@ -130,8 +130,6 @@ def test_training_conditioned_discrete_and_timelike_ncsnpp():
     )
     model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
     model.fit(dataset, epochs=2)
-
-
 
 
 def local_test_loading_model_and_score_fn():

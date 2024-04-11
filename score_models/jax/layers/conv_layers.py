@@ -1,10 +1,8 @@
-import jax
-from jax.nn.initializers import zeros
 from .conv1dsame import Conv1dSame
 from .conv2dsame import Conv2dSame
 from .conv3dsame import Conv3dSame
-from ..definitions import default_init
-from jaxtyping import PRNGKeyArray, Array
+from jaxtyping import PRNGKeyArray
+
 
 CONVS = {1: Conv1dSame, 2: Conv2dSame, 3: Conv3dSame}
 

@@ -72,9 +72,12 @@ class ResnetBlockBigGANpp(eqx.Module):
         else: # Have to initialize it to None in jax...
             self.Conv_2 = None
 
-    def __call__(self, x, temb: Optional[Array] = None):
-        B, *_ = x.shape
-        h = self.activation(self.GroupNorm_0(x))
+    def __call__(self, x, temb: Optional[Array] = None, *, key: Optional[PRNGKeyArray] = None, inference: bool = True):
+        if key is not None:
+            key1, key2 = jax.random.split(key, 2)
+        else:
+            key1, key2 = None, None
+        h = self.activation(self.GroupNorm_0(x, key=key1))
 
         if self.up:
             if self.fir:
@@ -93,9 +96,9 @@ class ResnetBlockBigGANpp(eqx.Module):
 
         h = self.Conv_0(h)
         if temb is not None and self.Dense_0 is not None:
-            h += self.Dense_0(relu(temb)).reshape(B, -1, *([1] * self.dimensions))
+            h += self.Dense_0(relu(temb)).reshape(-1, *([1] * self.dimensions))
         h = self.activation(self.GroupNorm_1(h))
-        h = self.Dropout_0(h)
+        h = self.Dropout_0(h, key=key2, inference=inference)
         h = self.Conv_1(h)
 
         if self.in_ch != self.out_ch or self.up or self.down:
@@ -105,3 +108,4 @@ class ResnetBlockBigGANpp(eqx.Module):
             return x + h
         else:
             return (x + h) / SQRT2
+

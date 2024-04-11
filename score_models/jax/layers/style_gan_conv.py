@@ -46,7 +46,7 @@ class StyleGANConv(eqx.Module):
         self.dimensions = dimensions
 
         weight_shape = (out_ch, in_ch, *(kernel,) * dimensions)
-        self.weight = kernel_init(key, weight_shape)
+        self.weight = kernel_init(shape=weight_shape, key=key)
 
         if use_bias:
             self.bias = jnp.zeros(out_ch)
@@ -69,26 +69,21 @@ class StyleGANConv(eqx.Module):
             self.downsample_conv = conv_downsample_3d
 
     def __call__(self, x):
+        C, *D = x.shape
         if self.up:
             x = self.upsample_conv(x, self.weight, k=self.resample_kernel)
         elif self.down:
             x = self.downsample_conv(x, self.weight, k=self.resample_kernel)
         else:
-            if self.dimensions == 1:
-                dimension_numbers = ("NWC", "WIO", "NWC")
-            elif self.dimensions == 2:
-                dimension_numbers = ("NHWC", "HWIO", "NHWC")
-            else:
-                dimension_numbers = ("NDHWC", "DHWIO", "NDHWC")
-            x = lax.conv_general_dilated(
+            x = x.reshape(1, C, *D) # Reshape to OIHWD for conv
+            x = lax.conv(
                 x,
                 self.weight,
                 window_strides=(1,) * self.dimensions,
                 padding="SAME",
-                dimension_numbers=dimension_numbers,
-            )
+            ).squeeze() # remove the singleton O dimension
 
         if self.use_bias:
-            bias_shape = (1, -1) + (1,) * (self.dimensions)
+            bias_shape = (-1,) + (1,) * (self.dimensions)
             x += self.bias.reshape(bias_shape)
         return x
