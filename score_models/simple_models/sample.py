@@ -29,7 +29,7 @@ class SampleScoreModel(nn.Module):
             -0.5 * (self.samples - x) ** 2 / (t_scale**2 + self.sigma_min**2), dim=-1, keepdim=True
         )
         W = torch.exp(W - W.max())
-        # W = torch.nan_to_num(W)
+        W = torch.nan_to_num(W)
         W /= W.sum()
         return t_scale * torch.sum(W * (self.samples - x) / (t_scale**2 + self.sigma_min**2), dim=0)
 
