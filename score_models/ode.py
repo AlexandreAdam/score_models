@@ -127,7 +127,7 @@ class ODE(ABC):
     def stepsize(self, N, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.tensor((t_max - t_min) / N, device=device)
+        return torch.as_tensor((t_max - t_min) / N, device=device)
 
 
 class Euler_ODE(ODE):
