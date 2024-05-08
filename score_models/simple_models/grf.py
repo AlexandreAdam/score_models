@@ -37,4 +37,4 @@ class GRFScoreModel(nn.Module):
             (magnitude_squared / (t_mu**2 * self.power_spectrum + t_scale**2)).real,
             dim=tuple(range(-self.dims, 0)),
         )
-        return 2 * nll.unsqueeze(1) * t_scale
+        return nll.unsqueeze(1) * t_scale
