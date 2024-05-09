@@ -29,6 +29,10 @@ class JointScoreModel(nn.Module):
         B = sub_x[0].shape[0]
         return torch.cat(tuple(S.reshape(B, -1) for S in sub_x), dim=-1)
 
+    @property
+    def xsize(self):
+        return sum(np.prod(shapex) for shapex in self.x_shapes)
+
     def forward(self, t, x, **kwargs):
         # Split x into segments
         sub_x = self.split_x(x)
