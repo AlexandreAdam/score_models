@@ -18,7 +18,7 @@ class UpsampleLayer(eqx.Module):
     
     def __init__(
         self,
-        in_ch: int,
+        in_ch: Optional[int] = None,
         out_ch: Optional[int] = None,
         with_conv: bool = False,
         fir: bool = False,

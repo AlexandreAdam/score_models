@@ -66,6 +66,8 @@ class NCSNpp(eqx.Module):
     resblock_type: str
     condition_embedding_layers: list
     all_modules: list
+    pyramid_upsample: Optional[Callable]
+    pyramid_downsample: Optional[Callable]
 
     def __init__(
             self,
