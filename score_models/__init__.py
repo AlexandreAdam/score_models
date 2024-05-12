@@ -8,7 +8,7 @@ def import_subpackage(backend,  subpackage_name):
     globals()[subpackage_name] = subpackage
 
 
-PREFERRED_BACKEND = os.environ.get('SCORE_MODELS_BACKEND', None)
+BACKEND = os.environ.get('SCORE_MODELS_BACKEND', None)
 JAX_AVAILABLE = False
 TORCH_AVAILABLE = False
 
@@ -25,12 +25,12 @@ except ImportError:
     pass
 
 # Select backend based on preference and availability
-if PREFERRED_BACKEND == 'jax' and JAX_AVAILABLE:
+if BACKEND == 'jax' and JAX_AVAILABLE:
     from .jax import *
     from .jax import layers
     backend = 'jax'
 
-elif PREFERRED_BACKEND == 'torch' and TORCH_AVAILABLE:
+elif BACKEND == 'torch' and TORCH_AVAILABLE:
     from .torch import *
     from .torch import layers
     backend = 'torch'
@@ -54,7 +54,6 @@ submodules = [
         'sde', 
         'utils', 
         'dsm', 
-        'ema', 
         'sliced_score_matching', 
         'slic', 
         'definitions',

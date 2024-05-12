@@ -1,4 +1,4 @@
-from score_models.sde import VESDE, VPSDE, TSVESDE
+from score_models.torch.sde import VESDE, VPSDE, TSVESDE
 import numpy as np
 import torch
 

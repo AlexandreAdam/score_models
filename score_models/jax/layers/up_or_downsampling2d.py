@@ -52,13 +52,12 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
     """
 
     assert isinstance(factor, int) and factor >= 1
+    assert factor <= 2, "Right now, FIR upsampling with JAX only works with factor=2 because transpose convolution is more complicated than in the torch version."
 
     # Check weight shape.
     assert len(w.shape) == 4
-    convH = w.shape[2]
-    convW = w.shape[3]
-    inC = w.shape[1]
-    outC = w.shape[0]
+    outC, inC, convH, convW = w.shape
+    C, H, W = x.shape
     assert convW == convH
 
     # Setup filter kernel.
@@ -70,27 +69,31 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
     # Determine data dimensions.
     stride = (factor, factor)
     output_shape = (
-        (x.shape[1] - 1) * factor + convH,
-        (x.shape[2] - 1) * factor + convW,
+        (H - 1) * factor + convH,
+        (W - 1) * factor + convW,
     )
     output_padding = (
-        (output_shape[0] - (x.shape[1] - 1) * stride[0] - convH),
-        (output_shape[1] - (x.shape[2] - 1) * stride[1] - convW),
+        (output_shape[0] - (H - 1) * stride[0] - convH),
+        (output_shape[1] - (W - 1) * stride[1] - convW),
     )
     assert output_padding[0] >= 0 and output_padding[1] >= 0
-    num_groups = x.shape[0] // inC
+    num_groups = C // inC
+    _, H, W = x.shape
 
     w = jnp.reshape(w, (num_groups, -1, inC, convH, convW))
     w = jnp.flip(w, axis=(1, 2)).transpose((0, 2, 1, 3, 4))
     w = jnp.reshape(w, (num_groups * inC, -1, convH, convW))
 
-    x = x.reshape(1, *x.shape)
+    # This padding is almost it, but does ot work for factor other than 2 
+    # padding = [(p // 2 + factor, p // 2 + factor)] * 2
     x = lax.conv_transpose(
-        x,
+        x.reshape((1, -1, H, W)),
         w,
         strides=stride,
-        padding=[((p + 1) // 2 + factor - 1, p // 2 + 1)]*2,
-    ).squeeze()
+        padding="VALID",
+        dimension_numbers=("NCHW", "IOHW", "NCHW"),
+    )
+    x = x.reshape((outC, *output_shape)) # Remove the singleton N dimension
     x = jnp.pad(
         x,
         (
@@ -132,7 +135,9 @@ def conv_downsample_2d(x, w, k=None, factor=2, gain=1):
     p = (k.shape[0] - factor) + (convW - 1)
     s = (factor, factor)
     x = upfirdn2d(x, jnp.array(k), pad=((p + 1) // 2, p // 2))
-    return lax.conv(x, w, window_strides=s, padding="VALID")
+    C, H, W = x.shape
+    x = lax.conv(x.reshape(1, C, H, W), w, window_strides=s, padding="VALID")
+    return x.reshape(*x.shape[1:]) # remove the singleton dimension
 
 
 def _setup_kernel(k):

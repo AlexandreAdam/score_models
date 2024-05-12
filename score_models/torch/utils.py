@@ -76,10 +76,10 @@ def load_architecture(
             hyperparameters["dimensions"] = dimensions
     if isinstance(model, str):
         if model.lower() == "ncsnpp":
-            from score_models.architectures import NCSNpp
+            from score_models import NCSNpp
             model = NCSNpp(**hyperparameters).to(device)
         elif model.lower() == "ddpm":
-            from score_models.architectures import DDPM
+            from score_models import DDPM
             model = DDPM(**hyperparameters).to(device)
         elif model.lower() == "mlp":
             from score_models import MLP

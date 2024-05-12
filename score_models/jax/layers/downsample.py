@@ -1,25 +1,12 @@
 from typing import Optional
 import jax.numpy as jnp
 import equinox as eqx
+from jax import lax
 from .conv_layers import conv3x3
 from .up_or_downsampling import downsample
 from .style_gan_conv import StyleGANConv
 from ..definitions import default_init
 from jaxtyping import PRNGKeyArray
-
-
-def avg_pool(x, dimensions, kernel_size=2, stride=2):
-    if dimensions == 1:
-        avg = jnp.mean(x.reshape(x.shape[0], x.shape[1], -1, kernel_size), axis=-1)
-        return avg[:, :, ::stride]
-    
-    elif dimensions == 2:
-        avg = jnp.mean(x.reshape(x.shape[0], x.shape[1], -1, kernel_size, kernel_size), axis=(-1, -2))
-        return avg[:, :, ::stride, ::stride]
-    
-    elif dimensions == 3:
-        avg = jnp.mean(x.reshape(x.shape[0], x.shape[1], -1, kernel_size, kernel_size, kernel_size), axis=(-1, -2, -3))
-        return avg[:, :, ::stride, ::stride, ::stride]
 
 
 class DownsampleLayer(eqx.Module):
@@ -72,10 +59,15 @@ class DownsampleLayer(eqx.Module):
                 x = jnp.pad(x, pad_width)
                 x = self.Conv_0(x)
             else:
-                x = avg_pool(x, self.dimensions)
+                # Average Pool
+                x = x.reshape(1, *x.shape) # Add an artifical batch dimension to work with lax.conv
+                w = jnp.ones((1, 1, *[2]*self.dimensions)) / 2 ** self.dimensions
+                x = lax.conv(x, w, window_strides=[2]*self.dimensions, padding="VALID")
+                x = x.reshape(*x.shape[1:]) # Remove batch dimension
         else:
             if not self.with_conv:
                 x = downsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:
                 x = self.Conv_0(x)
         return x
+

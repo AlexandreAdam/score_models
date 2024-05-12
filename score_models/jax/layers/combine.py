@@ -15,7 +15,7 @@ class Combine(eqx.Module):
     def __call__(self, x: jnp.ndarray, y: Array) -> Array:
         h = self.Conv_0(x)
         if self.method == 'cat':
-            return jnp.concatenate([h, y], axis=1)
+            return jnp.concatenate([h, y], axis=0)
         elif self.method == 'sum':
             return h + y
 

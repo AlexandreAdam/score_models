@@ -43,7 +43,7 @@ class UpsampleLayer(eqx.Module):
                 self.conv1d_0 = None
         else:
             if with_conv:
-                self.cont_0 = None
+                self.conv_0 = None
                 self.conv1d_0 = StyleGANConv(
                     in_ch,
                     self.out_ch,
@@ -60,11 +60,9 @@ class UpsampleLayer(eqx.Module):
             self.conv1d_0 = None
 
     def __call__(self, x, key=jax.random.PRNGKey(0)):
-        B, C, *D = x.shape
+        C, *D = x.shape
         if not self.fir:
-            h = jax.image.resize(
-                x, shape=(B, self.out_ch, *[d * 2 for d in D]), method="nearest"
-            )
+            h = jax.image.resize(x, shape=(self.out_ch, *[d * 2 for d in D]), method="nearest")
             if self.with_conv:
                 h = self.conv_0(h)
         else:

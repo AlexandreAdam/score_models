@@ -51,10 +51,7 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
 
     # Check weight shape.
     assert len(w.shape) == 4
-    convH = w.shape[2]
-    convW = w.shape[3]
-    inC = w.shape[1]
-    outC = w.shape[0]
+    outC, inC, convH, convW = w.shape
     assert convW == convH
 
     # Setup filter kernel.
@@ -76,7 +73,7 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
     w = torch.reshape(w, (num_groups, -1, inC, convH, convW))
     w = torch.flip(w, dims=(1, 2)).permute(0, 2, 1, 3, 4)
     w = torch.reshape(w, (num_groups * inC, -1, convH, convW))
-    
+   
     x = F.conv_transpose2d(x, w, stride=stride, output_padding=output_padding, padding=0)
     return upfirdn2d(x, torch.tensor(k, device=x.device),
                      pad=((p + 1) // 2 + factor - 1, p // 2 + 1))

@@ -1,8 +1,8 @@
 import torch
-from score_models.utils import load_architecture
-from score_models import ScoreModel, EnergyModel, SLIC
-from score_models.architectures import MLP, NCSNpp, DDPM
-from score_models.sde import VESDE, VPSDE, TSVESDE
+from score_models.torch.utils import load_architecture
+from score_models.torch import ScoreModel, EnergyModel, SLIC
+from score_models.torch.architectures import MLP, NCSNpp, DDPM
+from score_models.torch.sde import VESDE, VPSDE, TSVESDE
 import pytest
 
 

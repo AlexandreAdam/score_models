@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from score_models.definitions import default_init
+from ..definitions import default_init
 from .conv1dsame import Conv1dSame
 from .conv2dsame import Conv2dSame
 from .conv3dsame import Conv3dSame

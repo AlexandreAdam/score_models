@@ -30,6 +30,7 @@ def naive_downsample_3d(x, factor=2):
 def upsample_conv_3d(x, w, k=None, factor=2, gain=1):
     assert isinstance(factor, int) and factor >= 1
     outC, inC, convH, convW, convD = w.shape
+    C, H, W, D = x.shape
     assert convW == convH
     assert convW == convD
 
@@ -40,28 +41,30 @@ def upsample_conv_3d(x, w, k=None, factor=2, gain=1):
 
     stride = (factor, factor, factor)
     output_shape = (
-        (x.shape[1] - 1) * factor + convH,
-        (x.shape[2] - 1) * factor + convW,
-        (x.shape[3] - 1) * factor + convD,
+        (H - 1) * factor + convH,
+        (W - 1) * factor + convW,
+        (D - 1) * factor + convD,
     )
     output_padding = (
-        (output_shape[0] - (x.shape[1] - 1) * stride[0] - convH),
-        (output_shape[1] - (x.shape[2] - 1) * stride[1] - convW),
-        (output_shape[2] - (x.shape[3] - 1) * stride[2] - convD),
+        (output_shape[0] - (H - 1) * stride[0] - convH),
+        (output_shape[1] - (W - 1) * stride[1] - convW),
+        (output_shape[2] - (D - 1) * stride[2] - convD),
     )
     assert output_padding[0] >= 0 and output_padding[1] >= 0 and output_padding[2] >= 0
-    num_groups = x.shape[1] // inC
+    num_groups = C // inC
 
     w = jnp.reshape(w, (num_groups, -1, inC, convH, convW, convD))
-    w = jnp.flip(w, (2, 3, 4)).transpose((1, 0, 2, 3, 4))
+    w = jnp.flip(w, axis=(3, 4, 5)).transpose((0, 2, 1, 3, 4, 5))
     w = jnp.reshape(w, (num_groups * inC, -1, convH, convW, convD))
-
+    
     x = lax.conv_transpose(
-        x,
+        x.reshape(1, *x.shape),
         w,
         strides=stride,
-        padding=((p + 1) // 2 + factor - 1, p // 2 + 1),
+        padding="VALID",
+        dimension_numbers=("NCHWD", "IOHWD", "NCHWD"),
     )
+    x = x.reshape(*x.shape[1:]) # Remove singleton dimension
     x = jnp.pad(
         x,
         (
@@ -85,9 +88,11 @@ def conv_downsample_3d(x, w, k=None, factor=2, gain=1):
     k = _setup_kernel(k) * gain
     p = (k.shape[0] - factor) + (convW - 1)
     s = (factor, factor, factor)
-
+    
     x = upfirdn3d(x, jnp.array(k), pad=((p + 1) // 2, p // 2))
-    return lax.conv(x, w, window_strides=s, padding="VALID")
+    x = x.reshape(1, *x.shape)
+    x = lax.conv(x, w, window_strides=s, padding="VALID")
+    return x.reshape(x.shape[1:])
 
 
 def _setup_kernel(k):
@@ -126,3 +131,4 @@ def downsample_3d(x, k=None, factor=2, gain=1):
     return upfirdn3d(
         x, jnp.array(k), down=factor, pad=((p + 1) // 2, p // 2)
     )
+

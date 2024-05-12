@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import TensorDataset
-from score_models import ScoreModel, EnergyModel, MLP, NCSNpp
+from score_models.torch import ScoreModel, EnergyModel, MLP, NCSNpp
 import shutil, os
 import numpy as np
 

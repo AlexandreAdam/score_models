@@ -163,7 +163,7 @@ def test_stylegan_conv_shape():
     assert out.shape == (1, 3, 16, 16, 16)
 
     conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=True, use_bias=True, kernel_init=default_init(), dimensions=3, key=key)
-    out = conv(x)
+    out = vmap(conv)(x)
     assert out.shape == (1, 3, 4, 4, 4)
 
 def test_stylegan_conv_resample_kernel():
@@ -172,11 +172,12 @@ def test_stylegan_conv_resample_kernel():
     out = vmap(conv)(x)
     print(out)
     assert jnp.all(out[..., 2:-2, 2:-2] == 9.)
-
+    
     conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=True, use_bias=True, kernel_init=init_test_fn, dimensions=2, key=random.PRNGKey(0))
     out = vmap(conv)(x)
     print(out)
     assert jnp.all(out[..., 1:-1, 1:-1] == 9.)
+
 
 def test_transposed_conv():
     key = random.PRNGKey(0)
