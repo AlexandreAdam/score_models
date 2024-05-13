@@ -1,5 +1,14 @@
-from score_models.layers import DDPMResnetBlock, GaussianFourierProjection, SelfAttentionBlock, \
-        UpsampleLayer, DownsampleLayer, Combine, ResnetBlockBigGANpp, conv3x3, PositionalEncoding
+from score_models.layers import (
+    DDPMResnetBlock,
+    GaussianFourierProjection,
+    SelfAttentionBlock,
+    UpsampleLayer,
+    DownsampleLayer,
+    Combine,
+    ResnetBlockBigGANpp,
+    conv3x3,
+    PositionalEncoding,
+)
 from score_models.utils import get_activation
 from score_models.definitions import default_init
 import torch.nn as nn
@@ -33,68 +42,91 @@ class NCSNpp(nn.Module):
         attention (bool): Whether or not to use attention. Default is True.
 
     """
+
     def __init__(
-            self,
-            channels=1,
-            dimensions=2,
-            nf=128,
-            ch_mult=(2, 2, 2, 2),
-            num_res_blocks=2,
-            activation_type="swish",
-            dropout=0.,
-            resample_with_conv=True,
-            fir=True,
-            fir_kernel=(1, 3, 3, 1),
-            skip_rescale=True,
-            progressive="output_skip",
-            progressive_input="input_skip",
-            init_scale=1e-2,
-            fourier_scale=16.,
-            resblock_type="biggan",
-            combine_method="sum",
-            attention=True,
-            condition:tuple[str,...]=["None"], # discrete_time, continuous_time, vector, input
-            condition_num_embedding:tuple[int,...]=None,
-            condition_input_channels:int=None,
-            condition_vector_channels:int=None,
-            # fourier_features=False,
-            # n_min=7,
-            # n_max=8,
-            **kwargs
-          ):
+        self,
+        channels=1,
+        dimensions=2,
+        nf=128,
+        ch_mult=(2, 2, 2, 2),
+        num_res_blocks=2,
+        activation_type="swish",
+        dropout=0.0,
+        resample_with_conv=True,
+        fir=True,
+        fir_kernel=(1, 3, 3, 1),
+        skip_rescale=True,
+        progressive="output_skip",
+        progressive_input="input_skip",
+        init_scale=1e-2,
+        fourier_scale=16.0,
+        resblock_type="biggan",
+        combine_method="sum",
+        attention=True,
+        condition: tuple[str, ...] = ["None"],  # discrete_time, continuous_time, vector, input
+        condition_num_embedding: tuple[int, ...] = None,
+        condition_input_channels: int = None,
+        condition_vector_channels: int = None,
+        # fourier_features=False,
+        # n_min=7,
+        # n_max=8,
+        **kwargs,
+    ):
         super().__init__()
         if dimensions not in [1, 2, 3]:
-            raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
+            raise ValueError(
+                "Input must have 1, 2, or 3 spatial dimensions to use this architecture"
+            )
         self.conditioned = False
         discrete_index = 0
         if condition is not None:
             if not isinstance(condition, (tuple, list)):
                 raise ValueError("Condition should be a list or a tuple of strings")
         for c in condition:
-            if c.lower() not in ["none", "discrete_timelike", "continuous_timelike", "vector", "input"]:
-                raise ValueError(f"Condition must be in ['none', 'discrete_timelike', 'continuous_timelike', 'input'], received {c}")
+            if c.lower() not in [
+                "none",
+                "discrete_timelike",
+                "continuous_timelike",
+                "vector",
+                "input",
+            ]:
+                raise ValueError(
+                    f"Condition must be in ['none', 'discrete_timelike', 'continuous_timelike', 'input'], received {c}"
+                )
             if c.lower() != "none":
                 self.conditioned = True
             elif c.lower() == "none" and self.conditioned:
-                raise ValueError(f"Cannot have a mix of 'None' and other type of conditions, received the tuple {condition}")
+                raise ValueError(
+                    f"Cannot have a mix of 'None' and other type of conditions, received the tuple {condition}"
+                )
             if c.lower() == "discrete_timelike":
                 if not isinstance(condition_num_embedding, (tuple, list)):
-                    raise ValueError("condition_num_embedding must be provided and be a tuple or list of integer for discrete_timelike condition type")
+                    raise ValueError(
+                        "condition_num_embedding must be provided and be a tuple or list of integer for discrete_timelike condition type"
+                    )
                 elif not isinstance(condition_num_embedding[discrete_index], int):
-                    raise ValueError("condition_num_embedding must be provided and be a tuple or list of integer for discrete_timelike condition type")
+                    raise ValueError(
+                        "condition_num_embedding must be provided and be a tuple or list of integer for discrete_timelike condition type"
+                    )
                 discrete_index += 1
             elif c.lower() == "input":
                 if not isinstance(condition_input_channels, int):
-                    raise ValueError("condition_input_channels must be provided and be an integer for input condition type")
+                    raise ValueError(
+                        "condition_input_channels must be provided and be an integer for input condition type"
+                    )
             elif c.lower() == "vector":
                 if not isinstance(condition_vector_channels, int):
-                    raise ValueError("condition_vector_channels must be provided and be an integer for vector condition type")
+                    raise ValueError(
+                        "condition_vector_channels must be provided and be an integer for vector condition type"
+                    )
 
         self.condition_type = condition
         self.condition_num_embedding = condition_num_embedding
-        self.condition_input_channels = 0 if condition_input_channels is None else condition_input_channels
+        self.condition_input_channels = (
+            0 if condition_input_channels is None else condition_input_channels
+        )
         self.condition_vector_channels = condition_vector_channels
-        
+
         self.dimensions = dimensions
         self.channels = channels
         self.hyperparameters = {
@@ -119,7 +151,7 @@ class NCSNpp(nn.Module):
             "condition": condition,
             "condition_num_embedding": condition_num_embedding,
             "condition_input_channels": condition_input_channels,
-            "condition_vector_channels": condition_vector_channels
+            "condition_vector_channels": condition_vector_channels,
         }
         self.act = act = get_activation(activation_type)
         self.attention = attention
@@ -132,10 +164,12 @@ class NCSNpp(nn.Module):
         self.progressive = progressive.lower()
         self.progressive_input = progressive_input.lower()
         self.resblock_type = resblock_type
-        assert progressive in ['none', 'output_skip', 'residual']
-        assert progressive_input in ['none', 'input_skip', 'residual']
-        combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
-       
+        assert progressive in ["none", "output_skip", "residual"]
+        assert progressive_input in ["none", "input_skip", "residual"]
+        combiner = functools.partial(
+            Combine, method=combine_method.lower(), dimensions=self.dimensions
+        )
+
         # Timelike condition branch, to be appended to the time embedding
         time_input_nf = nf
         discrete_index = 0
@@ -144,71 +178,110 @@ class NCSNpp(nn.Module):
             for c_type in self.condition_type:
                 if c_type.lower() == "discrete_timelike":
                     time_input_nf += nf
-                    condition_embedding_layers.append(nn.Embedding(num_embeddings=self.condition_num_embedding[discrete_index], 
-                                                         embedding_dim=nf))
+                    condition_embedding_layers.append(
+                        nn.Embedding(
+                            num_embeddings=self.condition_num_embedding[discrete_index],
+                            embedding_dim=nf,
+                        )
+                    )
                     discrete_index += 1
                 elif c_type.lower() == "continuous_timelike":
                     time_input_nf += nf
-                    condition_embedding_layers.append(GaussianFourierProjection(embed_dim=nf, scale=fourier_scale))
+                    condition_embedding_layers.append(
+                        GaussianFourierProjection(embed_dim=nf, scale=fourier_scale)
+                    )
                 elif c_type.lower() == "vector":
                     time_input_nf += nf
-                    condition_embedding_layers.append(PositionalEncoding(channels=self.condition_vector_channels, embed_dim=nf, scale=fourier_scale))
+                    condition_embedding_layers.append(
+                        PositionalEncoding(
+                            channels=self.condition_vector_channels,
+                            embed_dim=nf,
+                            scale=fourier_scale,
+                        )
+                    )
             self.condition_embedding_layers = nn.ModuleList(condition_embedding_layers)
-                
+
         # Condition on continuous time (second layer receives a concatenation of all the embeddings)
-        modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), nn.Linear(time_input_nf, nf * 4), nn.Linear(nf * 4, nf * 4)]
+        modules = [
+            GaussianFourierProjection(embed_dim=nf, scale=fourier_scale),
+            nn.Linear(time_input_nf, nf * 4),
+            nn.Linear(nf * 4, nf * 4),
+        ]
         with torch.no_grad():
             modules[1].weight.data = default_init()(modules[1].weight.shape)
             modules[1].bias.zero_()
             modules[2].weight.data = default_init()(modules[2].weight.shape)
             modules[2].bias.zero_()
 
-        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
-        Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
+        AttnBlock = functools.partial(
+            SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions
+        )
+        Upsample = functools.partial(
+            UpsampleLayer,
+            with_conv=resample_with_conv,
+            fir=fir,
+            fir_kernel=fir_kernel,
+            dimensions=self.dimensions,
+        )
 
-        if progressive == 'output_skip':
+        if progressive == "output_skip":
             self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
-        elif progressive == 'residual':
-            pyramid_upsample = functools.partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True, dimensions=self.dimensions)
+        elif progressive == "residual":
+            pyramid_upsample = functools.partial(
+                UpsampleLayer,
+                fir=fir,
+                fir_kernel=fir_kernel,
+                with_conv=True,
+                dimensions=self.dimensions,
+            )
 
-        Downsample = functools.partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
+        Downsample = functools.partial(
+            DownsampleLayer,
+            with_conv=resample_with_conv,
+            fir=fir,
+            fir_kernel=fir_kernel,
+            dimensions=self.dimensions,
+        )
 
-        if progressive_input == 'input_skip':
+        if progressive_input == "input_skip":
             self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
-        elif progressive_input == 'residual':
-            pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
-            
+        elif progressive_input == "residual":
+            pyramid_downsample = functools.partial(
+                Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True
+            )
 
-        if resblock_type == 'ddpm':
-            ResnetBlock = functools.partial(DDPMResnetBlock,
-                                            act=act,
-                                            dropout=dropout,
-                                            init_scale=init_scale,
-                                            skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4,
-                                            dimensions=self.dimensions
-                                            )
+        if resblock_type == "ddpm":
+            ResnetBlock = functools.partial(
+                DDPMResnetBlock,
+                act=act,
+                dropout=dropout,
+                init_scale=init_scale,
+                skip_rescale=skip_rescale,
+                temb_dim=nf * 4,
+                dimensions=self.dimensions,
+            )
 
-        elif resblock_type == 'biggan':
-            ResnetBlock = functools.partial(ResnetBlockBigGANpp,
-                                            act=act,
-                                            dropout=dropout,
-                                            fir=fir,
-                                            fir_kernel=fir_kernel,
-                                            init_scale=init_scale,
-                                            skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4,
-                                            dimensions=self.dimensions
-                                            )
+        elif resblock_type == "biggan":
+            ResnetBlock = functools.partial(
+                ResnetBlockBigGANpp,
+                act=act,
+                dropout=dropout,
+                fir=fir,
+                fir_kernel=fir_kernel,
+                init_scale=init_scale,
+                skip_rescale=skip_rescale,
+                temb_dim=nf * 4,
+                dimensions=self.dimensions,
+            )
 
         else:
-            raise ValueError(f'resblock type {resblock_type} unrecognized.')
+            raise ValueError(f"resblock type {resblock_type} unrecognized.")
 
         # Downsampling block
         input_pyramid_ch = channels + self.condition_input_channels
         modules.append(conv3x3(channels + self.condition_input_channels, nf, dimensions=dimensions))
         hs_c = [nf]
-        in_ch = nf #+ fourier_feature_channels
+        in_ch = nf  # + fourier_feature_channels
         for i_level in range(num_resolutions):
             # Residual blocks for this resolution
             for i_block in range(num_res_blocks):
@@ -217,17 +290,17 @@ class NCSNpp(nn.Module):
                 in_ch = out_ch
                 hs_c.append(in_ch)
             if i_level != num_resolutions - 1:
-                if resblock_type == 'ddpm':
+                if resblock_type == "ddpm":
                     modules.append(Downsample(in_ch=in_ch))
                 else:
                     modules.append(ResnetBlock(down=True, in_ch=in_ch))
 
-                if progressive_input == 'input_skip':
+                if progressive_input == "input_skip":
                     modules.append(combiner(in_ch=input_pyramid_ch, out_ch=in_ch))
-                    if combine_method == 'cat':
+                    if combine_method == "cat":
                         in_ch *= 2
 
-                elif progressive_input == 'residual':
+                elif progressive_input == "residual":
                     modules.append(pyramid_downsample(in_ch=input_pyramid_ch, out_ch=in_ch))
                     input_pyramid_ch = in_ch
                 hs_c.append(in_ch)
@@ -243,52 +316,71 @@ class NCSNpp(nn.Module):
         for i_level in reversed(range(num_resolutions)):
             for i_block in range(num_res_blocks + 1):
                 out_ch = nf * ch_mult[i_level]
-                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(),
-                                           out_ch=out_ch))
+                modules.append(ResnetBlock(in_ch=in_ch + hs_c.pop(), out_ch=out_ch))
                 in_ch = out_ch
 
-            if progressive != 'none':
+            if progressive != "none":
                 if i_level == num_resolutions - 1:
-                    if progressive == 'output_skip':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
-                                                    num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, init_scale=init_scale, dimensions=dimensions))
+                    if progressive == "output_skip":
+                        modules.append(
+                            nn.GroupNorm(
+                                num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6
+                            )
+                        )
+                        modules.append(
+                            conv3x3(in_ch, channels, init_scale=init_scale, dimensions=dimensions)
+                        )
                         pyramid_ch = channels
-                    elif progressive == 'residual':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
-                                                    num_channels=in_ch, eps=1e-6))
+                    elif progressive == "residual":
+                        modules.append(
+                            nn.GroupNorm(
+                                num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6
+                            )
+                        )
                         modules.append(conv3x3(in_ch, in_ch, bias=True, dimensions=dimensions))
                         pyramid_ch = in_ch
                     else:
-                        raise ValueError(f'{progressive} is not a valid name.')
+                        raise ValueError(f"{progressive} is not a valid name.")
                 else:
-                    if progressive == 'output_skip':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
-                                                    num_channels=in_ch, eps=1e-6))
-                        modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale, dimensions=dimensions))
+                    if progressive == "output_skip":
+                        modules.append(
+                            nn.GroupNorm(
+                                num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6
+                            )
+                        )
+                        modules.append(
+                            conv3x3(
+                                in_ch,
+                                channels,
+                                bias=True,
+                                init_scale=init_scale,
+                                dimensions=dimensions,
+                            )
+                        )
                         pyramid_ch = channels
-                    elif progressive == 'residual':
+                    elif progressive == "residual":
                         modules.append(pyramid_upsample(in_ch=pyramid_ch, out_ch=in_ch))
                         pyramid_ch = in_ch
                     else:
-                        raise ValueError(f'{progressive} is not a valid name')
+                        raise ValueError(f"{progressive} is not a valid name")
 
             if i_level != 0:
-                if resblock_type == 'ddpm':
+                if resblock_type == "ddpm":
                     modules.append(Upsample(in_ch=in_ch))
                 else:
                     modules.append(ResnetBlock(in_ch=in_ch, up=True))
 
         assert not hs_c
 
-        if progressive != 'output_skip':
-            modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
-                                        num_channels=in_ch, eps=1e-6))
-            modules.append(conv3x3(in_ch, channels, init_scale=1., dimensions=dimensions))
+        if progressive != "output_skip":
+            modules.append(
+                nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
+            )
+            modules.append(conv3x3(in_ch, channels, init_scale=1.0, dimensions=dimensions))
 
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x, *args):
+    def forward(self, t, x, *args, **kwargs):
         B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
@@ -296,37 +388,41 @@ class NCSNpp(nn.Module):
         # Gaussian Fourier features embeddings.
         temb = modules[m_idx](t).view(B, -1)
         m_idx += 1
-        
+
         c_idx = 0
         if self.conditioned:
             if len(args) != len(self.condition_type):
-                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
+                raise ValueError(
+                    f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided."
+                )
             for j, condition in enumerate(args):
-                if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
+                if (
+                    "timelike" in self.condition_type[j].lower()
+                    or "vector" in self.condition_type[j].lower()
+                ):
                     # embedding and concatenation of the 'timelike' conditions
                     c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
                     temb = torch.cat([temb, c_emb], dim=1)
                     c_idx += 1
-                
+
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
-        
-        
+
         if self.conditioned:
             for j, condition in enumerate(args):
                 if self.condition_type[j].lower() == "input":
                     x = torch.cat([x, condition], dim=1)
-        
+
         # Add Fourier features
         # if self.fourier_features:
-            # ffeatures = self.fourier_features(x)
-            # x = torch.concat([x, ffeatures], axis=1)
-        
+        # ffeatures = self.fourier_features(x)
+        # x = torch.concat([x, ffeatures], axis=1)
+
         # Downsampling block
         input_pyramid = None
-        if self.progressive_input != 'none':
+        if self.progressive_input != "none":
             input_pyramid = x
 
         hs = [modules[m_idx](x)]
@@ -340,21 +436,21 @@ class NCSNpp(nn.Module):
                 hs.append(h)
 
             if i_level != self.num_resolutions - 1:
-                if self.resblock_type == 'ddpm':
+                if self.resblock_type == "ddpm":
                     h = modules[m_idx](hs[-1])
                     m_idx += 1
                 else:
                     h = modules[m_idx](hs[-1], temb)
                     m_idx += 1
-                if self.progressive_input == 'input_skip':
+                if self.progressive_input == "input_skip":
                     input_pyramid = self.pyramid_downsample(input_pyramid)
                     h = modules[m_idx](input_pyramid, h)
                     m_idx += 1
-                elif self.progressive_input == 'residual':
+                elif self.progressive_input == "residual":
                     input_pyramid = modules[m_idx](input_pyramid)
                     m_idx += 1
                     if self.skip_rescale:
-                        input_pyramid = (input_pyramid + h) / np.sqrt(2.)
+                        input_pyramid = (input_pyramid + h) / np.sqrt(2.0)
                     else:
                         input_pyramid = input_pyramid + h
                     h = input_pyramid
@@ -377,40 +473,40 @@ class NCSNpp(nn.Module):
                 h = modules[m_idx](torch.cat([h, hs.pop()], dim=1), temb)
                 m_idx += 1
 
-            if self.progressive != 'none':
+            if self.progressive != "none":
                 if i_level == self.num_resolutions - 1:
-                    if self.progressive == 'output_skip':
+                    if self.progressive == "output_skip":
                         pyramid = self.act(modules[m_idx](h))
                         m_idx += 1
                         pyramid = modules[m_idx](pyramid)
                         m_idx += 1
-                    elif self.progressive == 'residual':
+                    elif self.progressive == "residual":
                         pyramid = self.act(modules[m_idx](h))
                         m_idx += 1
                         pyramid = modules[m_idx](pyramid)
                         m_idx += 1
                     else:
-                        raise ValueError(f'{self.progressive} is not a valid name.')
+                        raise ValueError(f"{self.progressive} is not a valid name.")
                 else:
-                    if self.progressive == 'output_skip':
+                    if self.progressive == "output_skip":
                         pyramid = self.pyramid_upsample(pyramid)
                         pyramid_h = self.act(modules[m_idx](h))
                         m_idx += 1
                         pyramid_h = modules[m_idx](pyramid_h)
                         m_idx += 1
                         pyramid = pyramid + pyramid_h
-                    elif self.progressive == 'residual':
+                    elif self.progressive == "residual":
                         pyramid = modules[m_idx](pyramid)
                         m_idx += 1
                         if self.skip_rescale:
-                            pyramid = (pyramid + h) / np.sqrt(2.)
+                            pyramid = (pyramid + h) / np.sqrt(2.0)
                         else:
                             pyramid = pyramid + h
                         h = pyramid
                     else:
-                        raise ValueError(f'{self.progressive} is not a valid name')
+                        raise ValueError(f"{self.progressive} is not a valid name")
             if i_level != 0:
-                if self.resblock_type == 'ddpm':
+                if self.resblock_type == "ddpm":
                     h = modules[m_idx](h)
                     m_idx += 1
                 else:
@@ -418,7 +514,7 @@ class NCSNpp(nn.Module):
                     m_idx += 1
         assert not hs
 
-        if self.progressive == 'output_skip':
+        if self.progressive == "output_skip":
             h = pyramid
         else:
             h = self.act(modules[m_idx](h))
@@ -428,4 +524,3 @@ class NCSNpp(nn.Module):
         assert m_idx == len(modules)
 
         return h
-

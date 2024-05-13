@@ -2,33 +2,42 @@
 Code ported from Yang Song's repo https://github.com/yang-song/score_sde_pytorch/blob/main/
 with slight modifications to make it work on continuous time.
 """
+
 import torch
 from torch import nn
 from score_models.utils import get_activation
-from score_models.layers import DDPMResnetBlock, SelfAttentionBlock, GaussianFourierProjection, UpsampleLayer, DownsampleLayer
+from score_models.layers import (
+    DDPMResnetBlock,
+    SelfAttentionBlock,
+    GaussianFourierProjection,
+    UpsampleLayer,
+    DownsampleLayer,
+)
 from score_models.layers.ddpm_resnet_block import conv3x3
 import functools
 
 
 class DDPM(nn.Module):
     def __init__(
-            self,
-            channels:int=1,
-            dimensions:int=2,
-            nf:int=128,
-            activation_type:str="relu",
-            ch_mult:list[int,...]=(1, 1, 2, 2, 4, 4),
-            num_res_blocks:int =2,
-            resample_with_conv:bool=True,
-            dropout:float=0.,
-            attention:bool=True,
-            conditioning:list[str,...]=["None"],
-            conditioning_channels:list[int,...]=None,
-            **kwargs
+        self,
+        channels: int = 1,
+        dimensions: int = 2,
+        nf: int = 128,
+        activation_type: str = "relu",
+        ch_mult: list[int, ...] = (1, 1, 2, 2, 4, 4),
+        num_res_blocks: int = 2,
+        resample_with_conv: bool = True,
+        dropout: float = 0.0,
+        attention: bool = True,
+        conditioning: list[str, ...] = ["None"],
+        conditioning_channels: list[int, ...] = None,
+        **kwargs,
     ):
         super().__init__()
         if dimensions not in [1, 2, 3]:
-            raise ValueError(f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}.")
+            raise ValueError(
+                f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}."
+            )
         self.conditioned = False
         for c in conditioning:
             if c.lower() not in ["none", "time", "input"]:
@@ -36,10 +45,14 @@ class DDPM(nn.Module):
             if c.lower() != "none":
                 self.conditioned = True
                 if conditioning_channels is not None:
-                    raise ValueError("conditioning_channels must be provided when the network is conditioned")
+                    raise ValueError(
+                        "conditioning_channels must be provided when the network is conditioned"
+                    )
             elif c.lower() == "none" and self.conditioned:
-                raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
-        
+                raise ValueError(
+                    f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}"
+                )
+
         self.hyperparameters = {
             "channels": channels,
             "nf": nf,
@@ -50,7 +63,7 @@ class DDPM(nn.Module):
             "dropout": dropout,
             "attention": attention,
             "dimensions": dimensions,
-            "conditioning": conditioning
+            "conditioning": conditioning,
         }
         self.dimensions = dimensions
         self.act = act = get_activation(activation_type=activation_type)
@@ -61,10 +74,16 @@ class DDPM(nn.Module):
         self.num_resolutions = num_resolutions = len(ch_mult)
 
         AttnBlock = SelfAttentionBlock
-        ResnetBlock = functools.partial(DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions)
+        ResnetBlock = functools.partial(
+            DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions
+        )
 
         # Condition on continuous time
-        modules = [GaussianFourierProjection(embed_dim=nf), nn.Linear(nf, nf * 4), nn.Linear(nf * 4, nf * 4)]
+        modules = [
+            GaussianFourierProjection(embed_dim=nf),
+            nn.Linear(nf, nf * 4),
+            nn.Linear(nf * 4, nf * 4),
+        ]
         with torch.no_grad():
             modules[1].bias.zero_()
             modules[2].bias.zero_()
@@ -106,7 +125,7 @@ class DDPM(nn.Module):
         modules.append(conv3x3(in_ch, channels))
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x):
+    def forward(self, t, x, **kwargs):
         modules = self.all_modules
         m_idx = 0
         temb = t
@@ -152,4 +171,3 @@ class DDPM(nn.Module):
         m_idx += 1
         assert m_idx == len(modules)
         return h
-
