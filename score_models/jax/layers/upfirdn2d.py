@@ -1,7 +1,5 @@
 import jax.numpy as jnp
-from jax import vmap
 from jax import lax
-from functools import partial
 
 
 def upfirdn2d(x, kernel, up=1, down=1, pad=(0, 0)):
@@ -19,8 +17,8 @@ def upfirdn2d_native(
 
     # Interweave zeros between input pixels.
     out = x.reshape(channel, in_h, 1, in_w, 1)
-    out = jnp.pad(out, [(0, 0), (0, up_y - 1), (0, 0), (0, up_x - 1), (0, 0)])
-    out = out.reshape(channel, in_h * up_y, in_w * up_x)
+    out = jnp.pad(out, [(0, 0), (0, 0), (0, up_y - 1), (0, 0), (0, up_x - 1)])
+    out = out.reshape(channel, up_y*in_h, up_x*in_w, 1)
 
     # Pad with zeros at the boundaries
     out = jnp.pad(
@@ -29,28 +27,42 @@ def upfirdn2d_native(
             (0, 0),
             (max(pad_y0, 0), max(pad_y1, 0)),
             (max(pad_x0, 0), max(pad_x1, 0)),
-        ],
+            (0, 0)
+        ]
     )
+    out = out[
+            :,
+            max(-pad_y0, 0) : out.shape[1] - max(-pad_y1, 0),
+            max(-pad_x0, 0) : out.shape[2] - max(-pad_x1, 0),
+            :
+        ]
 
-    # Add dimensions for convolution (COIHW -> OIHW).
+
+    # Reshape for convolution (NHWI -> NIHW).
+    out = out.transpose([0, 3, 1, 2])
     out = out.reshape(
         [
-            channel, 
-            1, 
+            -1, 
             1, 
             in_h * up_y + pad_y0 + pad_y1, 
             in_w * up_x + pad_x0 + pad_x1
             ]
     )
-    w = jnp.flip(kernel, [0, 1]).reshape(1, 1, kernel_h, kernel_w)
-    out = vmap(partial(lax.conv, window_strides=(1, 1), padding='VALID'), in_axes=(0, None))(out, w)
     
-    # Crop to the output size
+    # Flip spatial + reshape kernel for convolution (HW -> OIHW).
+    w = jnp.flip(kernel, [0, 1]).reshape(1, 1, kernel_h, kernel_w)
+    out = lax.conv(out, w, window_strides=(1, 1), padding='VALID')
+    
+    # Permute back to NHWI
     out = out.reshape(
-        channel,
+        -1,
+        1,
         in_h * up_y + pad_y0 + pad_y1 - kernel_h + 1,
         in_w * up_x + pad_x0 + pad_x1 - kernel_w + 1,
     )
+    out = out.transpose(0, 2, 3, 1)
+    
+    # Downsample (if needed)
     out = out[:, ::down_y, ::down_x]
 
     out_h = (in_h * up_y + pad_y0 + pad_y1 - kernel_h) // down_y + 1

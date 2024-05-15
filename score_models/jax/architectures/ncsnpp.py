@@ -52,6 +52,7 @@ class NCSNpp(eqx.Module):
     condition_num_embedding: Optional[tuple[int,...]]
     condition_input_channels: Optional[int]
     condition_vector_channels: Optional[int]
+    condition_embedding_layers: Optional[list]
     dimensions: int
     channels: int
     hyperparameters: dict
@@ -64,7 +65,6 @@ class NCSNpp(eqx.Module):
     progressive: str
     progressive_input: str
     resblock_type: str
-    condition_embedding_layers: list
     all_modules: list
     pyramid_upsample: Optional[Callable]
     pyramid_downsample: Optional[Callable]
@@ -195,6 +195,8 @@ class NCSNpp(eqx.Module):
                     key_layer, key = jax.random.split(key)
                     condition_embedding_layers.append(PositionalEncoding(channels=self.condition_vector_channels, embed_dim=nf, scale=fourier_scale, key=key_layer))
             self.condition_embedding_layers = condition_embedding_layers
+        else:
+            self.condition_embedding_layers = None
                 
         # Condition on continuous time (second layer receives a concatenation of all the embeddings)
         key1, key2, key3, key = jax.random.split(key, 4)
@@ -339,12 +341,11 @@ class NCSNpp(eqx.Module):
         self.all_modules = modules
 
     def __call__(self, t, x, *args):
-        B, *D = x.shape
         # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
         # Gaussian Fourier features embeddings.
-        temb = modules[m_idx](t).view(B, -1)
+        temb = modules[m_idx](t).reshape(-1)
         m_idx += 1
         
         c_idx = 0
@@ -354,8 +355,8 @@ class NCSNpp(eqx.Module):
             for j, condition in enumerate(args):
                 if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
                     # embedding and concatenation of the 'timelike' conditions
-                    c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
-                    temb = jnp.concatenate([temb, c_emb], axis=1)
+                    c_emb = self.condition_embedding_layers[c_idx](condition).reshape(-1)
+                    temb = jnp.concatenate([temb, c_emb], axis=0)
                     c_idx += 1
                 
         temb = modules[m_idx](temb)
@@ -363,11 +364,10 @@ class NCSNpp(eqx.Module):
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
         
-        
         if self.conditioned:
             for j, condition in enumerate(args):
                 if self.condition_type[j].lower() == "input":
-                    x = jnp.concatenate([x, condition], axis=1)
+                    x = jnp.concatenate([x, condition], axis=0)
         
         # Add Fourier features
         # if self.fourier_features:
@@ -423,7 +423,7 @@ class NCSNpp(eqx.Module):
         # Upsampling block
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(self.num_res_blocks + 1):
-                h = modules[m_idx](jnp.concatenate([h, hs.pop()], axis=1), temb)
+                h = modules[m_idx](jnp.concatenate([h, hs.pop()], axis=0), temb)
                 m_idx += 1
 
             if self.progressive != 'none':
@@ -463,6 +463,7 @@ class NCSNpp(eqx.Module):
                     h = modules[m_idx](h)
                     m_idx += 1
                 else:
+                    print(h.shape, temb.shape)
                     h = modules[m_idx](h, temb)
                     m_idx += 1
         assert not hs

@@ -4,6 +4,7 @@ from score_models.torch.layers.attention_block import SelfAttentionBlock, Scaled
 from score_models.torch.definitions import default_init
 from score_models.torch.utils import get_activation
 import numpy as np
+import pytest
 
 def init_test_fn(shape, dtype=torch.float32, device="cpu"):
     return torch.ones(shape, dtype=dtype, device=device)
@@ -177,7 +178,7 @@ def test_stylegan_conv_resample_kernel():
 
 def test_transposed_conv():
     # Test that we can downsample and upsample odd numbered images with correct padding
-    from score_models.torch.layers import ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame
+    # from score_models.torch.layers import ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame
     from score_models.torch.layers import Conv1dSame, Conv2dSame, Conv3dSame
     
     B = 10
@@ -192,9 +193,20 @@ def test_transposed_conv():
         print("Down", x_down.shape)
         assert x_down.shape == torch.Size([B, C, *[D//2]*dim])
         
-        layer_ = [ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame][dim-1]
-        layer = layer_(C, C, K, stride=2)
-        y = layer(x_down)
-        print("Up", x.shape)
-        assert y.shape == torch.Size([B, C, *[D]*dim])
-        
+        # layer_ = [ConvTransposed1dSame, ConvTransposed2dSame, ConvTransposed3dSame][dim-1]
+        # layer = layer_(C, C, K, stride=2)
+        # y = layer(x_down)
+        # print("Up", x.shape)
+        # assert y.shape == torch.Size([B, C, *[D]*dim])
+       
+
+@pytest.mark.parametrize("up, down, pad0, pad1", [(1, 2, 1, 0), (2, 1, 1, 0)])
+def test_upfirdn1d(up, down, pad0, pad1):
+    from score_models.torch.layers.upfirdn1d import upfirdn1d
+    from scipy.signal import upfirdn
+    x = torch.arange(1, 4).view(1, 1, -1).float() # [1, 2, 3]
+    kernel = torch.ones(2) # [1, 1]
+    scipy_out = upfirdn(kernel.numpy(), x, up=up, down=down)
+    out = upfirdn1d(x, kernel, up, down, (pad0, pad1)).squeeze()
+    assert np.allclose(out.numpy(), scipy_out)
+

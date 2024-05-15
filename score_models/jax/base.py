@@ -17,7 +17,7 @@ from .utils import load_architecture, stop_gradient, update_model_params, load_s
 from .ema import ExponentialMovingAverage
 
 
-class ScoreModelBase(eqx.Module, ABC):
+class ScoreModelBase(ABC):
     model: eqx.Module
     sde: SDE
     hyperparameters: dict
@@ -508,3 +508,4 @@ class ScoreModelBase(eqx.Module, ABC):
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         return losses, ema
+

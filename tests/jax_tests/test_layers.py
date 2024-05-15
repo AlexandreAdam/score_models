@@ -5,6 +5,8 @@ from score_models.jax.layers.attention_block import SelfAttentionBlock, ScaledAt
 from score_models.jax.definitions import default_init
 from score_models.jax.utils import get_activation
 from jax import vmap
+from functools import partial
+import pytest
 
 
 def init_test_fn(shape, key):
@@ -221,4 +223,15 @@ def test_transposed_conv():
         # y = vmap(layer)(x_down)
         # print("Up", y.shape)
         # assert y.shape == (B, C, *[D]*dim)
+
+
+@pytest.mark.parametrize("up, down, pad0, pad1", [(1, 2, 1, 0), (2, 1, 1, 0)])
+def test_upfirdn1d(up, down, pad0, pad1):
+    from score_models.jax.layers.upfirdn1d import upfirdn1d
+    from scipy.signal import upfirdn
+    x = jnp.arange(1, 4).reshape(1, 1, -1).astype(float) # [1, 2, 3]
+    kernel = jnp.ones(2).astype(float) # [1, 1]
+    scipy_out = upfirdn(kernel, x, up=up, down=down)
+    out = vmap(partial(upfirdn1d, kernel=kernel, up=up, down=down, pad=(pad0, pad1)))(x)
+    assert jnp.allclose(out, scipy_out)
 

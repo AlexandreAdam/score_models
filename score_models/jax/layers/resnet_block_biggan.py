@@ -78,9 +78,11 @@ class ResnetBlockBigGANpp(eqx.Module):
         else:
             key1, key2 = None, None
         h = self.activation(self.GroupNorm_0(x, key=key1))
+        print(h.shape)
 
         if self.up:
             if self.fir:
+                print(h.shape)
                 h = upsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
                 x = upsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
             else:

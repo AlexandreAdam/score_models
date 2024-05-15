@@ -14,8 +14,8 @@ class GaussianFourierProjection(eqx.Module):
 
     def __call__(self, t: jnp.ndarray) -> jax.Array:
         # Mark W as non-trainable
-        t_proj = t[:, None] * stop_gradient(self.W[None, :]) * 2 * pi
-        return jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=1)
+        t_proj = t * stop_gradient(self.W) * 2 * pi
+        return jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=0)
 
 
 class PositionalEncoding(eqx.Module):
@@ -25,5 +25,5 @@ class PositionalEncoding(eqx.Module):
         self.W = jax.random.normal(key, shape=(embed_dim // 2, channels)) * scale
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        x_proj = jax.vmap(jnp.dot, in_axes=(None, 0))(self.W, x) * 2 * pi
-        return jnp.concatenate([jnp.sin(x_proj), jnp.cos(x_proj)], axis=1)
+        x_proj = jnp.dot(self.W, x) * 2 * pi
+        return jnp.concatenate([jnp.sin(x_proj), jnp.cos(x_proj)], axis=0)

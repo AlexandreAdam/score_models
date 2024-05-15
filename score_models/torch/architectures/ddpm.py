@@ -146,7 +146,7 @@ class DDPM(nn.Module):
                 m_idx += 1
 
         assert not hs
-        h = self.activatio(modules[m_idx](h))
+        h = self.activation(modules[m_idx](h))
         m_idx += 1
         h = modules[m_idx](h)
         m_idx += 1
