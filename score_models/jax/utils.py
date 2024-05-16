@@ -1,14 +1,15 @@
 import jax.numpy as jnp
 import flax.linen as nn
-from jax import lax
 import functools
 import jax
 import os
 import json
-from glob import glob
 import re
 import numpy as np
 import equinox as eqx
+from glob import glob
+from jax import lax
+from jaxtyping import PRNGKeyArray
 from typing import Optional
 
 
@@ -105,7 +106,13 @@ def load_model_from_pt(path: str, model: nn.Module) -> nn.Module:
     return model
 
 
-def load_architecture(checkpoints_directory, model=None, model_checkpoint=None, hyperparameters=None):
+def load_architecture(
+        checkpoints_directory, 
+        model=None, 
+        model_checkpoint=None, 
+        hyperparameters=None,
+        key: Optional[PRNGKeyArray] = None
+        ):
     if hyperparameters is None:
         hyperparameters = {}
     if model is None:
@@ -113,18 +120,20 @@ def load_architecture(checkpoints_directory, model=None, model_checkpoint=None, 
             hparams = json.load(f)
         hyperparameters.update(hparams)
         model_architecture = hparams.get("model_architecture", "ncsnpp")
+        if key is None:
+            key = jax.random.PRNGKey(0)
         
         if model_architecture.lower() == "ncsnpp":
-            from score_models.architectures import NCSNpp
-            model = NCSNpp(**hyperparameters)
+            from score_models.jax.architectures import NCSNpp
+            model = NCSNpp(**hyperparameters, key=key)
             
         elif model_architecture.lower() == "ddpm":
-            from score_models.architectures import DDPM
-            model = DDPM(**hyperparameters)
+            from score_models.jax.architectures import DDPM
+            model = DDPM(**hyperparameters, key=key)
             
         elif model_architecture.lower() == "mlp":
-            from score_models.architectures import MLP
-            model = MLP(**hyperparameters)
+            from score_models.jax.architectures import MLP
+            model = MLP(**hyperparameters, key=key)
         else:
             raise ValueError(f"{model_architecture} not supported")
     else:

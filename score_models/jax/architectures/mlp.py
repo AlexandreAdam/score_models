@@ -1,5 +1,5 @@
 from jaxtyping import PRNGKeyArray
-from typing import Callable
+from typing import Callable, Optional
 from ..layers import GaussianFourierProjection, ScaledAttentionLayer
 from ..utils import get_activation
 import jax
@@ -15,10 +15,10 @@ class MLP(eqx.Module):
     gaussian_fourier_projection: GaussianFourierProjection
     time_branch: list
     main_branch: list
-    bottleneck_in: eqx.nn.Linear
-    bottleneck_out: eqx.nn.Linear
-    temb_to_bottleneck: eqx.nn.Linear
-    attention_layer: ScaledAttentionLayer
+    bottleneck_in: Optional[eqx.nn.Linear]
+    bottleneck_out: Optional[eqx.nn.Linear]
+    temb_to_bottleneck: Optional[eqx.nn.Linear]
+    attention_layer: Optional[ScaledAttentionLayer]
     output_layer: eqx.nn.Linear
     output_activation: Callable
 
@@ -66,6 +66,11 @@ class MLP(eqx.Module):
             self.bottleneck_out = eqx.nn.Linear(bottleneck, units, key=key_out)
             self.temb_to_bottleneck = eqx.nn.Linear(time_embedding_dimensions, bottleneck, key=key_temb_to_bottleneck)
             self.attention_layer = ScaledAttentionLayer(bottleneck, key=key_attention)
+        else:
+            self.bottleneck_in = None
+            self.bottleneck_out = None
+            self.temb_to_bottleneck = None
+            self.attention_layer = None
 
         # Output layer
         output_units = 1 if nn_is_energy else dimensions

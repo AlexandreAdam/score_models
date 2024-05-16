@@ -1,12 +1,12 @@
 from ..layers import (
-        DDPMResnetBlock, 
-        GaussianFourierProjection, 
+        DDPMResnetBlock,
+        GaussianFourierProjection,
         SelfAttentionBlock,
-        UpsampleLayer, 
-        DownsampleLayer, 
-        Combine, 
-        ResnetBlockBigGANpp, 
-        conv3x3, 
+        UpsampleLayer,
+        DownsampleLayer,
+        Combine,
+        ResnetBlockBigGANpp,
+        conv3x3,
         PositionalEncoding
         )
 from typing import Optional, Callable
@@ -463,7 +463,6 @@ class NCSNpp(eqx.Module):
                     h = modules[m_idx](h)
                     m_idx += 1
                 else:
-                    print(h.shape, temb.shape)
                     h = modules[m_idx](h, temb)
                     m_idx += 1
         assert not hs

@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import random
+from jax import vmap
 from score_models.jax.utils import load_architecture
 from score_models.jax import ScoreModel, EnergyModel, SLIC
 from score_models.jax.architectures import MLP, NCSNpp, DDPM
@@ -9,14 +10,13 @@ import pytest
 
 def local_test_loading_model_and_score_fn():
     # local test only
-    path = "/home/alexandre/Desktop/Projects/data/score_models/ncsnpp_ct_g_220912024942"
+    path = "/home/alexandre/Desktop/Projects/data/ncsnpp_probes_g_64_230604024652"
     model, hparams, _  = load_architecture(path)
-    
     score = ScoreModel(checkpoints_directory=path)
     print(score.sde)
-    x = jnp.ones((1, 1, 256, 256))
+    x = jnp.ones((1, 1, 64, 64))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
 
 def test_loading_from_string():
@@ -24,25 +24,25 @@ def test_loading_from_string():
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2, nn_is_energy=True)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     score = EnergyModel("ncsnpp", sigma_min=1e-2, sigma_max=10, nf=32)
     print(score.sde)
     x = jnp.ones((1, 1, 16, 16))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
 
 def test_loading_with_nn():
@@ -52,28 +52,28 @@ def test_loading_with_nn():
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     net = MLP(dimensions=2, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     net = MLP(dimensions=2, nn_is_energy=True, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 2))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
     net = NCSNpp(nf=32, key=key)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = jnp.ones((1, 1, 16, 16))
     t = jnp.ones((1,))
-    score(t=t, x=x)
+    vmap(score)(t=t, x=x)
 
 def test_init_score():
     key = random.PRNGKey(0)
@@ -156,3 +156,6 @@ def test_loading_different_sdes():
     assert score.sde.t_star == 0.5
     assert score.sde.beta == 10
 
+
+if __name__ == "__main__":
+    local_test_loading_model_and_score_fn()
