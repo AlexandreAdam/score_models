@@ -216,7 +216,7 @@ class ScoreModelBase(ABC):
         if likelihood_score_fn is None:
             likelihood_score_fn = lambda t, x: 0.
         key_prior, key = jax.random.split(key)
-        x = self.sde.prior(D).sample(seed=key_prior, sample_shape=shape)
+        x = self.sde.prior(D).sample(seed=key_prior, sample_shape=B)
         dt = -(self.sde.T - self.sde.epsilon) / steps
         t = jnp.ones(B) * self.sde.T
         for _ in (pbar := tqdm(range(steps))):
