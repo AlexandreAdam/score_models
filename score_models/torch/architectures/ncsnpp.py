@@ -335,7 +335,6 @@ class NCSNpp(nn.Module):
             # Residual blocks for this resolution
             for i_block in range(self.num_res_blocks):
                 h = modules[m_idx](hs[-1], temb)
-                torch.var(h)
                 m_idx += 1
                 hs.append(h)
 

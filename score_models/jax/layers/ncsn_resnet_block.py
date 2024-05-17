@@ -4,6 +4,7 @@ import equinox as eqx
 from jax.nn import elu
 from functools import partial
 from .conv2dsame import Conv2dSame
+from .group_norm import GroupNorm
 from jaxtyping import PRNGKeyArray, Array
 """
 Code ported from Yang Song's repo https://github.com/yang-song/score_sde_pytorch/blob/main/models/layers.py
@@ -75,9 +76,11 @@ class NCSNResidualBlock(eqx.Module):
     input_dim: int
     output_dim: int
     resample: Optional[str]
-    normalize1: eqx.nn.GroupNorm
+    # normalize1: eqx.nn.GroupNorm
+    # normalize2: eqx.nn.GroupNorm
+    normalize1: GroupNorm
+    normalize2: GroupNorm
     conv1: eqx.Module
-    normalize2: eqx.nn.GroupNorm
     conv2: eqx.Module
     shortcut: Optional[eqx.Module]
 
@@ -87,7 +90,8 @@ class NCSNResidualBlock(eqx.Module):
         output_dim: int,
         resample: Optional[str] = None,
         act: Callable[[jnp.ndarray], jnp.ndarray] = elu,
-        normalization: Callable = eqx.nn.GroupNorm,
+        # normalization: Callable = eqx.nn.GroupNorm,
+        normalization: Callable = GroupNorm,
         dilation: int = 1,
         *,
         key: PRNGKeyArray

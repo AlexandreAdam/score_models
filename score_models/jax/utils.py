@@ -7,6 +7,7 @@ import json
 import re
 import numpy as np
 import equinox as eqx
+import jax.numpy as jnp
 from glob import glob
 from jax import lax
 from jaxtyping import PRNGKeyArray
@@ -61,9 +62,8 @@ def get_activation(activation_type: Optional[str]):
 
 def torch_state_to_jax(torch_state_dict):
     """Convert PyTorch state dict to a format suitable for JAX/Equinox models."""
-    jax_state_dict = {}
-    for k, v in torch_state_dict.items():
-        jax_state_dict[k] = jnp.array(v.cpu().numpy())
+    from jax.tree_util import tree_map
+    jax_state_dict = tree_map(lambda x: jnp.asarray(x), torch_state_dict)
     return jax_state_dict
 
 
@@ -71,7 +71,7 @@ def load_state_dict_from_pt(path: str) -> dict:
     try:
         import torch
     except ImportError:
-        raise ImportError("torch is required to load PyTorch checkpoints." 
+        raise ImportError("torch is required to load PyTorch checkpoints."
                           " You can install the cpu version of torch to avoid conflicting cuda dependencies."
                           " Instructions to install the cpu version can be found here https://pytorch.org/get-started/locally/")
     state_dict = torch.load(path, map_location=torch.device('cpu'))
@@ -80,17 +80,21 @@ def load_state_dict_from_pt(path: str) -> dict:
 
 
 def update_model_params(model, state_dict):
-    def update(module, name):
-        for key, value in module.__dict__.items():
-            if isinstance(value, eqx.Module):
-                update(value, f"{name}.{key}")
-            elif key in state_dict and name:
-                setattr(module, key, state_dict[f"{name}.{key}"])
-            elif key in state_dict:
-                setattr(module, key, state_dict[key])
-    update(model, "")
+    for key, value in state_dict.items():
+        keys = key.split(".")
+        if len(keys) == 3:
+            get_leaf = lambda t: getattr(getattr(t, keys[0])[int(keys[1])], keys[2])
+        elif len(keys) == 4:
+            get_leaf = lambda t: getattr(getattr(getattr(t, keys[0])[int(keys[1])], keys[2]), keys[3])
+        elif len(keys) == 5:
+            get_leaf = lambda t: getattr(getattr(getattr(getattr(t, keys[0])[int(keys[1])], keys[2]), keys[3]), keys[4])
+        else:
+            raise ValueError(f"Key {key} not supported")
+        if "bias" in key and "conv" in key: # In Jax, convention is to add trailing singleton dimensions to bias, ... this only work for 2D convolutions
+            value = value.reshape(-1, 1, 1)
+        model = eqx.tree_at(get_leaf, model, value)
     return model
-
+    
 
 def model_state_dict(model, prefix=''):
     state_dict = {}

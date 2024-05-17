@@ -4,6 +4,7 @@ from jaxtyping import PRNGKeyArray
 from jax.nn import relu
 from typing import Optional, Callable
 from .conv_layers import conv1x1, conv3x3
+from .group_norm import GroupNorm
 from .up_or_downsampling import upsample, downsample, naive_upsample, naive_downsample
 from jaxtyping import Array
 
@@ -20,10 +21,12 @@ class ResnetBlockBigGANpp(eqx.Module):
     fir: bool
     fir_kernel: tuple
     skip_rescale: bool
-    GroupNorm_0: eqx.nn.GroupNorm
+    # GroupNorm_0: eqx.nn.GroupNorm
+    # GroupNorm_1: eqx.nn.GroupNorm
+    GroupNorm_0: GroupNorm
+    GroupNorm_1: GroupNorm
     Conv_0: eqx.nn.Conv
     Dense_0: Optional[eqx.nn.Linear]
-    GroupNorm_1: eqx.nn.GroupNorm
     Dropout_0: eqx.nn.Dropout
     Conv_1: eqx.nn.Conv
     Conv_2: Optional[eqx.nn.Conv]
@@ -57,14 +60,16 @@ class ResnetBlockBigGANpp(eqx.Module):
         self.out_ch = out_ch
         
         key_conv0, key_dense0, key_conv1, key_conv2 = jax.random.split(key, 4)
-        self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6)
+        # self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6)
+        self.GroupNorm_0 = GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch, eps=1e-6)
 
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv0)
         if temb_dim is not None:
             self.Dense_0 = eqx.nn.Linear(temb_dim, out_ch, key=key_dense0)
         else:
             self.Dense_0 = None
-        self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch, eps=1e-6)
+        # self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch, eps=1e-6)
+        self.GroupNorm_1 = GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch, eps=1e-6)
         self.Dropout_0 = eqx.nn.Dropout(dropout)
         self.Conv_1 = conv3x3(out_ch, out_ch, dimensions=dimensions, key=key_conv1)
         if in_ch != out_ch or up or down:

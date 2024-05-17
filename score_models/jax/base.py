@@ -7,6 +7,7 @@ import optax
 import equinox as eqx
 from jaxtyping import PRNGKeyArray, Array
 from jax import vjp
+from jax import vmap
 from tqdm import tqdm
 from datetime import datetime
 import time
@@ -163,7 +164,7 @@ class ScoreModelBase(ABC):
         See also Song et al. 2020, https://arxiv.org/abs/2011.13456)
         """
         kwargs = {"n_cotangent_vectors": n_cotangent_vectors, "noise_type": noise_type}
-        disable = False if verbose else True  
+        disable = False if verbose else True
         B, *D = x.shape
         log_p = 0.
         t = jnp.ones([B]) * t0
@@ -225,7 +226,7 @@ class ScoreModelBase(ABC):
             if t[0] < self.sde.epsilon: # Accounts for numerical error in the way we discretize t.
                 break
             g = self.sde.diffusion(t, x)
-            f = self.sde.drift(t, x) - g**2 * (self.score(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x))
+            f = self.sde.drift(t, x) - g**2 * (vmap(self.score)(t, x, *condition) + guidance_factor * likelihood_score_fn(t, x))
             key_sample, key = jax.random.split(key)
             dw = jax.random.normal(key_sample, x.shape) * (-dt)**(1/2)
             x_mean = x + f * dt

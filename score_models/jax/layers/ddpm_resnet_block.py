@@ -8,6 +8,7 @@ from .conv1dsame import Conv1dSame
 from .conv2dsame import Conv2dSame
 from .conv3dsame import Conv3dSame
 from ..definitions import default_init
+from .group_norm import GroupNorm
 from jaxtyping import PRNGKeyArray, Array
 import jax
 
@@ -51,11 +52,13 @@ class NIN(eqx.Module):
 
 
 class DDPMResnetBlock(eqx.Module):
-    GroupNorm_0: eqx.nn.GroupNorm
+    # GroupNorm_0: eqx.nn.GroupNorm
+    # GroupNorm_1: eqx.nn.GroupNorm
+    GroupNorm_0: GroupNorm
+    GroupNorm_1: GroupNorm
     activation: Callable
     Conv_0: eqx.nn.Conv
     Dense_0: Optional[eqx.nn.Linear]
-    GroupNorm_1: eqx.nn.GroupNorm
     Dropout_0: eqx.nn.Dropout
     Conv_1: eqx.nn.Conv
     Conv_2: Optional[eqx.nn.Conv]
@@ -80,13 +83,15 @@ class DDPMResnetBlock(eqx.Module):
         out_ch = out_ch if out_ch is not None else in_ch
         
         key_conv0, key_conv1, key_conv2, key_dense0 = jax.random.split(key, 4)
-        self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch)
+        # self.GroupNorm_0 = eqx.nn.GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch)
+        self.GroupNorm_0 = GroupNorm(groups=min(in_ch // 4, 32), channels=in_ch)
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions, key=key_conv0)
         if temb_dim is not None:
             self.Dense_0 = eqx.nn.Linear(temb_dim, out_ch, key=key_dense0)
         else:
             self.Dense_0 = None
-        self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch)
+        # self.GroupNorm_1 = eqx.nn.GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch)
+        self.GroupNorm_1 = GroupNorm(groups=min(out_ch // 4, 32), channels=out_ch)
         self.Dropout_0 = eqx.nn.Dropout(p=dropout)
         self.Conv_1 = conv3x3(out_ch, out_ch, dimensions=dimensions, key=key_conv1)
         if in_ch != out_ch:

@@ -103,3 +103,4 @@ class MLP(eqx.Module):
         if self.output_activation is not None:
             x = self.output_activation(x)
         return x
+
