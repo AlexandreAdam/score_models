@@ -90,8 +90,10 @@ def update_model_params(model, state_dict):
             get_leaf = lambda t: getattr(getattr(getattr(getattr(t, keys[0])[int(keys[1])], keys[2]), keys[3]), keys[4])
         else:
             raise ValueError(f"Key {key} not supported")
-        if "bias" in key and "conv" in key: # In Jax, convention is to add trailing singleton dimensions to bias, ... this only work for 2D convolutions
-            value = value.reshape(-1, 1, 1)
+        if "bias" in key:
+            # In Jax, convention is to add trailing singleton dimensions to bias, ... this only work for 2D convolutions
+            if "conv" in key or "to_qkv" in key or "to_out" in key:
+                value = value.reshape(-1, 1, 1)
         model = eqx.tree_at(get_leaf, model, value)
     return model
     
