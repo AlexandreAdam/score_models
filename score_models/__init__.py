@@ -10,6 +10,8 @@ from .simple_models import (
     JointScoreModel,
     SampleScoreModel,
     AnnealedScoreModel,
+    ConvolvedLikelihood,
+    ConvolvedLikelihood_diag,
 )
 
 __all__ = (
@@ -35,4 +37,6 @@ __all__ = (
     "JointScoreModel",
     "SampleScoreModel",
     "AnnealedScoreModel",
+    "ConvolvedLikelihood",
+    "ConvolvedLikelihood_diag",
 )
