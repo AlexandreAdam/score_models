@@ -3,7 +3,7 @@ from .annealed import AnnealedScoreModel
 from .mvg import MVGScoreModel
 from .grf import GRFScoreModel
 from .joint import JointScoreModel
-from .conv_likelihood import ConvolvedLikelihood, ConvolvedLikelihood_diag
+from .conv_likelihood import ConvolvedLikelihood
 
 __all__ = (
     "SampleScoreModel",
@@ -12,5 +12,4 @@ __all__ = (
     "GRFScoreModel",
     "JointScoreModel",
     "ConvolvedLikelihood",
-    "ConvolvedLikelihood_diag",
 )
