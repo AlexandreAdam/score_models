@@ -20,5 +20,5 @@ class SqueezeAndExcite(nn.Module):
         B, C, H, W = x.shape
         z = torch.mean(x, dim=(2, 3))  # Squeeze operation is a global average
         z = self.excite_network(z)  # compute channel importance
-        s = F.sigmoid(z).view(B, C, 1, 1)
+        s = F.sigmoid(z).reshape(B, C, 1, 1)
         return s * x  # scale channels

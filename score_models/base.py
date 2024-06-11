@@ -11,13 +11,16 @@ from typing import Union
 from abc import ABC, abstractmethod
 from tqdm import tqdm
 import time
-import os, glob, re, json
+import os, glob, re, json, logging
 import numpy as np
 from datetime import datetime
 from contextlib import nullcontext
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+from torch.distributed import ReduceOp
 
 from .sde import VESDE, VPSDE, TSVESDE, SDE
-from .utils import load_architecture
+from .utils import load_architecture, mult_gpu_setup
 
 
 class ScoreModelBase(Module, ABC):
@@ -28,9 +31,27 @@ class ScoreModelBase(Module, ABC):
             checkpoints_directory=None, 
             model_checkpoint:int=None, 
             device=DEVICE, 
+            parallel:bool=False,
             **hyperparameters
             ):
         super().__init__()
+        ###HERE###
+        if parallel:
+            local_rank, rank, world_size = mult_gpu_setup()
+            
+            self.is_master = rank == 0
+            self.rank = rank
+
+            #Logging for debugging purposes
+            logging.basicConfig( filename='mult_gpu_sanity.txt', filemode='a', 
+                        format='%(levelname)s - %(asctime)s - %(message)s', 
+                        datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO )
+            
+            #REDEFINE DEVICE HERE 
+            device = torch.device("cuda", local_rank)
+            logging.info(f"World size: {world_size}, global rank: {rank}, local rank: {local_rank}")
+            torch.distributed.barrier()
+
         if model is None and checkpoints_directory is None:
             raise ValueError("Must provide one of 'model' or 'checkpoints_directory'")
         if model is None or isinstance(model, str):
@@ -93,6 +114,10 @@ class ScoreModelBase(Module, ABC):
         self.model.to(device)
         self.sde = sde
         self.device = device
+        ###HERE###
+        if parallel:
+            self.model = DDP( self.model, device_ids=[local_rank] ) 
+        self.parallel = parallel
 
     def forward(self, t, x, *args) -> Tensor:
         return self.score(t, x, *args)
@@ -308,7 +333,12 @@ class ScoreModelBase(Module, ABC):
         """
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
+        if self.parallel is False:
+            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
+        else:
+            dataloader = DataLoader( dataset, batch_size=batch_size, shuffle=False, drop_last=False, 
+                                     sampler=DistributedSampler(dataset=dataset, shuffle=shuffle ) )
+            
         if n_iterations_in_epoch is None:
             n_iterations_in_epoch = len(dataloader)
         if checkpoints_directory is None:
@@ -320,13 +350,13 @@ class ScoreModelBase(Module, ABC):
             preprocessing_name = None
             preprocessing_fn = lambda x: x
          
-       # ==== Take care of where to write checkpoints and stuff =================================================================
+        # ==== Take care of where to write checkpoints and stuff =================================================================       
         if checkpoints_directory is not None:
             if os.path.isdir(checkpoints_directory):
                 logname = os.path.split(checkpoints_directory)[-1]
         elif logname is None:
             logname = logname_prefix + "_" + datetime.now().strftime("%y%m%d%H%M%S")
-
+        
         save_checkpoint = False
         latest_checkpoint = 0
         if checkpoints_directory is not None or logdir is not None:
@@ -334,7 +364,12 @@ class ScoreModelBase(Module, ABC):
             if checkpoints_directory is None:
                 checkpoints_directory = os.path.join(logdir, logname)
             if not os.path.isdir(checkpoints_directory):
-                os.mkdir(checkpoints_directory)
+                ###HERE###
+                if self.parallel is False or self.is_master:
+                    os.mkdir(checkpoints_directory)
+
+        ###HERE###
+        if self.parallel is False or self.is_master:  
 
             script_params_path = os.path.join(checkpoints_directory, "script_params.json")
             if not os.path.isfile(script_params_path):
@@ -367,44 +402,71 @@ class ScoreModelBase(Module, ABC):
             if not os.path.isfile(model_hparams_path):
                 with open(model_hparams_path, "w") as f:
                     json.dump(self.hyperparameters, f, indent=4)
+            
+        if self.parallel:
+            torch.distributed.barrier()
 
-            # ======= Load model if model_id is provided ===============================================================
-            paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
-            opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
-            checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-            scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
-            if checkpoint_indices:
-                if model_checkpoint is not None:
-                    checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
-                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.model.device))
-                    optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
-                    print(f"Loaded checkpoint {model_checkpoint} of {logname}")
-                    latest_checkpoint = model_checkpoint
+        # ======= Load model if model_id is provided ===============================================================
+        paths = glob.glob(os.path.join(checkpoints_directory, "checkpoint*.pt"))
+        opt_paths = glob.glob(os.path.join(checkpoints_directory, "optimizer*.pt"))
+        checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
+        scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
+        if checkpoint_indices:
+            if model_checkpoint is not None:
+                checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
+                ###HERE###
+                if self.parallel is False:
+                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)) 
                 else:
-                    max_checkpoint_index = np.argmax(checkpoint_indices)
-                    checkpoint_path = paths[max_checkpoint_index]
-                    opt_path = opt_paths[max_checkpoint_index]
-                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
-                    print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
-                    latest_checkpoint = checkpoint_indices[max_checkpoint_index]
+                    self.model.module.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
+                    logging.warning(f"GPU {self.rank} loaded checkpoint.")
+
+                optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
+                print(f"Loaded checkpoint {model_checkpoint} of {logname}")
+                latest_checkpoint = model_checkpoint
+            else:
+                max_checkpoint_index = np.argmax(checkpoint_indices)
+                checkpoint_path = paths[max_checkpoint_index]
+                opt_path = opt_paths[max_checkpoint_index]
+
+                ###HERE###
+                if self.parallel is False:
+                    self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)) 
+                else:
+                    self.model.module.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
+                    logging.warning(f"GPU {self.rank} loaded checkpoint.")
+
+                optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
+                print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
+                latest_checkpoint = checkpoint_indices[max_checkpoint_index]
 
         if seed is not None:
             torch.manual_seed(seed)
-        best_loss = float('inf')
-        losses = []
-        step = 0
-        global_start = time.time()
+        
+        step = torch.tensor([0.], device=self.device)
         estimated_time_for_epoch = 0
-        out_of_time = False
+
+        ###THIS IS PROBABLY NOT NEEDED BUT FOR NOW LEAVING IT (BRAIN CELLS DANCING)###
+        if self.parallel is False or self.is_master: 
+            best_loss = float('inf')
+            losses = []
+            out_of_time = False
 
         data_iter = iter(dataloader)
+        
+        ###HERE###
+        if self.parallel:
+            stop_train = False
+            torch.distributed.barrier()
+        
+        global_start = time.time()
+
         for epoch in (pbar := tqdm(range(epochs))):
             if (time.time() - global_start) > max_time * 3600 - estimated_time_for_epoch:
                 break
             epoch_start = time.time()
-            time_per_step_epoch_mean = 0
-            cost = 0
+            time_per_step_epoch_mean = torch.tensor([0.], device=self.device)
+            cost = torch.tensor([0.], device=self.device)
             for _ in range(n_iterations_in_epoch):
                 start = time.time()
                 try:
@@ -419,6 +481,11 @@ class ScoreModelBase(Module, ABC):
                     args = []
                 if preprocessing_fn is not None:
                     x = preprocessing_fn(x)
+
+                ###HERE###
+                if self.parallel:
+                    x = x.to(self.device)
+
                 optimizer.zero_grad()
                 loss = self.loss_fn(x, *args)
                 loss.backward()
@@ -437,60 +504,108 @@ class ScoreModelBase(Module, ABC):
                 time_per_step_epoch_mean += _time
                 cost += float(loss)
                 step += 1
+            
+            ###HERE###
+            if self.parallel:
+                torch.distributed.reduce( cost, dst=0, op=ReduceOp.SUM)
+                torch.distributed.reduce( step, dst=0, op=ReduceOp.SUM) 
+                torch.distributed.reduce( time_per_step_epoch_mean, dst=0, op=ReduceOp.SUM)
 
-            time_per_step_epoch_mean /= len(dataloader)
-            cost /= len(dataloader)
-            pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost:.1e} |")
-            losses.append(cost)
-            if verbose >= 2:
-                print(f"epoch {epoch} | cost {cost:.2e} | time per step {time_per_step_epoch_mean:.2e} s")
-            elif verbose == 1:
-                if (epoch + 1) % checkpoints == 0:
-                    print(f"epoch {epoch} | cost {cost:.1e}")
+                if self.is_master:
+                    cost /= step
+                    time_per_step_epoch_mean /= step
 
-            if np.isnan(cost):
-                print("Model exploded and returns NaN")
-                break
-
-            if cost < (1 - tolerance) * best_loss:
-                best_loss = cost
-                patience = patience
             else:
-                patience -= 1
+                cost /= len(dataloader)
+                time_per_step_epoch_mean /= len(dataloader)
 
-            if (time.time() - global_start) > max_time * 3600:
-                out_of_time = True
+            ###HERE### 
+            if self.parallel is False or self.is_master:
+                cost = cost.item()
+                pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost:.1e} |")
+                losses.append(cost)
+                if verbose >= 2:
+                    print(f"epoch {epoch} | cost {cost:.2e} | time per step {time_per_step_epoch_mean:.2e} s")
+                elif verbose == 1:
+                    if (epoch + 1) % checkpoints == 0:
+                        print(f"epoch {epoch} | cost {cost:.1e}")
 
-            if save_checkpoint:
-                if (epoch + 1) % checkpoints == 0 or patience == 0 or epoch == epochs - 1 or out_of_time:
-                    latest_checkpoint += 1
-                    with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
-                        f.write(f"{latest_checkpoint} {cost}\n")
-                    with ema.average_parameters():
-                        torch.save(self.model.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
-                    torch.save(optimizer.state_dict(), os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.pt"))
-                    paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
-                    checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
-                    scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
-                    if len(checkpoint_indices) > 2*models_to_keep: # has to be twice since we also save optimizer states
-                        index_to_delete = np.argmin(checkpoint_indices)
-                        os.remove(os.path.join(checkpoints_directory, f"checkpoint_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
-                        os.remove(os.path.join(checkpoints_directory, f"optimizer_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
-                        del scores[index_to_delete]
-                        del checkpoint_indices[index_to_delete]
+                if np.isnan(cost):
+                    print("Model exploded and returns NaN")
+                    ###HERE###
+                    if self.parallel:
+                        stop_train = torch.tensor(True, dtype=torch.bool)
+                        torch.distributed.broadcast(stop_train, src=0)
+                    else:
+                        break
+            
+            ###Probably not the best way but for now###
+            if self.parallel:
+                torch.distributed.barrier()
+                if stop_train:
+                    break
+                
+            if self.parallel is False or self.is_master:
 
-            if patience == 0:
-                print("Reached patience")
-                break
+                if cost < (1 - tolerance) * best_loss:
+                    best_loss = cost
+                    patience = patience
+                else:
+                    patience -= 1
 
-            if out_of_time:
-                print("Out of time")
-                break
+                if (time.time() - global_start) > max_time * 3600:
+                    out_of_time = True
 
+                if save_checkpoint:
+                    if (epoch + 1) % checkpoints == 0 or patience == 0 or epoch == epochs - 1 or out_of_time:
+                        latest_checkpoint += 1
+                            
+                        with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
+                            f.write(f"{latest_checkpoint} {cost}\n")
+                        with ema.average_parameters():
+                            if self.parallel:
+                                torch.save(self.model.module.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
+                            else:
+                                torch.save(self.model.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
+                        torch.save(optimizer.state_dict(), os.path.join(checkpoints_directory, f"optimizer_{cost:.4e}_{latest_checkpoint:03d}.pt"))
+                        
+                        paths = glob.glob(os.path.join(checkpoints_directory, "*.pt"))
+                        checkpoint_indices = [int(re.findall('[0-9]+', os.path.split(path)[-1])[-1]) for path in paths]
+                        scores = [float(re.findall('([0-9]{1}.[0-9]+e[+-][0-9]{2})', os.path.split(path)[-1])[-1]) for path in paths]
+                        if len(checkpoint_indices) > 2*models_to_keep: # has to be twice since we also save optimizer states
+                            index_to_delete = np.argmin(checkpoint_indices)
+                            os.remove(os.path.join(checkpoints_directory, f"checkpoint_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
+                            os.remove(os.path.join(checkpoints_directory, f"optimizer_{scores[index_to_delete]:.4e}_{checkpoint_indices[index_to_delete]:03d}.pt"))
+                            del scores[index_to_delete]
+                            del checkpoint_indices[index_to_delete]
+
+                if patience == 0:
+                    print("Reached patience")
+                    if self.parallel:
+                        stop_train = torch.tensor(True, dtype=torch.bool)
+                        torch.distributed.broadcast(stop_train, src=0)
+                    else:
+                        break
+
+                if out_of_time:
+                    print("Out of time")
+                    if self.parallel:
+                        stop_train = torch.tensor(True, dtype=torch.bool)
+                        torch.distributed.broadcast(stop_train, src=0)
+                    else:
+                        break
+                
+            if self.parallel:
+                torch.distributed.barrier()
+                if stop_train:
+                    break
+                
             if epoch > 0:
                 estimated_time_for_epoch = time.time() - epoch_start
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         # Save EMA weights in the model
         ema.copy_to(self.parameters())
-        return losses
+        
+        if self.parallel is False:
+            return losses

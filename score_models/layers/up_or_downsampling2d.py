@@ -74,7 +74,7 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
     num_groups = x.shape[1]  // inC
 
     w = torch.reshape(w, (num_groups, -1, inC, convH, convW))
-    w = torch.flip(w, dims=(1, 2)).permute(0, 2, 1, 3, 4)
+    w = torch.flip(w, dims=(1, 2)).permute(0, 2, 1, 3, 4).contiguous()
     w = torch.reshape(w, (num_groups * inC, -1, convH, convW))
     
     x = F.conv_transpose2d(x, w, stride=stride, output_padding=output_padding, padding=0)

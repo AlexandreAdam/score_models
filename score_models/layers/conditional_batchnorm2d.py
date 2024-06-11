@@ -18,7 +18,7 @@ class ConditionalBatchNorm2d(nn.Module):
         self.bias = bias
         self.bn = nn.BatchNorm2d(num_features, affine=False)
         if num_classes is None:
-            self.prepare_dim = lambda condition: condition.view(-1, 1)
+            self.prepare_dim = lambda condition: condition.reshape(-1, 1)
             if self.bias:
                 self.embed = nn.Linear(1, num_features * 2, bias=False)
             else:
@@ -44,10 +44,10 @@ class ConditionalBatchNorm2d(nn.Module):
         out = self.bn(x)
         if self.bias:
             gamma, beta = self.embed(condition).chunk(2, dim=1)
-            out = gamma.view(-1, self.num_features, 1, 1) * out + beta.view(-1, self.num_features, 1, 1)
+            out = gamma.reshape(-1, self.num_features, 1, 1) * out + beta.reshape(-1, self.num_features, 1, 1)
         else:
             gamma = self.embed(condition)
-            out = gamma.view(-1, self.num_features, 1, 1) * out
+            out = gamma.reshape(-1, self.num_features, 1, 1) * out
         return out
 
 

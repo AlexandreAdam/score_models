@@ -7,6 +7,9 @@ from glob import glob
 import numpy as np
 from torch.nn import Module
 from typing import Union
+from datetime import timedelta
+import socket
+
 
 DTYPE = torch.float32
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
@@ -123,3 +126,27 @@ def load_architecture(
         return model, hyperparameters, checkpoints[checkpoint]
     return model, hyperparameters, None
 
+def mult_gpu_setup():
+    """
+    Function that establishes communication between 
+    GPUs and assigns each GPU their own ID
+    """
+    
+    assert torch.distributed.is_available()
+
+    ngpus_per_node = torch.cuda.device_count()
+    local_rank = int(os.environ.get("SLURM_LOCALID"))
+    rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + local_rank 
+    world_size = int(os.environ.get("SLURM_JOB_NUM_NODES")) * ngpus_per_node
+
+    timeout = timedelta(seconds=180)
+    
+    torch.distributed.init_process_group(
+        init_method = f'tcp://{os.environ.get("MASTER_ADDR")}:3456',
+        backend="nccl",
+        world_size=world_size,
+        rank=rank,
+        timeout=timeout
+    )
+
+    return local_rank, rank, world_size

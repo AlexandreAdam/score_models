@@ -59,7 +59,7 @@ def upsample_conv_1d(x, w, k=None, factor=2, gain=1):
 
     # Transpose weights.
     w = torch.reshape(w, (num_groups, -1, inC, convH))
-    w = torch.flip(w, dims=[3]).permute(0, 2, 1, 3)
+    w = torch.flip(w, dims=[3]).permute(0, 2, 1, 3).contiguous()
     w = torch.reshape(w, (num_groups * inC, -1, convH))
 
     x = F.conv_transpose1d(x, w, stride=stride, output_padding=output_padding, padding=0)

@@ -35,10 +35,10 @@ class NIN(nn.Module):
     def forward(self, x):
         B, C, *D = x.shape
         spatial_dims = list(range(2, 2+len(D)))
-        x = x.permute(0, *spatial_dims, 1)
+        x = x.permute(0, *spatial_dims, 1).contiguous()
         y = torch.einsum("ij, ...j -> ...i", self.W, x) + self.b
         spatial_dims = list(range(1, 1+len(D)))
-        return y.permute(0, 3, *spatial_dims)
+        return y.permute(0, 3, *spatial_dims).contiguous()
 
 
 class DDPMResnetBlock(nn.Module):

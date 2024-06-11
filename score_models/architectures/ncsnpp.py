@@ -294,7 +294,7 @@ class NCSNpp(nn.Module):
         modules = self.all_modules
         m_idx = 0
         # Gaussian Fourier features embeddings.
-        temb = modules[m_idx](t).view(B, -1)
+        temb = modules[m_idx](t).reshape(B, -1)
         m_idx += 1
         
         c_idx = 0
@@ -304,7 +304,7 @@ class NCSNpp(nn.Module):
             for j, condition in enumerate(args):
                 if "timelike" in self.condition_type[j].lower() or "vector" in self.condition_type[j].lower():
                     # embedding and concatenation of the 'timelike' conditions
-                    c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
+                    c_emb = self.condition_embedding_layers[c_idx](condition).reshape(B, -1)
                     temb = torch.cat([temb, c_emb], dim=1)
                     c_idx += 1
                 

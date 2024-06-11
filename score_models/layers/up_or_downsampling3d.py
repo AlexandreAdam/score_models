@@ -63,7 +63,7 @@ def upsample_conv_3d(x, w, k=None, factor=2, gain=1):
     num_groups = x.shape[1] // inC
 
     w = torch.reshape(w, (num_groups, -1, inC, convH, convW, convD))
-    w = torch.flip(w, [3, 4, 5]).permute(0, 2, 1, 3, 4, 5)
+    w = torch.flip(w, [3, 4, 5]).permute(0, 2, 1, 3, 4, 5).contiguous()
     w = torch.reshape(w, (num_groups * inC, -1, convH, convW, convD))
 
     x = F.conv_transpose3d(x, w, stride=stride, output_padding=output_padding, padding=0)

@@ -98,7 +98,7 @@ class MLP(nn.Module):
         if self.attention:
             temb = self.temb_to_bottleneck(temb)
             context = torch.stack([x, temb], dim=1)
-            x = self.attention_layer(x.view(B, 1, -1), context).view(B, -1)
+            x = self.attention_layer(x.reshape(B, 1, -1), context).reshape(B, -1)
         if self.bottleneck:
             x = self.act(self.bottleneck_out(x))
         for _ in range(self.layers//2):

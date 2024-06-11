@@ -43,14 +43,14 @@ class SelfAttentionBlock(nn.Module):
         B, C, *D = x.shape
         q, k, v = torch.tensor_split(self.to_qkv(x), 3, dim=1)
 
-        q = q.permute(0, *range(2, len(D)+2), 1).view(B, np.prod(D), C)
+        q = q.permute(0, *range(2, len(D)+2), 1).contiguous().view(B, np.prod(D), C)
         k = k.view(B, C, np.prod(D))
-        v = v.permute(0, *range(2, len(D)+2), 1).view(B, np.prod(D), C)
+        v = v.permute(0, *range(2, len(D)+2), 1).contiguous().view(B, np.prod(D), C)
 
         w = torch.bmm(q, k) * (C**(-0.5))  # scaled channel attention matrix, QK^T / sqrt(d)
         w = torch.softmax(w, dim=-1)
         attention = torch.bmm(w, v)
-        attention = attention.view(B, *D, C).permute(0, -1, *range(1, len(D)+1))
+        attention = attention.view(B, *D, C).permute(0, -1, *range(1, len(D)+1)).contiguous()
         return self.to_out(attention) + x
 
 
@@ -79,10 +79,10 @@ class ScaledAttentionLayer(nn.Module):
         B, C_out, D = query.shape
         B, C_in, D = context.shape
        
-        query = query.view(B * C_out, D)
-        query = self.query(query).view(B, C_out, D)
-        value = self.value(context.view(B * C_in, D)).view(B, C_in, D)
-        scores = torch.bmm(query, context.transpose(1, 2)) / D**(0.5)  # scaled attention matrix, QK^T / sqrt(d)
+        query = query.reshape(B * C_out, D)
+        query = self.query(query).reshape(B, C_out, D)
+        value = self.value(context.reshape(B * C_in, D)).reshape(B, C_in, D)
+        scores = torch.bmm(query, context.transpose(1, 2).contiguous()) / D**(0.5)  # scaled attention matrix, QK^T / sqrt(d)
         scores = torch.softmax(scores, dim=-1)
         attention = torch.bmm(scores, value)
         h = self.to_out(attention)

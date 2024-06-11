@@ -30,11 +30,11 @@ class SpectralNorm(nn.Module):
 
         height = w.data.shape[0]
         for _ in range(self.power_iterations):
-            v.data = l2normalize(torch.mv(torch.t(w.view(height, -1).data), u.data))
-            u.data = l2normalize(torch.mv(w.view(height, -1).data, v.data))
+            v.data = l2normalize(torch.mv(torch.t(w.reshape(height, -1).data), u.data))
+            u.data = l2normalize(torch.mv(w.reshape(height, -1).data, v.data))
 
         # sigma = torch.dot(u.data, torch.mv(w.view(height,-1).data, v.data))
-        sigma = u.dot(w.view(height, -1).mv(v))
+        sigma = u.dot(w.reshape(height, -1).mv(v))
         setattr(self.module, self.name, w / sigma.expand_as(w))
 
     def _made_params(self):
@@ -50,7 +50,7 @@ class SpectralNorm(nn.Module):
         w = getattr(self.module, self.name)
 
         height = w.data.shape[0]
-        width = w.view(height, -1).data.shape[1]
+        width = w.reshape(height, -1).data.shape[1]
 
         u = Parameter(w.data.new(height).normal_(0, 1), requires_grad=False)
         v = Parameter(w.data.new(width).normal_(0, 1), requires_grad=False)

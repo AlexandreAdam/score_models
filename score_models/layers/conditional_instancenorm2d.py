@@ -9,7 +9,7 @@ class ConditionalInstanceNorm2d(nn.Module):
         self.bias = bias
         self.instance_norm = nn.InstanceNorm2d(num_features, affine=False, track_running_stats=False)
         if num_classes is None:
-            self.prepare_dim = lambda condition: condition.view(-1, 1)
+            self.prepare_dim = lambda condition: condition.reshape(-1, 1)
             if self.bias:
                 self.embed = nn.Linear(1, num_features * 2, bias=False)
             else:
@@ -32,10 +32,10 @@ class ConditionalInstanceNorm2d(nn.Module):
         h = self.instance_norm(x)
         if self.bias:
             gamma, beta = self.embed(condition).chunk(2, dim=-1)
-            out = gamma.view(-1, self.num_features, 1, 1) * h + beta.view(-1, self.num_features, 1, 1)
+            out = gamma.reshape(-1, self.num_features, 1, 1) * h + beta.reshape(-1, self.num_features, 1, 1)
         else:
             gamma = self.embed(condition)
-            out = gamma.view(-1, self.num_features, 1, 1) * h
+            out = gamma.reshape(-1, self.num_features, 1, 1) * h
         return out
 
 
