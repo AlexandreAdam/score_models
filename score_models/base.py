@@ -21,7 +21,7 @@ from torch.distributed import ReduceOp
 
 from .sde import VESDE, VPSDE, TSVESDE, SDE
 from .utils import load_architecture, mult_gpu_setup
-
+import gc
 
 class ScoreModelBase(Module, ABC):
     def __init__(
@@ -31,27 +31,9 @@ class ScoreModelBase(Module, ABC):
             checkpoints_directory=None, 
             model_checkpoint:int=None, 
             device=DEVICE, 
-            parallel:bool=False,
             **hyperparameters
             ):
         super().__init__()
-        ###HERE###
-        if parallel:
-            local_rank, rank, world_size = mult_gpu_setup()
-            
-            self.is_master = rank == 0
-            self.rank = rank
-
-            #Logging for debugging purposes
-            logging.basicConfig( filename='mult_gpu_sanity.txt', filemode='a', 
-                        format='%(levelname)s - %(asctime)s - %(message)s', 
-                        datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO )
-            
-            #REDEFINE DEVICE HERE 
-            device = torch.device("cuda", local_rank)
-            logging.info(f"World size: {world_size}, global rank: {rank}, local rank: {local_rank}")
-            torch.distributed.barrier()
-
         if model is None and checkpoints_directory is None:
             raise ValueError("Must provide one of 'model' or 'checkpoints_directory'")
         if model is None or isinstance(model, str):
@@ -111,13 +93,11 @@ class ScoreModelBase(Module, ABC):
         self.hyperparameters = hyperparameters
         self.checkpoints_directory = checkpoints_directory
         self.model = model
+        if device=="cuda":
+            device = "cuda:0"
         self.model.to(device)
         self.sde = sde
         self.device = device
-        ###HERE###
-        if parallel:
-            self.model = DDP( self.model, device_ids=[local_rank] ) 
-        self.parallel = parallel
 
     def forward(self, t, x, *args) -> Tensor:
         return self.score(t, x, *args)
@@ -301,7 +281,8 @@ class ScoreModelBase(Module, ABC):
         logdir=None,
         n_iterations_in_epoch=None,
         logname_prefix="score_model",
-        verbose=0
+        verbose=0,
+        parallel=False
     ):
         """
         Train the model on the provided dataset.
@@ -327,13 +308,33 @@ class ScoreModelBase(Module, ABC):
             logname (str, optional): The logname for saving checkpoints. Default is None.
             logdir (str, optional): The path to the directory in which to create the new checkpoint_directory with logname.
             logname_prefix (str, optional): The prefix for the logname. Default is "score_model".
+            parallel (bool, optional): If set to true parallelizes training by splitting data batches over multiple gpus .
 
         Returns:
             list: List of loss values during training.
         """
+        if parallel:
+            ###HERE###
+            local_rank, rank, world_size = mult_gpu_setup()
+            is_master = rank == 0
+
+            #Logging for debugging purposes
+            logging.basicConfig( filename='mult_gpu_sanity.txt', filemode='a', 
+                        format='%(levelname)s - %(asctime)s - %(message)s', 
+                        datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO )
+            
+            #REDEFINE DEVICE HERE 
+            self.device = torch.device("cuda", local_rank)
+            if not is_master:
+                self.model.to(self.device)
+            self.model = DDP( self.model, device_ids=[local_rank] ) 
+            
+            logging.info(f"World size: {world_size}, global rank: {rank}, local rank: {local_rank}")
+            torch.distributed.barrier()
+
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
-        if self.parallel is False:
+        if parallel is False:
             dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
         else:
             dataloader = DataLoader( dataset, batch_size=batch_size, shuffle=False, drop_last=False, 
@@ -365,11 +366,11 @@ class ScoreModelBase(Module, ABC):
                 checkpoints_directory = os.path.join(logdir, logname)
             if not os.path.isdir(checkpoints_directory):
                 ###HERE###
-                if self.parallel is False or self.is_master:
+                if parallel is False or is_master:
                     os.mkdir(checkpoints_directory)
 
         ###HERE###
-        if self.parallel is False or self.is_master:  
+        if parallel is False or is_master:  
 
             script_params_path = os.path.join(checkpoints_directory, "script_params.json")
             if not os.path.isfile(script_params_path):
@@ -403,7 +404,7 @@ class ScoreModelBase(Module, ABC):
                 with open(model_hparams_path, "w") as f:
                     json.dump(self.hyperparameters, f, indent=4)
             
-        if self.parallel:
+        if parallel:
             torch.distributed.barrier()
 
         # ======= Load model if model_id is provided ===============================================================
@@ -415,11 +416,11 @@ class ScoreModelBase(Module, ABC):
             if model_checkpoint is not None:
                 checkpoint_path = paths[checkpoint_indices.index(model_checkpoint)]
                 ###HERE###
-                if self.parallel is False:
+                if parallel is False:
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)) 
                 else:
                     self.model.module.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    logging.warning(f"GPU {self.rank} loaded checkpoint.")
+                    logging.warning(f"GPU {rank} loaded checkpoint.")
 
                 optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
                 print(f"Loaded checkpoint {model_checkpoint} of {logname}")
@@ -430,11 +431,11 @@ class ScoreModelBase(Module, ABC):
                 opt_path = opt_paths[max_checkpoint_index]
 
                 ###HERE###
-                if self.parallel is False:
+                if parallel is False:
                     self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device)) 
                 else:
                     self.model.module.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-                    logging.warning(f"GPU {self.rank} loaded checkpoint.")
+                    logging.warning(f"GPU {rank} loaded checkpoint.")
 
                 optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
                 print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
@@ -443,19 +444,18 @@ class ScoreModelBase(Module, ABC):
         if seed is not None:
             torch.manual_seed(seed)
         
-        step = torch.tensor([0.], device=self.device)
+        step = 0
         estimated_time_for_epoch = 0
 
-        ###THIS IS PROBABLY NOT NEEDED BUT FOR NOW LEAVING IT (BRAIN CELLS DANCING)###
-        if self.parallel is False or self.is_master: 
+        ###THIS IS PROBABLY NOT NEEDED BUT FOR NOW LEAVING IT###
+        if parallel is False or is_master: 
             best_loss = float('inf')
             losses = []
             out_of_time = False
 
         data_iter = iter(dataloader)
-        
         ###HERE###
-        if self.parallel:
+        if parallel:
             stop_train = False
             torch.distributed.barrier()
         
@@ -483,7 +483,7 @@ class ScoreModelBase(Module, ABC):
                     x = preprocessing_fn(x)
 
                 ###HERE###
-                if self.parallel:
+                if parallel:
                     x = x.to(self.device)
 
                 optimizer.zero_grad()
@@ -504,23 +504,24 @@ class ScoreModelBase(Module, ABC):
                 time_per_step_epoch_mean += _time
                 cost += float(loss)
                 step += 1
-            
+
             ###HERE###
-            if self.parallel:
+            if parallel:
+                num_iter_per_epoch = torch.tensor( len(dataloader), device=self.device )
                 torch.distributed.reduce( cost, dst=0, op=ReduceOp.SUM)
-                torch.distributed.reduce( step, dst=0, op=ReduceOp.SUM) 
+                torch.distributed.reduce( num_iter_per_epoch, dst=0, op=ReduceOp.SUM) 
                 torch.distributed.reduce( time_per_step_epoch_mean, dst=0, op=ReduceOp.SUM)
 
-                if self.is_master:
-                    cost /= step
-                    time_per_step_epoch_mean /= step
+                if is_master:
+                    cost /= num_iter_per_epoch
+                    time_per_step_epoch_mean /= num_iter_per_epoch
 
             else:
                 cost /= len(dataloader)
                 time_per_step_epoch_mean /= len(dataloader)
 
             ###HERE### 
-            if self.parallel is False or self.is_master:
+            if parallel is False or is_master:
                 cost = cost.item()
                 pbar.set_description(f"Epoch {epoch + 1:d} | Cost: {cost:.1e} |")
                 losses.append(cost)
@@ -533,19 +534,19 @@ class ScoreModelBase(Module, ABC):
                 if np.isnan(cost):
                     print("Model exploded and returns NaN")
                     ###HERE###
-                    if self.parallel:
+                    if parallel:
                         stop_train = torch.tensor(True, dtype=torch.bool)
                         torch.distributed.broadcast(stop_train, src=0)
                     else:
                         break
             
             ###Probably not the best way but for now###
-            if self.parallel:
+            if parallel:
                 torch.distributed.barrier()
                 if stop_train:
                     break
                 
-            if self.parallel is False or self.is_master:
+            if parallel is False or is_master:
 
                 if cost < (1 - tolerance) * best_loss:
                     best_loss = cost
@@ -563,7 +564,7 @@ class ScoreModelBase(Module, ABC):
                         with open(os.path.join(checkpoints_directory, "score_sheet.txt"), mode="a") as f:
                             f.write(f"{latest_checkpoint} {cost}\n")
                         with ema.average_parameters():
-                            if self.parallel:
+                            if parallel:
                                 torch.save(self.model.module.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
                             else:
                                 torch.save(self.model.state_dict(), os.path.join(checkpoints_directory, f"checkpoint_{cost:.4e}_{latest_checkpoint:03d}.pt"))
@@ -581,7 +582,7 @@ class ScoreModelBase(Module, ABC):
 
                 if patience == 0:
                     print("Reached patience")
-                    if self.parallel:
+                    if parallel:
                         stop_train = torch.tensor(True, dtype=torch.bool)
                         torch.distributed.broadcast(stop_train, src=0)
                     else:
@@ -589,13 +590,13 @@ class ScoreModelBase(Module, ABC):
 
                 if out_of_time:
                     print("Out of time")
-                    if self.parallel:
+                    if parallel:
                         stop_train = torch.tensor(True, dtype=torch.bool)
                         torch.distributed.broadcast(stop_train, src=0)
                     else:
                         break
                 
-            if self.parallel:
+            if parallel:
                 torch.distributed.barrier()
                 if stop_train:
                     break
@@ -607,5 +608,5 @@ class ScoreModelBase(Module, ABC):
         # Save EMA weights in the model
         ema.copy_to(self.parameters())
         
-        if self.parallel is False:
+        if parallel is False:
             return losses
