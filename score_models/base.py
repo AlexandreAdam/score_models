@@ -50,13 +50,13 @@ class ScoreModelBase(Module, ABC):
         if sde is None:
             # Some sane defaults for quick use
             if "t_star" in hyperparameters.keys():
-                print("Using the Truncated Scaled Variance Exploding SDE")
+                print("Using the Truncated Scaled Variance Exploding SDE", flush=True)
                 sde = "tsve"
             elif "sigma_min" in hyperparameters.keys():
-                print("Using the Variance Exploding SDE")
+                print("Using the Variance Exploding SDE", flush=True)
                 sde = "ve"
             elif "beta_min" in hyperparameters.keys():
-                print("Using the Variance Preserving SDE")
+                print("Using the Variance Preserving SDE", flush=True)
                 sde = "vp"
             else:
                 raise KeyError("SDE parameters are missing, please specify which sde to use")
@@ -423,7 +423,7 @@ class ScoreModelBase(Module, ABC):
                     logging.warning(f"GPU {rank} loaded checkpoint.")
 
                 optimizer.load_state_dict(torch.load(opt_paths[checkpoints == model_checkpoint], map_location=self.device))
-                print(f"Loaded checkpoint {model_checkpoint} of {logname}")
+                print(f"Loaded checkpoint {model_checkpoint} of {logname}", flush=True)
                 latest_checkpoint = model_checkpoint
             else:
                 max_checkpoint_index = np.argmax(checkpoint_indices)
@@ -438,7 +438,7 @@ class ScoreModelBase(Module, ABC):
                     logging.warning(f"GPU {rank} loaded checkpoint.")
 
                 optimizer.load_state_dict(torch.load(opt_path, map_location=self.device))
-                print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}")
+                print(f"Loaded checkpoint {checkpoint_indices[max_checkpoint_index]} of {logname}", flush=True)
                 latest_checkpoint = checkpoint_indices[max_checkpoint_index]
 
         if seed is not None:
@@ -454,14 +454,20 @@ class ScoreModelBase(Module, ABC):
             out_of_time = False
 
         data_iter = iter(dataloader)
+        
         ###HERE###
+        if parallel is False or is_master:
+            range_epochs = ( pbar := tqdm(range(epochs)) )
+        else:
+            range_epochs = range(epochs)
+
         if parallel:
             stop_train = False
             torch.distributed.barrier()
-        
+
         global_start = time.time()
 
-        for epoch in (pbar := tqdm(range(epochs))):
+        for epoch in range_epochs:
             if (time.time() - global_start) > max_time * 3600 - estimated_time_for_epoch:
                 break
             epoch_start = time.time()
@@ -532,7 +538,7 @@ class ScoreModelBase(Module, ABC):
                         print(f"epoch {epoch} | cost {cost:.1e}")
 
                 if np.isnan(cost):
-                    print("Model exploded and returns NaN")
+                    print("Model exploded and returns NaN", flush=True)
                     ###HERE###
                     if parallel:
                         stop_train = torch.tensor(True, dtype=torch.bool)
@@ -596,17 +602,18 @@ class ScoreModelBase(Module, ABC):
                     else:
                         break
                 
+                if epoch > 0:
+                    estimated_time_for_epoch = time.time() - epoch_start
+
             if parallel:
                 torch.distributed.barrier()
                 if stop_train:
                     break
-                
-            if epoch > 0:
-                estimated_time_for_epoch = time.time() - epoch_start
 
-        print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
-        # Save EMA weights in the model
-        ema.copy_to(self.parameters())
+        print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.", flush=True)
         
-        if parallel is False:
+        if parallel is False or is_master:
+            # Save EMA weights in the model
+            ema.copy_to(self.parameters())
+            
             return losses
