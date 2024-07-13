@@ -2,8 +2,6 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: intro
+root: front_page
 chapters:
-- file: markdown
-- file: notebooks
-- file: markdown-notebooks
+  - file: intro
