@@ -9,6 +9,7 @@ from score_models.layers import DDPMResnetBlock, SelfAttentionBlock, GaussianFou
 from score_models.layers.ddpm_resnet_block import conv3x3
 import functools
 
+__all__ = ["DDPM"]
 
 class DDPM(nn.Module):
     def __init__(

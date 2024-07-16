@@ -3,6 +3,8 @@ import torch.nn as nn
 from score_models.layers import GaussianFourierProjection, ScaledAttentionLayer
 from score_models.utils import get_activation
 
+__all__ = ["MLP"]
+
 
 class MLP(nn.Module):
     def __init__(

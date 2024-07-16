@@ -7,6 +7,7 @@ import functools
 import torch
 import numpy as np
 
+__all__ = ["NCSNpp"]
 
 class NCSNpp(nn.Module):
     """

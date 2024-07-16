@@ -1,5 +1,5 @@
 import torch
-from score_models.utils import load_architecture
+from score_models.save_load_utils import load_architecture
 from score_models import ScoreModel, EnergyModel, SLIC
 from score_models.architectures import MLP, NCSNpp, DDPM
 from score_models.sde import VESDE, VPSDE, TSVESDE
@@ -83,9 +83,18 @@ def test_log_likelihood():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = torch.randn(3, 2)
-    ll = score.log_likelihood(x, ode_steps=10, verbose=1)
+    ll = score.log_likelihood(x, steps=10, verbose=1, method="euler")
     print(ll)
     assert ll.shape == torch.Size([3])
+
+    ll = score.log_likelihood(x, steps=10, verbose=1, method="heun")
+    print(ll)
+    assert ll.shape == torch.Size([3])
+
+
+def test_log_likelihood_analytic():
+    # Construct test with analytical solution to the probability flow ODE to check our implementation
+    pass
 
 # def test_score_at_zero_t():
     # net = MLP(dimensions=2)
@@ -110,19 +119,10 @@ def test_slic_score():
     def forward_model(x):
         return torch.sum(x, dim=1, keepdim=True) # Function R^C to R
     C = 100
-    net = MLP(dimensions=C)
-    # Check that we can get the score without a forward_model
-    score = SLIC(net, beta_min=1e-2, beta_max=10)
-    print(score.sde)
     x = torch.randn(3, C)
     t = torch.rand(3)
-    s = score(t, x)
-    print(s)
-    assert s.shape == torch.Size([3, C])
-
-    # Now check slic score
     net = MLP(dimensions=1) # Define SLIC in output space of forward model
-    score = SLIC(net, forward_model, beta_min=1e-2, beta_max=10)
+    score = SLIC(forward_model, net, beta_min=1e-2, beta_max=10)
     y = forward_model(x)
     print(score.sde)
     x = torch.randn(3, C)
@@ -149,7 +149,7 @@ def test_loading_different_sdes():
     assert score.sde.epsilon == 0
     assert score.sde.T == 1
 
-    score = ScoreModel(net, sigma_min=1e-3, sigma_max=1e2, t_star=0.5, beta=10)
+    score = ScoreModel(net, sde="tsve", sigma_min=1e-3, sigma_max=1e2, t_star=0.5, beta=10)
     assert isinstance(score.sde, TSVESDE)
     assert score.sde.sigma_min == 1e-3
     assert score.sde.sigma_max == 1e2

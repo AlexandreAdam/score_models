@@ -1,0 +1,278 @@
+from typing import Optional, Literal, Tuple
+
+import torch
+import os, glob, re, json
+import numpy as np
+import warnings
+from torch.nn import Module
+
+from .utils import DEVICE
+
+
+def checkpoint_number(path: str) -> int:
+    return int(re.findall(r'[0-9]+', path)[-1])
+
+
+def maybe_raise_error(message: str, throw_error: bool = True, error_type=FileNotFoundError):
+    if throw_error:
+        raise error_type(message)
+    else:
+        warnings.warn(message)
+
+
+def last_checkpoint(path: str) -> int:
+    if os.path.isdir(path):
+        paths = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")), key=checkpoint_number)
+        return checkpoint_number(paths[-1])
+    else:
+        return 0
+
+
+def next_checkpoint(path: str) -> int:
+    return last_checkpoint(path) + 1
+
+
+def save_checkpoint(model: Module, path: str, create_path: bool = True, key: Literal["checkpoint", "optimizer"] = "checkpoint"):
+    """
+    Utility function to save checkpoints of a model and its optimizer state. 
+    This utility will save files in path with the following pattern
+    ```
+        Path
+        ├── checkpoint_001.pt
+        ├── checkpoint_002.pt
+        ├── ...
+        ├── optimizer_001.pt
+        ├── optimizer_002.pt
+        ├── ...
+    ```
+    
+    Args:
+        model: Model instance to save.
+        path: Path to a directory where to save the checkpoint files. Defaults to the path in the ScoreModelBase instance.
+        create_path: If True, create the directory if it does not exist.
+        key: Key to save the checkpoint with. Defaults to "checkpoint". Alternative is "optimizer".
+    """
+    if not os.path.isdir(path):
+        if create_path:
+            os.makedirs(path, exist_ok=True)
+        else:
+            raise FileNotFoundError(f"Directory {os.path.dirname(path)} does not exist")
+
+    checkpoint = next_checkpoint(path)
+    torch.save(model.state_dict(), os.path.join(path, f"{key}_{checkpoint:03d}.pt"))
+    print(f"Saved {key} {checkpoint} to {path}")
+ 
+
+def save_hyperparameters(hyperparameters: dict, path: str):
+    """
+    Utility function to save the hyperparameters of a model to a standard file.
+    """
+    file = os.path.join(path, "model_hparams.json")
+    if not os.path.isfile(file):
+        with open(file, "w") as f:
+            json.dump(hyperparameters, f, indent=4)
+        print(f"Saved hyperparameters to {path}")
+
+
+def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
+    """
+    Utility function to clean up old checkpoints in a directory.
+    This utility will delete the oldest checkpoints and their optimizer states.
+    """
+    # Clean up oldest models
+    if models_to_keep:
+        paths = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")), key=checkpoint_number)
+        if len(paths) > models_to_keep:
+            os.remove(paths[0])
+            if optimizer:
+                os.remove(paths[0].replace("checkpoint", "optimizer"))
+
+
+def load_sbm_state(sbm: "Base", path: str):
+    """
+    Utility function to load the state dictionary of a model from a file.
+    We use a try except to catch an old error in the model saving process.
+    """
+    try:
+        sbm.model.load_state_dict(torch.load(path, map_location=sbm.device))
+    except (KeyError, RuntimeError) as e:
+        # Maybe the ScoreModel instance was used when saving the weights... (mostly backward compatibility with old bugs)
+        try:
+            sbm.load_state_dict(torch.load(path, map_location=sbm.device))
+        except (KeyError, RuntimeError):
+            print(e)
+            raise KeyError(f"Could not load state of model from {path}. Make sure you are loading the correct model.")
+
+
+def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_error: bool = True):
+    try:
+        optimizer.load_state_dict(torch.load(path, map_location=optimizer.device))
+    except (KeyError, RuntimeError) as e:
+        if raise_error:
+            print(e)
+        maybe_raise_error(f"Could not load state of optimizer from {path}.", raise_error, error_type=KeyError)
+        
+
+def load_checkpoint(
+        model: Module,
+        checkpoint: Optional[int] = None,
+        path: Optional[str] = None,
+        raise_error: bool = True,
+        key: Literal["checkpoint", "optimizer"] = "checkpoint",
+        ):
+    """
+    Utility function to load the checkpoint of a model and its optimizer state. 
+    This utility assumes the directory contains files with the following pattern:
+    ```
+        Path
+        ├── checkpoint_*_001.pt
+        ├── checkpoint_*_002.pt
+        ├── ...
+        ├── optimizer_*_001.pt
+        ├── optimizer_*_002.pt
+        ├── ...
+    ```
+    
+    Args:
+        checkpoint: Checkpoint number to load. If None, the last checkpoint is loaded.
+        path: Path to load the checkpoint files from. Defaults to the path in the ScoreModelBase instance.
+        raise_error: If True, raise an error if no checkpoints are found in the directory.
+    """
+    if path is None:
+        raise FileNotFoundError("No path provided to load checkpoint from")
+    name = os.path.split(path)[-1]
+    # Collect all checkpoint paths sorted by the checkpoint number (*_001.pt, *_002.pt, ...)
+    paths = sorted(glob.glob(os.path.join(path, "{key}*.pt")), key=checkpoint_number)
+    checkpoints = [checkpoint_number(os.path.split(path)[-1]) for path in paths]
+    if checkpoint and checkpoint not in checkpoints:
+        # Make sure the requested checkpoint exists
+        maybe_raise_error(f"{key} {checkpoint} not found in directory {path}.", raise_error)
+        checkpoint = None # Overwrite to load the last checkpoint
+    loading_mecanism = load_sbm_state if key == "checkpoint" else load_optimizer_state
+    if checkpoint_indices:
+        if checkpoint:
+            # Load requested checkpoint
+            index = checkpoints.index(checkpoint)
+            loading_mecansim(sbm, paths[index])
+        else:
+            # Load last checkpoint
+            index = np.argmax(checkpoints)
+            loading_mecanism(sbm, paths[index])
+            checkpoint = checkpoints[index]
+        print(f"Loaded {key} {checkpoint} of model {name}.")
+    else:
+        maybe_raise_error(f"No {key} found in {path}", raise_error)
+
+
+def load_architecture(
+        path: Optional[str] = None,
+        net: Optional[str] = None,
+        device=DEVICE,
+        **hyperparameters
+        ) -> Tuple[Module, dict]:
+    """
+    Utility function to load a model architecture from a checkpoint directory or 
+    a dictionary of hyperparameters. 
+    
+    Args:
+        path (str): Path to the checkpoint directory. If None, the model is loaded from the hyperparameters.
+        model (str): Model architecture to load. If provided, hyperparameters are used to instantiate the model.
+        device (torch.device): Device to load the model to.
+        hyperparameters: hyperparameters to instantiate the model.
+    """
+    if path:
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f"Directory {path} does not exist. "
+                                     "Please make sure to provide a valid path to the checkpoint directory.")
+        # Load hyperparameters from the checkpoint directory
+        if "model_hparams.json" not in os.listdir(path):
+            raise FileNotFoundError(f"Could not find model_hparams.json in {path}. " 
+                                    "Please make sure the directory contains this file to reload an architecture from a path.")
+        with open(os.path.join(path, "model_hparams.json"), "r") as f:
+            hparams = json.load(f)
+        hyperparameters.update(hparams)
+        net = hyperparameters.get("model_architecture", "ncsnpp")
+    
+    if isinstance(net, str):
+        if net.lower() == "ncsnpp":
+            from score_models.architectures import NCSNpp
+            net = NCSNpp(**hyperparameters).to(device)
+        elif net.lower() == "ddpm":
+            from score_models.architectures import DDPM
+            net = DDPM(**hyperparameters).to(device)
+        elif net.lower() == "mlp":
+            from score_models import MLP
+            net = MLP(**hyperparameters).to(device)
+        else:
+            raise ValueError(f"Architecture {net} not recognized.")
+    else:
+        raise ValueError(f"A model architecture or a path to a checkpoint directory must be provided.")
+ 
+    # Backward compatibility
+    if "model_architecture" not in hyperparameters.keys():
+        hyperparameters["model_architecture"] = net.__class__.__name__
+
+    if path:
+        print(f"Successfully loaded model architecture {net.__class__.__name__} from {os.path.split(path)[-1]}.")
+    else:
+        print(f"Successfully loaded model architecture {net.__class__.__name__} from hyperparameters.")
+    return net, hyperparameters
+
+
+def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> "SDE":
+    if sde is None:
+        if "sde" not in kwargs.keys():
+            # Some sane defaults for quick use of VE or VP
+            if "sigma_min" in kwargs.keys() or "sigma_max" in kwargs.keys():
+                print("Using the Variance Exploding SDE")
+                sde = "ve"
+            elif "beta_max" in kwargs.keys() or "beta_min" in kwargs.keys():
+                print("Using the Variance Preserving SDE")
+                sde = "vp"
+            else:
+                raise KeyError("SDE parameters are missing, please specify which sde to use by using e.g. sde='ve' or sde='vp'")
+        else:
+            # Backward compatibility
+            if kwargs["sde"] == "vpsde":
+                kwargs["sde"] = "vp"
+            elif kwargs["sde"] == "vesde":
+                kwargs["sde"] = "ve"
+            sde = kwargs["sde"]
+
+    if sde.lower() not in ["ve", "vp", "tsve"]:
+        raise ValueError(f"The SDE {sde} provided is not recognized. Please use 've', 'vp', or 'tsve'.")
+
+    # Load the SDE from the keyword
+    if sde.lower() == "ve":
+        if "sigma_min" not in kwargs.keys() or "sigma_max" not in kwargs.keys():
+            raise KeyError("Variance Exploding SDE requires sigma_min and sigma_max to be specified.")
+        from score_models.sde import VESDE
+        sde = VESDE(
+                sigma_min=kwargs.get("sigma_min"),
+                sigma_max=kwargs.get("sigma_max"),
+                T=kwargs.get("T", VESDE.__init__.__defaults__[0])
+                )
+        
+    elif sde.lower() == "vp":
+        from score_models.sde import VPSDE
+        sde = VPSDE(
+                beta_min=kwargs.get("beta_min", VPSDE.__init__.__defaults__[0]),
+                beta_max=kwargs.get("beta_max", VPSDE.__init__.__defaults__[1]),
+                T=kwargs.get("T", VPSDE.__init__.__defaults__[2]),
+                epsilon=kwargs.get("epsilon", VPSDE.__init__.__defaults__[3]),
+                schedule=kwargs.get("schedule", VPSDE.__init__.__defaults__[4])
+                )
+    
+    elif sde.lower() == "tsve":
+        if "sigma_min" not in kwargs.keys() or "sigma_max" not in kwargs.keys():
+            raise KeyError("Truncated Scaled Variance Exploding SDE requires sigma_min and sigma_max to be specified.")
+        from score_models.sde import TSVESDE
+        sde = TSVESDE(
+                sigma_min=kwargs.get("sigma_min"),
+                sigma_max=kwargs.get("sigma_max"),
+                t_star=kwargs.get("t_star"),
+                beta=kwargs.get("beta"),
+                T=kwargs.get("T", TSVESDE.__init__.__defaults__[0]),
+                epsilon=kwargs.get("epsilon", TSVESDE.__init__.__defaults__[1])
+                )
+    return sde

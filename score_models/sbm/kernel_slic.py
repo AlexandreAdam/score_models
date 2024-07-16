@@ -3,9 +3,10 @@ from typing import Callable, Union
 from torch import Tensor
 from torch.nn import Module
 from torch.func import vjp, jacrev
-from .sde import SDE
-from .score_model import SLIC
-from .utils import DEVICE
+
+from .slic import SLIC
+from ..sde import SDE
+from ..utils import DEVICE
 
 class KernelSLIC(SLIC):
     def __init__(
