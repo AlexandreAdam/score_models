@@ -60,3 +60,10 @@ class SDE(ABC):
         sigma_t = self.sigma(t).view(-1, *[1]*len(D))
         z = torch.randn_like(x0)
         return mu_t * x0 + sigma_t * z
+    
+    # Backward compatibility
+    def sample_time_marginal(self, t: Tensor, x0: Tensor) -> Tensor:
+        return self.perturbation_kernel(t, x0)
+
+    def marginal_prob_scalars(self, t) -> Tuple[Tensor, Tensor]:
+        return self.pertrubation_scalars(t)

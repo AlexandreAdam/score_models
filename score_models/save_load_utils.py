@@ -23,7 +23,10 @@ def maybe_raise_error(message: str, throw_error: bool = True, error_type=FileNot
 def last_checkpoint(path: str) -> int:
     if os.path.isdir(path):
         paths = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")), key=checkpoint_number)
-        return checkpoint_number(paths[-1])
+        if len(paths) > 0:
+            return checkpoint_number(paths[-1])
+        else:
+            return 0
     else:
         return 0
 
@@ -94,7 +97,7 @@ def load_sbm_state(sbm: "Base", path: str):
     We use a try except to catch an old error in the model saving process.
     """
     try:
-        sbm.model.load_state_dict(torch.load(path, map_location=sbm.device))
+        sbm.net.load_state_dict(torch.load(path, map_location=sbm.device))
     except (KeyError, RuntimeError) as e:
         # Maybe the ScoreModel instance was used when saving the weights... (mostly backward compatibility with old bugs)
         try:
@@ -115,8 +118,8 @@ def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_erro
 
 def load_checkpoint(
         model: Module,
+        path: str,
         checkpoint: Optional[int] = None,
-        path: Optional[str] = None,
         raise_error: bool = True,
         key: Literal["checkpoint", "optimizer"] = "checkpoint",
         ):
@@ -138,31 +141,35 @@ def load_checkpoint(
         path: Path to load the checkpoint files from. Defaults to the path in the ScoreModelBase instance.
         raise_error: If True, raise an error if no checkpoints are found in the directory.
     """
-    if path is None:
-        raise FileNotFoundError("No path provided to load checkpoint from")
+    if not os.path.isdir(path):
+        if raise_error:
+            raise FileNotFoundError(f"Directory {path} does not exist.")
+        else: # If no directory is found, don't do anything. This is useful for initialization of Base.
+            return
     name = os.path.split(path)[-1]
     # Collect all checkpoint paths sorted by the checkpoint number (*_001.pt, *_002.pt, ...)
-    paths = sorted(glob.glob(os.path.join(path, "{key}*.pt")), key=checkpoint_number)
+    paths = sorted(glob.glob(os.path.join(path, f"{key}*.pt")), key=checkpoint_number)
     checkpoints = [checkpoint_number(os.path.split(path)[-1]) for path in paths]
     if checkpoint and checkpoint not in checkpoints:
         # Make sure the requested checkpoint exists
         maybe_raise_error(f"{key} {checkpoint} not found in directory {path}.", raise_error)
         checkpoint = None # Overwrite to load the last checkpoint
     loading_mecanism = load_sbm_state if key == "checkpoint" else load_optimizer_state
-    if checkpoint_indices:
+    if checkpoints:
         if checkpoint:
             # Load requested checkpoint
             index = checkpoints.index(checkpoint)
-            loading_mecansim(sbm, paths[index])
+            loading_mecanism(model, paths[index])
         else:
             # Load last checkpoint
             index = np.argmax(checkpoints)
-            loading_mecanism(sbm, paths[index])
+            loading_mecanism(model, paths[index])
             checkpoint = checkpoints[index]
         print(f"Loaded {key} {checkpoint} of model {name}.")
+        return checkpoint
     else:
-        maybe_raise_error(f"No {key} found in {path}", raise_error)
-
+        maybe_raise_error(f"No {key} found in {path}")
+        return None
 
 def load_architecture(
         path: Optional[str] = None,
@@ -219,7 +226,7 @@ def load_architecture(
     return net, hyperparameters
 
 
-def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> "SDE":
+def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> Tuple["SDE", dict]:
     if sde is None:
         if "sde" not in kwargs.keys():
             # Some sane defaults for quick use of VE or VP
@@ -238,6 +245,12 @@ def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> "SD
             elif kwargs["sde"] == "vesde":
                 kwargs["sde"] = "ve"
             sde = kwargs["sde"]
+    else:
+        # Backward compatibility
+        if sde == "vpsde":
+            sde = "vp"
+        elif sde == "vesde":
+            sde = "ve"
 
     if sde.lower() not in ["ve", "vp", "tsve"]:
         raise ValueError(f"The SDE {sde} provided is not recognized. Please use 've', 'vp', or 'tsve'.")
@@ -247,32 +260,37 @@ def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> "SD
         if "sigma_min" not in kwargs.keys() or "sigma_max" not in kwargs.keys():
             raise KeyError("Variance Exploding SDE requires sigma_min and sigma_max to be specified.")
         from score_models.sde import VESDE
-        sde = VESDE(
-                sigma_min=kwargs.get("sigma_min"),
-                sigma_max=kwargs.get("sigma_max"),
-                T=kwargs.get("T", VESDE.__init__.__defaults__[0])
-                )
+        sde_hyperparameters = {
+                "sigma_min": kwargs.get("sigma_min"),
+                "sigma_max": kwargs.get("sigma_max"),
+                "T": kwargs.get("T", VESDE.__init__.__defaults__[0])
+                }
+        sde = VESDE(**sde_hyperparameters)
         
     elif sde.lower() == "vp":
         from score_models.sde import VPSDE
-        sde = VPSDE(
-                beta_min=kwargs.get("beta_min", VPSDE.__init__.__defaults__[0]),
-                beta_max=kwargs.get("beta_max", VPSDE.__init__.__defaults__[1]),
-                T=kwargs.get("T", VPSDE.__init__.__defaults__[2]),
-                epsilon=kwargs.get("epsilon", VPSDE.__init__.__defaults__[3]),
-                schedule=kwargs.get("schedule", VPSDE.__init__.__defaults__[4])
-                )
+        sde_hyperparameters = {
+                "beta_min": kwargs.get("beta_min", VPSDE.__init__.__defaults__[0]),
+                "beta_max": kwargs.get("beta_max", VPSDE.__init__.__defaults__[1]),
+                "T": kwargs.get("T", VPSDE.__init__.__defaults__[2]),
+                "epsilon": kwargs.get("epsilon", VPSDE.__init__.__defaults__[3]),
+                "schedule": kwargs.get("schedule", VPSDE.__init__.__defaults__[4])
+                }
+        sde = VPSDE(**sde_hyperparameters)
     
     elif sde.lower() == "tsve":
         if "sigma_min" not in kwargs.keys() or "sigma_max" not in kwargs.keys():
             raise KeyError("Truncated Scaled Variance Exploding SDE requires sigma_min and sigma_max to be specified.")
         from score_models.sde import TSVESDE
-        sde = TSVESDE(
-                sigma_min=kwargs.get("sigma_min"),
-                sigma_max=kwargs.get("sigma_max"),
-                t_star=kwargs.get("t_star"),
-                beta=kwargs.get("beta"),
-                T=kwargs.get("T", TSVESDE.__init__.__defaults__[0]),
-                epsilon=kwargs.get("epsilon", TSVESDE.__init__.__defaults__[1])
-                )
-    return sde
+        sde_hyperparameters = {
+                "sigma_min": kwargs.get("sigma_min"),
+                "sigma_max": kwargs.get("sigma_max"),
+                "t_star": kwargs.get("t_star"),
+                "beta": kwargs.get("beta"),
+                "T": kwargs.get("T", TSVESDE.__init__.__defaults__[0]),
+                "epsilon": kwargs.get("epsilon", TSVESDE.__init__.__defaults__[1])
+                }
+        sde = TSVESDE(**sde_hyperparameters)
+    # Making sure the sde name is recorded
+    sde_hyperparameters["sde"] = sde.__class__.__name__.lower()
+    return sde, sde_hyperparameters

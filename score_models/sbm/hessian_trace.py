@@ -5,5 +5,6 @@ import torch
 from .base import Base
 
 
-class HessianTrace(Base):
-    def __init__(self, model
+# class HessianTrace(Base):
+    # def __init__(self, mode
+

@@ -90,7 +90,7 @@ def test_training_conditioned_discrete_and_timelike_ncsnpp():
     model.fit(dataset, batch_size=B, epochs=2)
         
 
-def test_training_score_mlp():
+def test_training_score_mlp(tmp_path):
     C = 10
     B = 5
     size = 2*B
@@ -119,7 +119,7 @@ def test_training_score_mlp():
     epochs = 10
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
+    path = tmp_path / "test"
     seed = 42
 
     # Fit the model to the dataset
@@ -132,60 +132,91 @@ def test_training_score_mlp():
         epochs=epochs, 
         warmup=warmup, 
         clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
-        seed=seed
+        checkpoints_directory=path, # For backward compatibility
+        seed=seed,
+        models_to_keep=10,
+        checkpoint_every=1
         )
     print(losses)
-    # leave the checpoints there until next test
+    assert len(losses) == epochs, f"Expected {epochs} losses, got {len(losses)}"
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    for i in range(1, 11):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
 
-def test_training_score_mlp_input_list():
+
+def test_training_score_mlp_input_list(tmp_path):
     C = 10
     B = 5
     size = 2*B
+    hyperparameters = {
+        "dimensions": C,
+        "units": 2*C,
+        "layers": 2,
+        "time_embedding_dimensions": 32,
+        "embedding_scale": 32,
+        "activation": "swish",
+        "time_branch_layers": 1
+    }
+    net = MLP(**hyperparameters)
+    # Create an instance of ScoreModel
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
     dataset = Dataset(size, C, [], test_input_list=True)
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model = ScoreModel(checkpoints_directory=checkpoints_directory)
+    path = tmp_path / "test"
     losses = model.fit(
         dataset, 
-        checkpoints_directory=checkpoints_directory, 
+        path=path, 
         epochs=10,
         checkpoints=1,
-        models_to_keep=12, # keep all checkpoints for next test
+        models_to_keep=12,
         batch_size=1
         )
 
 
-def test_load_checkpoint_at_scoremodel_init():
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model1 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=1)
+def test_load_checkpoint_at_scoremodel_init(tmp_path):
+    C = 10
+    B = 5
+    size = 2*B
+    hyperparameters = {
+        "dimensions": C,
+        "units": 2*C,
+        "layers": 2,
+        "time_embedding_dimensions": 32,
+        "embedding_scale": 32,
+        "activation": "swish",
+        "time_branch_layers": 1
+    }
+    net = MLP(**hyperparameters)
+    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
+    
+    # Save a checkpoint
+    path = tmp_path / "test"
+    model.save(path)
+    
+    print(os.listdir(path))
+    
+    # Reload model
+    model1 = ScoreModel(path=path, model_checkpoint=1)
     assert model1.loaded_checkpoint == 1, f"Expected checkpoint 1, got {model1.loaded_checkpoint}"
+    
+    # Save some additional models with fit
+    model.fit(
+        Dataset(size, C, []),
+        path=path,
+        epochs=10,
+        checkpoint_every=1,
+        models_to_keep=12,
+        )
 
-    model2 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=4)
+    model2 = ScoreModel(path=path, checkpoint=4)
     assert model2.loaded_checkpoint == 4, f"Expected checkpoint 4, got {model2.loaded_checkpoint}"
 
-    model3 = ScoreModel(checkpoints_directory=checkpoints_directory)
-    # Additional assertion based on the expected behavior when model_checkpoint is not provided
+    model3 = ScoreModel(path=path)
     expected_checkpoint = 11  # Based on previous test, training 10 epochs and saving each one, we should have 11 checkpoints (also saving the last one)
     assert model3.loaded_checkpoint == expected_checkpoint, f"Expected checkpoint {expected_checkpoint}, got {model3.loaded_checkpoint}"
 
 
-def test_training_load_checkpoint():
-    C = 10
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [])
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model = ScoreModel(checkpoints_directory=checkpoints_directory)
-    losses = model.fit(
-        dataset, 
-        checkpoints_directory=checkpoints_directory, 
-        epochs=10,
-        batch_size=1
-        )
-    # Finally remove the checkpoint directory to keep the logic of the test above sound
-    shutil.rmtree(checkpoints_directory)
-
-    
 def test_training_score_ncsnpp():
     C = 1
     D = 140
@@ -230,7 +261,6 @@ def test_training_score_ncsnpp():
     epochs = 2
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
-    checkpoints_directory = None
     seed = 42
 
     # Fit the model to the dataset
@@ -243,7 +273,6 @@ def test_training_score_ncsnpp():
         epochs=epochs, 
         warmup=warmup, 
         clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
         seed=seed
         )
     print(losses)
@@ -280,7 +309,6 @@ def test_training_energy():
     epochs = 10
     warmup = 0 # learning rate warmup
     clip = 0. # gradient clipping
-    checkpoints_directory = None
     seed = 42
 
     # Fit the model to the dataset
@@ -293,9 +321,6 @@ def test_training_energy():
         epochs=epochs, 
         warmup=warmup, 
         clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
         seed=seed
         )
     print(losses)
-
-

@@ -1,10 +1,11 @@
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 
 from torch.nn import Module
 from torch.func import vjp
 
 from ..sde import SDE
 from .score_model import ScoreModel
+from ..utils import DEVICE
 
 __all__ = ["SLIC"]
 
@@ -12,12 +13,14 @@ class SLIC(ScoreModel):
     def __init__(
             self, 
             forward_model: Callable, # TODO inspect signature and check for differentiability
-            net: Union[str, Module] = None, 
-            sde: SDE=None, 
-            path=None,
+            net: Optional[Union[str, Module]] = None, 
+            sde: Optional[SDE]=None, 
+            path: Optional[str] = None,
+            checkpoint: Optional[int] = None,
+            device=DEVICE,
             **hyperparameters
             ):
-        super().__init__(net, sde=sde, path=path, **hyperparameters)
+        super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         self.forward_model = forward_model
         
     def slic_score(self, t, x, y):

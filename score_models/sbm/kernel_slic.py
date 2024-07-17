@@ -8,6 +8,7 @@ from .slic import SLIC
 from ..sde import SDE
 from ..utils import DEVICE
 
+# TODO finish this class with Echoes in the Noise work
 class KernelSLIC(SLIC):
     def __init__(
             self, 

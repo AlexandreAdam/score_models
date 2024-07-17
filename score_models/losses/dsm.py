@@ -18,7 +18,7 @@ def denoising_score_matching_loss(model: Union["ScoreModel", "EnergyModel"], sam
     xt = mu * samples + sigma * z                                                  # xt ~ p(xt | x0)
     
     # Compute the loss
-    epsilon_theta = score_model.reparametrized_forward(t, xt, *args) # Numerically stable reparametrization for DSM loss
+    epsilon_theta = model.reparametrized_score(t, xt, *args) # Numerically stable reparametrization for DSM loss
     return torch.sum((epsilon_theta + z)**2) / (2 * B)
 
 # def denoising_score_matching_second_order_loss(

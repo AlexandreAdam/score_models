@@ -27,7 +27,7 @@ class ScoreModel(Base):
             device=DEVICE,
             **hyperparameters
             ):
-        super().__init__(net, sde, path, device, **hyperparameters)
+        super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         if hessian_trace_model is not None:
             self.hessian_trace_model = hessian_trace_model
         else:

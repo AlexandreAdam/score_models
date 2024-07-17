@@ -22,7 +22,7 @@ class EnergyModel(ScoreModel):
             device=DEVICE,
             **hyperparameters
             ):
-        super().__init__(net, sde, path, device, **hyperparameters)
+        super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         nn_is_energy = self.net.hyperparameters.get("nn_is_energy", False)
         self.nn_is_energy = nn_is_energy
         if nn_is_energy:
