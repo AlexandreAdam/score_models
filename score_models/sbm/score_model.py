@@ -7,7 +7,7 @@ import torch
 
 from .base import Base
 from ..sde import SDE
-from ..losses import denoising_score_matching_loss
+from ..losses import dsm
 from ..ode import probability_flow_ode, divergence_with_hutchinson_trick
 from ..sde import euler_maruyama_method
 from ..utils import DEVICE
@@ -34,7 +34,7 @@ class ScoreModel(Base):
             self.hessian_trace_model = self.divergence
     
     def loss(self, x, *args) -> Tensor:
-        return denoising_score_matching_loss(self, x, *args)
+        return dsm(self, x, *args)
 
     def forward(self, t, x, *args):
         """

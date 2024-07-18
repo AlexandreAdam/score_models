@@ -1,6 +1,7 @@
-from score_models import MLP, NCSNpp, ScoreModel, EnergyModel, SLIC
+from score_models import MLP, NCSNpp, ScoreModel, EnergyModel, SLIC, HessianDiagonal
 import torch
 import pytest
+import numpy as np
 import os
 
 @pytest.mark.parametrize("net", [MLP(10), NCSNpp(10, ch_mult=[2, 2])])
@@ -69,3 +70,28 @@ def test_load(net, sde, Model, tmp_path):
         x = torch.randn(B, C, *[32]*D)
     t = torch.randn(B)
     assert torch.allclose(model(t, x), new_model(t, x))
+
+
+def test_save_load_hessian_diagonal(tmp_path):
+    path = os.path.join(tmp_path, "test")
+    net = MLP(10)
+    hessian_net = MLP(10)
+    score_model = ScoreModel(net, sde="vp")
+    model = HessianDiagonal(score_model, hessian_net)
+    
+    for i in range(3):
+        model.save(path)
+    
+    # Check that we can reload the whole setup just from path
+    new_model = HessianDiagonal(path=path)
+    
+    # Check that the architecture is reloaded correctly
+    B = 10
+    D = 10
+    x = torch.randn(B, D)
+    t = torch.randn(B)
+    with torch.no_grad():
+        assert torch.allclose(model(t, x), new_model(t, x))
+    # Check that sbm is loaded correctly for the loss function
+    with torch.no_grad():
+        assert torch.allclose(model.score_model(t, x), new_model.score_model(t, x))

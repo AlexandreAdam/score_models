@@ -6,7 +6,6 @@ from torch.nn import Module
 import torch
 
 from .score_model import ScoreModel
-from ..losses import denoising_score_matching_loss
 from ..utils import DEVICE
 from ..sde import SDE
 
@@ -56,12 +55,6 @@ class EnergyModel(ScoreModel):
         Overwrite the forward method to return the energy function instead of the model output.
         """
         return self.energy(t, x, *args)
-    
-    def loss(self, x, *args):
-        """
-        Train the energy model via score matching using the reparemetrized score function.
-        """
-        return denoising_score_matching_loss(self, x, *args)
     
     def _unet_energy(self, t, x, *args):
         _, *D = x.shape
