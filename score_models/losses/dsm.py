@@ -2,7 +2,7 @@ from typing import Union
 from torch import Tensor
 import torch
 
-__all__ = ["dsm", "denoising_score_matching", "second_order_noisy_dsm", "second_order_dsm"]
+__all__ = ["dsm", "denoising_score_matching", "second_order_dsm", "second_order_dsm_meng_variation"]
 
 
 def dsm(model: Union["ScoreModel", "EnergyModel"], samples: Tensor, *args: list[Tensor]):
@@ -22,12 +22,13 @@ def dsm(model: Union["ScoreModel", "EnergyModel"], samples: Tensor, *args: list[
     epsilon_theta = model.reparametrized_score(t, xt, *args)                       # epsilon_theta(t, x) = sigma(t) * s(t, x)
     return ((epsilon_theta + z)**2).sum() / (2 * B)
 
+
 def denoising_score_matching(model: "ScoreModel", samples: Tensor, *args: list[Tensor]):
     # Used for backward compatibility
     return dsm(model, samples, *args)
 
 
-def second_order_noisy_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
+def second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
     """
     Loss used to train a model to approximate the diagonal of the Hessians of log p(x).
     This loss is derived in the works of Meng et al. (2020), arxiv.org/pdf/2111.04726
@@ -59,7 +60,7 @@ def second_order_noisy_dsm(model: "HessianDiagonal", samples: Tensor, *args: lis
     diag_theta = model.reparametrized_diagonal(t, xt, *args)                       # diag_theta(t, x) = sigma(t)**2 * diag(s_2(t, x)) + 1
     return ((diag_theta - ell_1**2)**2).sum() / (2 * B)
 
-def second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
+def second_order_dsm_meng_variation(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
     """
     Loss used to train a model to approximate the diagonal of the Hessians of log p(x).
     This loss is derived in the works of Meng et al. (2020), arxiv.org/pdf/2111.04726

@@ -8,7 +8,7 @@ from .base import Base
 from .score_model import ScoreModel
 from ..sde import SDE
 from ..utils import DEVICE
-from ..losses import second_order_dsm
+from ..losses import second_order_dsm, second_order_dsm_meng_variation
 
 __all__ = ["HessianDiagonal"]
 
@@ -21,34 +21,39 @@ class HessianDiagonal(Base):
             path: Optional[str] = None,
             checkpoint: Optional[int] = None,
             device: torch.device = DEVICE,
+            loss: Literal["canonical", "meng"] = "canonical",
             **hyperparameters
             ):
         if isinstance(score_model, ScoreModel):
             sde = score_model.sde
-            print(sde, "HessianDiagonal")
         super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         # Check if SBM has been loaded, otherwise use the user provided SBM
         if not hasattr(self, "score_model"):
             if not isinstance(score_model, ScoreModel):
                 raise ValueError("Must provide a ScoreModel instance to instantiate the HessianDiagonal model.")
             self.score_model = score_model
+        if loss == "canonical":
+            self._loss = second_order_dsm
+        elif loss == "meng":
+            self._loss = second_order_dsm_meng_variation
+        else:
+            raise ValueError(f"Loss function {loss} is not recognized. Choose 'canonical' or 'meng'.")
+        
+        # Make sure ScoreModel weights are frozen (this class does not allow joint optimization for now)
+        for p in self.score_model.net.parameters():
+            p.requires_grad = False
+        print("Score model weights are now frozen. This class does not currently support joint optimization.")
    
     def forward(self, t: Tensor, x: Tensor, *args):
         return self.diagonal(t, x, *args)
     
     def loss(self, x: Tensor, *args):
-        return second_order_dsm(self, x, *args)
+        return self._loss(self, x, *args)
     
     def reparametrized_diagonal(self, t: Tensor, x: Tensor, *args):
-        """
-        
-        """
         return self.net(t, x, *args)
     
     def diagonal(self, t: Tensor, x: Tensor, *args):
-        """
-        
-        """
         B, *D = x.shape
         sigma_t = self.sde.sigma(t).view(B, *[1]*len(D))
         return (self.net(t, x, *args) - 1) / sigma_t**2
