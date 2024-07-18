@@ -2,6 +2,8 @@ from score_models.sde import VESDE, VPSDE, TSVESDE
 import numpy as np
 import torch
 
+# TODO: make better tests checking for the expected marginals of the trajectories backward and forward
+
 def get_trajectories(sde, B=10, N=100, x0=5, T=1):
     dt = T/N
     t = torch.zeros(B) + sde.epsilon

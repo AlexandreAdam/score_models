@@ -66,4 +66,4 @@ class SDE(ABC):
         return self.perturbation_kernel(t, x0)
 
     def marginal_prob_scalars(self, t) -> Tuple[Tensor, Tensor]:
-        return self.pertubation_scalars(t)
+        return self.perturbation_scalars(t)
