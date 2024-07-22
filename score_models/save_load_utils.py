@@ -4,7 +4,9 @@ import torch
 import os, glob, re, json
 import numpy as np
 import warnings
+import copy
 from torch.nn import Module
+from peft import PeftModel
 
 from .utils import DEVICE
 
@@ -22,7 +24,7 @@ def maybe_raise_error(message: str, throw_error: bool = True, error_type=FileNot
 
 def last_checkpoint(path: str) -> int:
     if os.path.isdir(path):
-        paths = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")), key=checkpoint_number)
+        paths = sorted(glob.glob(os.path.join(path, "*checkpoint*")), key=checkpoint_number)
         if len(paths) > 0:
             return checkpoint_number(paths[-1])
         else:
@@ -35,7 +37,12 @@ def next_checkpoint(path: str) -> int:
     return last_checkpoint(path) + 1
 
 
-def save_checkpoint(model: Module, path: str, create_path: bool = True, key: Literal["checkpoint", "optimizer"] = "checkpoint"):
+def save_checkpoint(
+        model: Module, 
+        path: str, 
+        create_path: bool = True, 
+        key: Literal["checkpoint", "optimizer", "lora_checkpoint"] = "checkpoint"
+        ):
     """
     Utility function to save checkpoints of a model and its optimizer state. 
     This utility will save files in path with the following pattern
@@ -62,7 +69,10 @@ def save_checkpoint(model: Module, path: str, create_path: bool = True, key: Lit
             raise FileNotFoundError(f"Directory {os.path.dirname(path)} does not exist")
 
     checkpoint = next_checkpoint(path)
-    torch.save(model.state_dict(), os.path.join(path, f"{key}_{checkpoint:03d}.pt"))
+    if key == "lora_checkpoint":
+        model.save_pretrained(os.path.join(path, f"{key}_{checkpoint:03d}"))
+    else:
+        torch.save(model.state_dict(), os.path.join(path, f"{key}_{checkpoint:03d}.pt"))
     print(f"Saved {key} {checkpoint} to {path}")
  
 
@@ -75,6 +85,19 @@ def save_hyperparameters(hyperparameters: dict, path: str):
         with open(file, "w") as f:
             json.dump(hyperparameters, f, indent=4)
         print(f"Saved hyperparameters to {path}")
+
+
+def load_hyperparameters(path: str) -> dict:
+    """
+    Utility function to load the hyperparameters of a model from a standard file.
+    """
+    file = os.path.join(path, "model_hparams.json")
+    if os.path.isfile(file):
+        with open(file, "r") as f:
+            hparams = json.load(f)
+        return hparams
+    else:
+        raise FileNotFoundError(f"Could not find hyperparameters in {path}.")
 
 
 def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
@@ -114,6 +137,10 @@ def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_erro
         if raise_error:
             print(e)
         maybe_raise_error(f"Could not load state of optimizer from {path}.", raise_error, error_type=KeyError)
+
+
+def load_lora_state(lora_sbm: "LoRAScoreModel", path: str):
+    lora_sbm.lora_net = PeftModel.from_pretrained(copy.deepcopy(lora_sbm.net), path, is_trainable=True)
         
 
 def load_checkpoint(
@@ -121,7 +148,7 @@ def load_checkpoint(
         path: str,
         checkpoint: Optional[int] = None,
         raise_error: bool = True,
-        key: Literal["checkpoint", "optimizer"] = "checkpoint",
+        key: Literal["checkpoint", "optimizer", "lora_checkpoint"] = "checkpoint"
         ):
     """
     Utility function to load the checkpoint of a model and its optimizer state. 
@@ -148,13 +175,20 @@ def load_checkpoint(
             return
     name = os.path.split(path)[-1]
     # Collect all checkpoint paths sorted by the checkpoint number (*_001.pt, *_002.pt, ...)
-    paths = sorted(glob.glob(os.path.join(path, f"{key}*.pt")), key=checkpoint_number)
+    paths = sorted(glob.glob(os.path.join(path, f"{key}*")), key=checkpoint_number)
     checkpoints = [checkpoint_number(os.path.split(path)[-1]) for path in paths]
     if checkpoint and checkpoint not in checkpoints:
         # Make sure the requested checkpoint exists
         maybe_raise_error(f"{key} {checkpoint} not found in directory {path}.", raise_error)
         checkpoint = None # Overwrite to load the last checkpoint
-    loading_mecanism = load_sbm_state if key == "checkpoint" else load_optimizer_state
+    
+    if key == "checkpoint":
+        loading_mecanism = load_sbm_state
+    elif key == "optimizer":
+        loading_mecanism = load_optimizer_state
+    elif key == "lora_checkpoint":
+        loading_mecanism = load_lora_state
+    
     if checkpoints:
         if checkpoint:
             # Load requested checkpoint
@@ -191,12 +225,7 @@ def load_architecture(
         if not os.path.isdir(path):
             raise FileNotFoundError(f"Directory {path} does not exist. "
                                      "Please make sure to provide a valid path to the checkpoint directory.")
-        # Load hyperparameters from the checkpoint directory
-        if "model_hparams.json" not in os.listdir(path):
-            raise FileNotFoundError(f"Could not find model_hparams.json in {path}. " 
-                                    "Please make sure the directory contains this file to reload an architecture from a path.")
-        with open(os.path.join(path, "model_hparams.json"), "r") as f:
-            hparams = json.load(f)
+        hparams = load_hyperparameters(path)
         hyperparameters.update(hparams)
         net = hyperparameters.get("model_architecture", "ncsnpp")
     

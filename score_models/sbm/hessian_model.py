@@ -1,7 +1,7 @@
 from typing import Optional, Literal
 
-import torch
 from torch import Tensor
+import torch
 import os
 
 from .base import Base
@@ -71,7 +71,7 @@ class HessianDiagonal(Base):
         """
         We use the super method to save checkpoints of the hessian diagonal net
         We need to save a copy of the score model net and hyperparameters 
-        in order to reload it correctly. We have this special logic for that
+        in order to reload it correctly. This method create special routines for that.
         """
         super().save(path, optimizer, create_path) # Save Hessian net
         # Create a sub directory for the SBM 
@@ -90,6 +90,10 @@ class HessianDiagonal(Base):
             optimizer: Optional[torch.optim.Optimizer] = None,
             raise_error: bool = True
             ):
+        """
+        Super method reloads the HessianDiagonal net.
+        Then we load the score model from the sub directory.
+        """
         super().load(checkpoint, optimizer, raise_error)
         sbm_path = os.path.join(self.path, "score_model")
         self.score_model = ScoreModel(path=sbm_path)

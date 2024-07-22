@@ -127,8 +127,6 @@ class Base(Module, ABC):
 
         Args:
             checkpoint (int): The checkpoint number to load. If not provided, load the lastest checkpoint found.
-            path (str, optional): The path to the checkpoint. Default is path provided during initialization. 
-                If no path was provided during initialization, load_checkpoint will raise an error.
             optimizer (torch.optim.Optimizer, optional): The optimizer to load. Default is None.
             raise_error (bool, optional): Whether to raise an error if checkpoint is not found. Default is True.
         """
