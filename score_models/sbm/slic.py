@@ -2,7 +2,7 @@ from typing import Callable, Union, Optional
 
 from torch.nn import Module
 from torch.func import vjp
-from inspect import signature, Parameter, getargspec
+from inspect import signature, Parameter
 
 from ..sde import SDE
 from .score_model import ScoreModel
@@ -100,8 +100,9 @@ class SLIC(ScoreModel):
     
     @staticmethod
     def _valid_forward_model_signature(f: Callable):
-        args = list(signature(f).parameters.values())
-        arg_names = getargspec(f).args
+        sig = signature(f)
+        args = list(sig.parameters.values())
+        arg_names = sig.args
         if len(args) < 2:
             return False
         else:
