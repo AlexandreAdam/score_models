@@ -7,8 +7,8 @@ def test_discrete_timelike_conditional():
     net = NCSNpp(
             nf=nf, 
             ch_mult=(1, 1), 
-            condition=["discrete_timelike"],
-            condition_num_embedding=[10],
+            conditions=("discrete",),
+            condition_embeddings=(10,),
             )
    
     B = 10
@@ -25,7 +25,7 @@ def test_continuous_timelike_conditional():
     net = NCSNpp(
             nf=nf, 
             ch_mult=(1, 1), 
-            condition=["continuous_timelike"]
+            conditions=("continuous",)
             )
    
     B = 10
@@ -43,8 +43,8 @@ def test_continuous_input_conditional():
     net = NCSNpp(
             nf=nf, 
             ch_mult=(1, 1), 
-            condition=["input"],
-            condition_input_channels=3
+            conditions=("tensor",),
+            condition_channels=(3,)
             )
    
     B = 10
@@ -61,8 +61,8 @@ def test_vector_condition():
     net = NCSNpp(
             nf=nf, 
             ch_mult=(1, 1), 
-            condition=["vector"],
-            condition_vector_channels=3
+            conditions=("vector",),
+            condition_channels=(3,)
             )
    
     B = 10
@@ -80,9 +80,9 @@ def test_mix_condition_type():
     net = NCSNpp(
             nf=nf, 
             ch_mult=(1, 1), 
-            condition=["input", "discrete_timelike", "continuous_timelike", "continuous_timelike"],
-            condition_input_channels=3,
-            condition_num_embedding=(15,),
+            conditions=("tensor", "discrete", "continuous", "continuous"),
+            condition_channels=(3,),
+            condition_embeddings=(15,),
             )
    
     B = 10
@@ -103,27 +103,27 @@ def test_conditional_architecture_raising_errors():
         net = NCSNpp(
                 nf=nf, 
                 ch_mult=(1, 1), 
-                condition=["discrete_timelike"],
+                conditions=("discrete",),
                 )
 
     with pytest.raises(ValueError):
         net = NCSNpp(
                 nf=nf, 
                 ch_mult=(1, 1), 
-                condition=["discrete_timelike"],
-                condition_num_embedding=15
+                conditions=("discrete",),
+                condition_embeddings=15
                 )
 
     with pytest.raises(ValueError):
         net = NCSNpp(
                 nf=nf, 
                 ch_mult=(1, 1), 
-                condition=["input"],
+                conditions=("vector",),
                 )
 
     with pytest.raises(ValueError):
         net = NCSNpp(
                 nf=nf, 
                 ch_mult=(1, 1), 
-                condition="input",
+                conditions="tensor",
                 )

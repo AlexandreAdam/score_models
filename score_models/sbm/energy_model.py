@@ -29,13 +29,11 @@ class EnergyModel(ScoreModel):
         else:
             self._energy = self._unet_energy
 
-    def unnormalized_energy(self, t, x, *args):
-        return self._energy(t, x, *args)
-
-    def energy(self, t, x, *args):
-        sigma_t = self.sde.sigma(t)
-        energy = self.unnormalized_energy(t, x, *args)
-        return energy / sigma_t
+    def forward(self, t, x, *args):
+        """
+        Overwrite the forward method to return the energy function instead of the model output.
+        """
+        return self.energy(t, x, *args)
 
     def reparametrized_score(self, t, x, *args):
         """
@@ -50,12 +48,14 @@ class EnergyModel(ScoreModel):
             return self.unnormalized_energy(t, x, *args).squeeze(0)
         return - vmap(grad(energy, argnums=1))(t, x, *args) # Don't forget the minus sign!
 
-    def forward(self, t, x, *args):
-        """
-        Overwrite the forward method to return the energy function instead of the model output.
-        """
-        return self.energy(t, x, *args)
-    
+    def unnormalized_energy(self, t, x, *args):
+        return self._energy(t, x, *args)
+
+    def energy(self, t, x, *args):
+        sigma_t = self.sde.sigma(t)
+        energy = self.unnormalized_energy(t, x, *args)
+        return energy / sigma_t
+
     def _unet_energy(self, t, x, *args):
         _, *D = x.shape
         return 0.5 * torch.sum((x - self.net(t, x, *args)).flatten(1)**2, dim=1)

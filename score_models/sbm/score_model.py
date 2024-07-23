@@ -1,4 +1,5 @@
 from typing import Union, Optional, Callable
+from abc import abstractmethod
 
 from torch.func import grad
 from torch import vmap, Tensor
@@ -36,6 +37,12 @@ class ScoreModel(Base):
     def loss(self, x, *args) -> Tensor:
         return dsm(self, x, *args)
 
+    def reparametrized_score(self, t, x, *args) -> Tensor:
+        """
+        Numerically stable reparametrization of the score function for the DSM loss. 
+        """
+        return self.net(t, x, *args)
+
     def forward(self, t, x, *args):
         """
         Overwrite the forward method to return the score function instead of the model output.
@@ -44,12 +51,6 @@ class ScoreModel(Base):
         """
         return self.score(t, x, *args)
     
-    def reparametrized_score(self, t, x, *args) -> Tensor:
-        """
-        Numerically stable reparametrization of the score function for the DSM loss.
-        """
-        return self.net(t, x, *args)
-
     def score(self, t, x, *args) -> Tensor:
         _, *D = x.shape
         sigma_t = self.sde.sigma(t).view(-1, *[1]*len(D))
@@ -100,6 +101,7 @@ class ScoreModel(Base):
         log_p = self.sde.prior(x.shape).log_prob(xT) + delta_log_p
         return log_p
     
+    @torch.no_grad()
     def sample(
             self, 
             shape: tuple, # TODO grab dimensions from model hyperparams if available

@@ -68,6 +68,12 @@ def test_load(net, sde, Model, tmp_path):
         C = net.channels
         D = net.dimensions
         x = torch.randn(B, C, *[32]*D)
+
     t = torch.randn(B)
-    print(model(t, x) - new_model(t, x))
-    assert torch.allclose(model(t, x), new_model(t, x), atol=1e-3)
+    if Model == SLIC:
+        y = forward_model(t, x)
+        print(model(t, y, x) - new_model(t, y, x))
+        assert torch.allclose(model(t, y, x), new_model(t, y, x), atol=1e-3)
+    else:
+        print(model(t, x) - new_model(t, x))
+        assert torch.allclose(model(t, x), new_model(t, x), atol=1e-3)

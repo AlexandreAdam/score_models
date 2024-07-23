@@ -66,12 +66,11 @@ class HessianDiagonal(Base):
             path: Optional[str] = None, 
             optimizer: Optional[torch.optim.Optimizer] = None,
             create_path: bool = True,
-            update_sbm_checkpoint: bool = False
             ):
         """
-        We use the super method to save checkpoints of the hessian diagonal net
+        We use the super method to save checkpoints of the hessian diagonal network.
         We need to save a copy of the score model net and hyperparameters 
-        in order to reload it correctly. This method create special routines for that.
+        in order to reload it correctly. This method add special routines for that.
         """
         super().save(path, optimizer, create_path) # Save Hessian net
         # Create a sub directory for the SBM 
@@ -79,10 +78,6 @@ class HessianDiagonal(Base):
         sbm_path = os.path.join(path, "score_model")
         if not os.path.exists(sbm_path):
             self.score_model.save(sbm_path, create_path=True)
-        elif update_sbm_checkpoint:
-            raise NotImplementedError("Updating the SBM checkpoint is not supported yet.")
-            # In case the SBM is optimized jointly... But right now we don't support that
-            # self.score_model.save(sbm_path, create_path=False)
     
     def load(
             self, 
@@ -92,7 +87,7 @@ class HessianDiagonal(Base):
             ):
         """
         Super method reloads the HessianDiagonal net.
-        Then we load the score model from the sub directory.
+        Then we load the base score model from the score_model sub-directory.
         """
         super().load(checkpoint, optimizer, raise_error)
         sbm_path = os.path.join(self.path, "score_model")

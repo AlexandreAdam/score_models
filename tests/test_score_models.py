@@ -116,21 +116,22 @@ def test_sample_fn():
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
 def test_slic_score():
-    def forward_model(x):
-        return torch.sum(x, dim=1, keepdim=True) # Function R^C to R
-    C = 100
-    x = torch.randn(3, C)
-    t = torch.rand(3)
-    net = MLP(dimensions=1) # Define SLIC in output space of forward model
-    score = SLIC(forward_model, net, beta_min=1e-2, beta_max=10)
-    y = forward_model(x)
-    print(score.sde)
-    x = torch.randn(3, C)
-    t = torch.rand(3)
-    s = score.slic_score(t, x, y)
+    B = 3
+    m = 10
+    D = 100
+    def forward_model(t, x):
+        return x[:, :m] # Function R^C to R^m
+    x = torch.randn(B, D)
+    t = torch.rand(B)
+    net = MLP(m) # Define SLIC in output space of forward model (m)
+    model = SLIC(forward_model, net, beta_min=1e-2, beta_max=10)
+    y = forward_model(None, x)
+    x = torch.randn(B, D)
+    t = torch.rand(B)
+    s = model(t, y=y, x=x)
     print(s)
     print(s.shape)
-    assert s.shape == torch.Size([3, C])
+    assert s.shape == torch.Size([B, D])
     
 
 def test_loading_different_sdes():
