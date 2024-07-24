@@ -108,7 +108,8 @@ class ScoreModel(Base):
             steps: int, 
             *args,
             likelihood_score: Optional[Callable] = None,
-            guidance_factor: float = 1.
+            guidance_factor: float = 1.,
+            stopping_factor=np.inf
             ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
@@ -121,5 +122,6 @@ class ScoreModel(Base):
                 dimensions=D, 
                 steps=steps, 
                 sde=self.sde, 
-                score=score
+                score=score,
+                stopping_factor=stopping_factor
                 )
