@@ -20,6 +20,7 @@ def euler_maruyama_method(
         epsilon: Optional[float] = None ,
         guidance_factor: float = 1., 
         stopping_factor: float = 1e2,
+        denoise_last_step: bool = True,
         device = DEVICE
         ) -> Tensor:
         """
@@ -31,7 +32,6 @@ def euler_maruyama_method(
             steps: Number of Euler-Maruyam steps to perform
             score: Score function of the reverse-time SDE
             likelihood_score_fn: Add an additional drift to the sampling for posterior sampling. Must have the signature f(t, x)
-            guidance_factor: Multiplicative factor for the likelihood drift
             stopping_factor: When magnitude of the score is larger than stopping_factor * sqrt(D), stop the sampling
         """
         B = batch_size
@@ -64,4 +64,4 @@ def euler_maruyama_method(
             # Check if t is too small
             if t[0] < epsilon: 
                 break
-        return x
+        return t, x

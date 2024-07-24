@@ -102,6 +102,15 @@ class ScoreModel(Base):
         log_p = self.sde.prior(x.shape).log_prob(xT) + delta_log_p
         return log_p
     
+    def tweedie(self, t: Tensor, x: Tensor, *args) -> Tensor:
+        """
+        Compute the Tweedie formula for the expectation E[x0 | xt] 
+        """
+        B, *D = x.shape
+        mu = self.sde.mu(t).view(-1, *[1]*len(D))
+        sigma = self.sde.sigma(t).view(-1, *[1]*len(D))
+        return (x + sigma**2 * self.score(t, x, *args)) / mu
+    
     @torch.no_grad()
     def sample(
             self, 
@@ -110,7 +119,8 @@ class ScoreModel(Base):
             *args,
             likelihood_score: Optional[Callable] = None,
             guidance_factor: float = 1.,
-            stopping_factor=np.inf
+            stopping_factor: float = np.inf,
+            denoise_last_step: bool = True
             ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
@@ -118,7 +128,7 @@ class ScoreModel(Base):
         batch_size, *D = shape
         likelihood_score = likelihood_score or (lambda t, x: torch.zeros_like(x))
         score = lambda t, x: self.score(t, x, *args) + guidance_factor * likelihood_score(t, x)
-        return euler_maruyama_method(
+        t, x = euler_maruyama_method(
                 batch_size=batch_size, 
                 dimensions=D, 
                 steps=steps, 
@@ -126,3 +136,6 @@ class ScoreModel(Base):
                 score=score,
                 stopping_factor=stopping_factor
                 )
+        if denoise_last_step:
+            x = self.tweedie(t, x, *args)
+        return x
