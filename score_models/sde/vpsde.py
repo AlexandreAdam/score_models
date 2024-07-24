@@ -66,7 +66,7 @@ class VPSDE(SDE):
                 """
                 See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
                 """
-                return 0.5 * (beta_max - beta_min) * t**2 + beta_min * t
+                return 0.25 * (beta_max - beta_min) * t**2 + 0.5 * beta_min * t
             
         else:
             raise ValueError(f"Unknown noise schedule {schedule}")
