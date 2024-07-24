@@ -66,7 +66,7 @@ class VPSDE(SDE):
                 """
                 See equation (33) in Song et al 2020. (https://arxiv.org/abs/2011.13456)
                 """
-                return 0.25 * (beta_max - beta_min) * t**2 + 0.5 * beta_min * t
+                return 0.5 * (beta_max - beta_min) * t**2 + beta_min * t
             
         else:
             raise ValueError(f"Unknown noise schedule {schedule}")
@@ -79,7 +79,7 @@ class VPSDE(SDE):
         return vmap(grad(self.beta_primitive))(t)
 
     def mu(self, t: Tensor) -> Tensor:
-        return torch.exp( - self.beta_primitive(t))
+        return torch.exp( - 0.5 * self.beta_primitive(t))
 
     def sigma(self, t: Tensor) -> Tensor:
         return (1 - self.mu(t)**2).sqrt()
@@ -96,4 +96,4 @@ class VPSDE(SDE):
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
         beta = self.beta(t).view(-1, *[1]*len(D))
-        return - beta * x
+        return - 0.5 * beta * x
