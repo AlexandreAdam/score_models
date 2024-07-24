@@ -4,6 +4,7 @@ from abc import abstractmethod
 from torch.func import grad
 from torch import vmap, Tensor
 from torch.nn import Module
+import numpy as np
 import torch
 
 from .base import Base
