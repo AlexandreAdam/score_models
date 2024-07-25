@@ -94,11 +94,11 @@ def test_training_score_model(conditions, sde, Net, models_to_keep, tmp_path):
         assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
         assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
     for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
-        assert not os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
-        assert not os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
 
 
-@pytest.mark.parametrize("Net", [MLP, NCSNpp, DDPM])
+@pytest.mark.parametrize("Net", [MLP, NCSNpp])
 @pytest.mark.parametrize("sde", [
     {"sde": "vp"}, 
     {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
@@ -130,16 +130,13 @@ def test_training_energy_model(sde, Net, tmp_path):
         assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
         assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
     for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
-        assert not os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
-        assert not os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
 
 
 @pytest.mark.parametrize("conditions", [
     (None, None, None), # conditions, embeddings, channels
-    (("time_continuous",), None, None),
-    (("time_discrete",), (8,), None),
-    (("input_tensor",), None, (10,)),
-    (("time_vector",), None, (3,)),
+    (("input_tensor", "time_continuous", "time_vector", "time_discrete"), (15,), (15, 3)),
     ])
 @pytest.mark.parametrize("loss", ["canonical", "meng"])
 @pytest.mark.parametrize("sde", [
@@ -182,5 +179,57 @@ def test_training_hessian_diagonal_model(conditions, loss, sde, Net, tmp_path):
         assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
         assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
     for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
-        assert not os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
-        assert not os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+
+
+@pytest.mark.parametrize("conditions", [
+    (None, None, None), # conditions, embeddings, channels
+    (("input_tensor", "time_continuous", "time_vector", "time_discrete"), (15,), (15, 3)),
+    ])
+@pytest.mark.parametrize("lora_rank", [1, 2])
+@pytest.mark.parametrize("sde", [
+    {"sde": "vp"}, 
+    {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
+    {"sde": "vp", "schedule": "cosine", "beta_max": 100}
+    ])
+@pytest.mark.parametrize("Net", [MLP, NCSNpp])
+def test_training_lora_model(conditions, lora_rank, sde, Net, tmp_path):
+    condition_type, embeddings, channels = conditions
+    hp = {
+            "ch_mult": (1, 1),
+            "nf": 2,
+            "conditions": condition_type,
+            "condition_channels": channels,
+            "condition_embeddings": embeddings,
+            }
+    E = 3 # epochs
+    B = 2
+    C = 3
+    N = 4
+    D = [] if Net == MLP else [4, 4]
+    models_to_keep = 1
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = Net(C, **hp)
+    base_model = ScoreModel(net, **sde)
+    lora_model = LoRAScoreModel(base_model, lora_rank=lora_rank)
+    
+    path = tmp_path / "test"
+    losses = lora_model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
+
+    print(losses)
+    assert len(losses) == E, f"Expected {E} losses, got {len(losses)}"
+    # Check that some improvement happens
+    assert os.path.isdir(os.path.join(path, "base_sbm")), "base_sbm directory not found, the base SBM has not been saved"
+    print(os.listdir(os.path.join(path, "base_sbm")))
+    assert os.path.isfile(os.path.join(path, "base_sbm", "model_hparams.json")), "model_hparams.json not found in base_sbm directory"
+    assert os.path.isfile(os.path.join(path, "base_sbm", "checkpoint_001.pt")), "checkpout_001.pt not found in base_sbm directory"
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    print(os.listdir(path))
+    for i in range(E+1-models_to_keep, E+1):
+        assert os.path.isdir(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"

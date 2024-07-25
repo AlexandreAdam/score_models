@@ -5,6 +5,7 @@ import os, glob, re, json
 import numpy as np
 import warnings
 import copy
+import shutil
 from torch.nn import Module
 from peft import PeftModel
 
@@ -105,13 +106,21 @@ def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
     Utility function to clean up old checkpoints in a directory.
     This utility will delete the oldest checkpoints and their optimizer states.
     """
-    # Clean up oldest models
     if models_to_keep:
-        paths = sorted(glob.glob(os.path.join(path, "checkpoint*")), key=checkpoint_number)
+        paths = sorted(glob.glob(os.path.join(path, "*checkpoint*")), key=checkpoint_number)
+        checkpoints = [checkpoint_number(os.path.split(path)[-1]) for path in paths]
         if len(paths) > models_to_keep:
-            os.remove(paths[0])
-            os.remove(paths[0].replace("checkpoint", "optimizer")) # remove associated optimizer
-
+            # Clean up oldest models
+            path_to_remove = paths[0]
+            if os.path.isfile(path_to_remove):
+                os.remove(path_to_remove)
+            # Handle case (e.g. LoRA) where checkpoint is a directory
+            elif os.path.isdir(path_to_remove):
+                shutil.rmtree(path_to_remove)
+            # remove associated optimizer
+            opt_path = os.path.join(path, "optimizer_{:03d}.pt".format(checkpoints[0]))
+            if os.path.exists(opt_path):
+                os.remove(opt_path)
 
 def load_sbm_state(sbm: "Base", path: str):
     """
