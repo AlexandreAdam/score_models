@@ -17,6 +17,10 @@ class SDE(ABC):
         super().__init__()
         self.T = T
         self.epsilon = epsilon
+        self.hyperparameters = {
+            "T": T,
+            "epsilon": epsilon
+        }
 
     @abstractmethod
     def mu(self, t) -> Tensor:

@@ -62,7 +62,7 @@ def test_load(net, sde, Model, tmp_path):
         new_model = Model(path=path)
     B = 10
     if isinstance(net, MLP):
-        D = net.hyperparameters["dimensions"]
+        D = net.hyperparameters["channels"]
         x = torch.randn(B, D)
     else:
         C = net.channels

@@ -37,7 +37,7 @@ class ResnetBlockBigGANpp(nn.Module):
         self.in_ch = in_ch
         self.out_ch = out_ch
 
-        self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
+        self.GroupNorm_0 = nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1), num_channels=in_ch, eps=1e-6)
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
         if temb_dim is not None:
             self.Dense_0 = nn.Linear(temb_dim, out_ch)
@@ -45,7 +45,7 @@ class ResnetBlockBigGANpp(nn.Module):
                 self.Dense_0.weight.data = default_init()(self.Dense_0.weight.shape)
                 nn.init.zeros_(self.Dense_0.bias)
 
-        self.GroupNorm_1 = nn.GroupNorm(num_groups=min(out_ch // 4, 32), num_channels=out_ch, eps=1e-6)
+        self.GroupNorm_1 = nn.GroupNorm(num_groups=max(min(out_ch // 4, 32), 1), num_channels=out_ch, eps=1e-6)
         self.Dropout_0 = nn.Dropout(dropout)
         # suppress skip connection at initialization
         self.Conv_1 = conv3x3(out_ch, out_ch, init_scale=init_scale, dimensions=dimensions)

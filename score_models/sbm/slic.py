@@ -102,7 +102,7 @@ class SLIC(ScoreModel):
     def _valid_forward_model_signature(f: Callable):
         sig = signature(f)
         args = list(sig.parameters.values())
-        arg_names = sig.args
+        arg_names = list(sig.parameters.keys())
         if len(args) < 2:
             return False
         else:

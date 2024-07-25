@@ -107,11 +107,10 @@ def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
     """
     # Clean up oldest models
     if models_to_keep:
-        paths = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")), key=checkpoint_number)
+        paths = sorted(glob.glob(os.path.join(path, "checkpoint*")), key=checkpoint_number)
         if len(paths) > models_to_keep:
             os.remove(paths[0])
-            if optimizer:
-                os.remove(paths[0].replace("checkpoint", "optimizer"))
+            os.remove(paths[0].replace("checkpoint", "optimizer")) # remove associated optimizer
 
 
 def load_sbm_state(sbm: "Base", path: str):

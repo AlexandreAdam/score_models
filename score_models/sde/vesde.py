@@ -27,6 +27,10 @@ class VESDE(SDE):
         super().__init__(T, epsilon)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
+        self.hyperparameters.update({
+            "sigma_min": sigma_min,
+            "sigma_max": sigma_max
+            })
 
     def mu(self, t: Tensor) -> Tensor:
         return torch.ones_like(t)

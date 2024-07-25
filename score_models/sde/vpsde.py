@@ -42,6 +42,11 @@ class VPSDE(SDE):
         super().__init__(T, epsilon)
         self.beta_min = beta_min
         self.beta_max = beta_max
+        self.hyperparameters.update({
+            "beta_min": beta_min,
+            "beta_max": beta_max,
+            "schedule": schedule
+        })
         
         if schedule == "cosine":
             def beta_primitive(t: Tensor, beta_max, *args) -> Tensor:

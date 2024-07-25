@@ -13,7 +13,7 @@ from score_models.layers import (
         )
 from score_models.utils import get_activation
 from score_models.definitions import default_init
-from .conditional_branch import validate_conditional_arguments
+from .conditional_branch import validate_conditional_arguments, conditional_branch
 import torch.nn as nn
 import functools
 import torch
@@ -65,7 +65,7 @@ class NCSNpp(nn.Module):
             resblock_type: Literal["biggan", "ddpm"] = "biggan",
             combine_method: Literal["concat", "sum"] = "sum",
             attention: bool = True,
-            conditions : Optional[tuple[Literal["discrete", "continuous", "vector", "tensor"]]] = None,
+            conditions : Optional[tuple[Literal["time_discrete", "time_continuous", "time_vector", "input_tensor"]]] = None,
             condition_embeddings:  Optional[tuple[int]] = None,
             condition_channels: Optional[int] = None,
             # fourier_features=False,
@@ -117,49 +117,39 @@ class NCSNpp(nn.Module):
             "dimensions": dimensions,
             "conditions": conditions,
             "condition_embeddings": condition_embeddings,
-            "condition_channels": condition_channels
+            "condition_channels": condition_channels,
+            # "fourier_features": fourier_features,
+            # "n_min": n_min,
+            # "n_max": n_max
         }
        
         ########### Conditional branch ###########
-        time_branch_channels = nf
-        input_branch_channels = channels
         if self.conditioned:
-            condition_embedding_layers = []
-            for c_type in self.condition_type:
-                if c_type.lower() == "discrete":
-                    condition_embedding_layers.append(
-                            nn.Embedding(
-                                num_embeddings=condition_embeddings[0],
-                                embedding_dim=nf
-                                )
-                            )
-                    condition_embeddings = condition_embeddings[1:]
-                    time_branch_channels += nf
-                elif c_type.lower() == "continuous":
-                    condition_embedding_layers.append(
-                            GaussianFourierProjection(embed_dim=nf, scale=fourier_scale)
-                            )
-                    time_branch_channels += nf
-                elif c_type.lower() == "vector":
-                    condition_embedding_layers.append(
-                            PositionalEncoding(channels=condition_channels[0], embed_dim=nf, scale=fourier_scale)
-                            )
-                    condition_channels = condition_channels[1:]
-                    time_branch_channels += nf
-                elif c_type.lower() == "tensor":
-                    input_branch_channels += condition_channels[0]
-                    condition_channels = condition_channels[1:]
-            self.condition_embedding_layers = nn.ModuleList(condition_embedding_layers)
+            total_time_channels, total_input_channels = conditional_branch(
+                    self,
+                    time_branch_channels=nf,
+                    input_branch_channels=channels,
+                    condition_embeddings=condition_embeddings,
+                    condition_channels=condition_channels,
+                    fourier_scale=fourier_scale
+                    ) # This method attach a Module list to self.conditional_branch
+        else:
+            total_time_channels = nf
+            total_input_channels = channels
         #########################################
                 
-        ########### Time embedding layer ###########
-        modules = [GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), nn.Linear(time_branch_channels, nf * 4), nn.Linear(nf * 4, nf * 4)]
+        ########### Time branch ###########
+        modules = [
+                GaussianFourierProjection(embed_dim=nf, scale=fourier_scale), # Time embedding
+                nn.Linear(total_time_channels, nf * 4), # Combine time embedding with conditionals if any
+                nn.Linear(nf * 4, nf * 4)
+                ]
         with torch.no_grad():
             modules[1].weight.data = default_init()(modules[1].weight.shape)
             modules[1].bias.zero_()
             modules[2].weight.data = default_init()(modules[2].weight.shape)
             modules[2].bias.zero_()
-        #############################################
+        ####################################
 
         ########### Prepare layers ###########
         combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
@@ -201,8 +191,8 @@ class NCSNpp(nn.Module):
         #####################################
 
         # Downsampling block
-        input_pyramid_ch = input_branch_channels 
-        modules.append(conv3x3(input_branch_channels, nf, dimensions=dimensions))
+        input_pyramid_ch = total_input_channels
+        modules.append(conv3x3(total_input_channels, nf, dimensions=dimensions))
         hs_c = [nf]
         in_ch = nf #+ fourier_feature_channels
         for i_level in range(num_resolutions):
@@ -246,12 +236,12 @@ class NCSNpp(nn.Module):
             if progressive != 'none':
                 if i_level == num_resolutions - 1:
                     if progressive == 'output_skip':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
+                        modules.append(nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1),
                                                     num_channels=in_ch, eps=1e-6))
                         modules.append(conv3x3(in_ch, channels, init_scale=init_scale, dimensions=dimensions))
                         pyramid_ch = channels
                     elif progressive == 'residual':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
+                        modules.append(nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1),
                                                     num_channels=in_ch, eps=1e-6))
                         modules.append(conv3x3(in_ch, in_ch, bias=True, dimensions=dimensions))
                         pyramid_ch = in_ch
@@ -259,7 +249,7 @@ class NCSNpp(nn.Module):
                         raise ValueError(f'{progressive} is not a valid name.')
                 else:
                     if progressive == 'output_skip':
-                        modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
+                        modules.append(nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1),
                                                     num_channels=in_ch, eps=1e-6))
                         modules.append(conv3x3(in_ch, channels, bias=True, init_scale=init_scale, dimensions=dimensions))
                         pyramid_ch = channels
@@ -278,7 +268,7 @@ class NCSNpp(nn.Module):
         assert not hs_c
 
         if progressive != 'output_skip':
-            modules.append(nn.GroupNorm(num_groups=min(in_ch // 4, 32),
+            modules.append(nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1),
                                         num_channels=in_ch, eps=1e-6))
             modules.append(conv3x3(in_ch, channels, init_scale=1., dimensions=dimensions))
 
@@ -286,48 +276,49 @@ class NCSNpp(nn.Module):
 
     def forward(self, t, x, *args):
         B, *D = x.shape
-        # timestep/noise_level embedding; only for continuous training
         modules = self.all_modules
         m_idx = 0
-        # Gaussian Fourier features embeddings.
+        
+        # Time embedding
         temb = modules[m_idx](t).view(B, -1)
         m_idx += 1
         
+        # Add conditionals to time branch
         c_idx = 0
         if self.conditioned:
             if len(args) != len(self.condition_type):
                 raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
             for j, condition in enumerate(args):
-                if self.condition_type[j].lower() in ["discrete", "continuous", "vector"]: 
-                    c_emb = self.condition_embedding_layers[c_idx](condition).view(B, -1)
+                if "time" in self.condition_type[j].lower():
+                    c_emb = self.conditional_branch[c_idx](condition).view(B, -1)
                     temb = torch.cat([temb, c_emb], dim=1)
                     c_idx += 1
                 
+        # Time branch
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
         
-        
+        # Add conditionals to input branch
         if self.conditioned:
             for j, condition in enumerate(args):
-                if self.condition_type[j].lower() == "tensor":
+                if "input" in self.condition_type[j].lower():
                     x = torch.cat([x, condition], dim=1)
         
-        # Add Fourier features
+        # Add Fourier features to input branch
         # if self.fourier_features:
             # ffeatures = self.fourier_features(x)
             # x = torch.concat([x, ffeatures], axis=1)
         
+        ## Main input branch ##
         # Downsampling block
         input_pyramid = None
         if self.progressive_input != 'none':
             input_pyramid = x
-
         hs = [modules[m_idx](x)]
         m_idx += 1
         for i_level in range(self.num_resolutions):
-            # Residual blocks for this resolution
             for i_block in range(self.num_res_blocks):
                 h = modules[m_idx](hs[-1], temb)
                 torch.var(h)

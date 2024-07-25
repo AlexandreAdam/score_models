@@ -19,7 +19,7 @@ from ..trainer import Trainer
 
 class Base(Module, ABC):
     def __init__(
-            self, 
+            self,
             net: Optional[Union[str, Module]] = None,
             sde: Optional[Union[str, SDE]] = None,
             path: Optional[str] = None,
@@ -56,11 +56,14 @@ class Base(Module, ABC):
             self.hyperparameters = hyperparameters
 
         # Important to set these attributes before any loading attempt (device is needed)
-        if isinstance(sde, str):
-            self.hyperparameters["sde"] = sde
-        elif isinstance(sde, SDE):
+        if isinstance(sde, SDE):
             self.hyperparameters["sde"] = sde.__class__.__name__.lower()
-        self.sde, sde_params = load_sde(**self.hyperparameters)
+            self.sde = sde
+            sde_params = sde.hyperparameters
+        else:
+            if isinstance(sde, str):
+                self.hyperparameters["sde"] = sde
+            self.sde, sde_params = load_sde(**self.hyperparameters)
         self.hyperparameters.update(sde_params) # Save the SDE hyperparameters, including the defaults
         self.device = device
         self.net.to(device)

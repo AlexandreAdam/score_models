@@ -38,6 +38,12 @@ class TSVESDE(SDE):
         self.sigma_max = sigma_max
         self.beta = beta
         self.t_star = t_star
+        self.hyperparameters.update({
+            "sigma_min": sigma_min,
+            "sigma_max": sigma_max,
+            "t_star": t_star,
+            "beta": beta
+            })
         
         if beta_fn == "relu":
             self.beta_fn = lambda t: - self.beta * F.relu(t/self.T - self.t_star)

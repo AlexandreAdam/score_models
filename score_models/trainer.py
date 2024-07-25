@@ -53,7 +53,6 @@ class Trainer:
         self.epochs = epochs
         self.checkpoint_every = checkpoint_every
         self.models_to_keep = models_to_keep
-        self.epoch = epochs
         self.iterations_per_epoch = iterations_per_epoch or len(self.dataloader)
         self.max_time = max_time
         
