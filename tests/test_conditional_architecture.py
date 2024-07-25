@@ -73,3 +73,61 @@ def test_validate_conditional_branch_errors(Net, conditions):
     D = [] if Net == MLP else [8, 8]
     with pytest.raises(ValueError):
         net = Net(C, **hp)
+
+
+@pytest.mark.parametrize("Net", [NCSNpp, MLP, DDPM])
+def test_merging_errors_len_args(Net):
+    condition_type = ("input_tensor", "time_vector")
+    condition_embeddings = None
+    condition_channels = (15, 15)
+    hp = {
+            "ch_mult": (1, 1), 
+            "nf": 8,
+            "conditions": condition_type,
+            "condition_channels": condition_channels,
+            "condition_embeddings": condition_embeddings
+            }
+    B = 5
+    C = 10
+    D = [] if Net == MLP else [8, 8]
+    net = Net(C, **hp)
+    t = torch.randn(B)
+    x = torch.randn(B, C, *D)
+    c = [torch.randn(B, 15),] # Not enough arguments provided 
+    with pytest.raises(ValueError) as exc_info:
+        net(t, x, *c)
+    assert "The network requires 2 additional arguments, but 1 were provided." in str(exc_info.value)
+        
+
+@pytest.mark.parametrize("Net", [NCSNpp, MLP, DDPM])
+@pytest.mark.parametrize("conditions", [
+    (("time_discrete",), (3,), None),
+    (("time_discrete", "time_discrete"), (3, 10), None),
+    ])
+def test_merging_errors_embedding_arg(conditions,  Net):
+    condition_type, condition_embeddings, condition_channels = conditions
+    hp = {
+            "ch_mult": (1, 1), 
+            "nf": 8,
+            "conditions": condition_type,
+            "condition_channels": condition_channels,
+            "condition_embeddings": condition_embeddings
+            }
+    B = 5
+    C = 10
+    D = [] if Net == MLP else [8, 8]
+    net = Net(C, **hp)
+    t = torch.randn(B)
+    x = torch.randn(B, C, *D)
+    if len(condition_type) == 1:
+        c = [torch.ones(B, 1).long() * 4,]
+        with pytest.raises(ValueError) as exc_info:
+            net(t, x, *c)
+        max_int = condition_embeddings[0] - 1
+        assert f"Additional argument 0 must be a long tensor with values between 0 and {max_int} inclusively." in str(exc_info.value)
+    elif len(condition_type) == 2:
+        c = [torch.ones(B, 1).long() * 2, torch.ones(B, 1).long() * 15]
+        with pytest.raises(ValueError) as exc_info:
+            net(t, x, *c)
+        max_int = condition_embeddings[1] - 1
+        assert f"Additional argument 1 must be a long tensor with values between 0 and {max_int} inclusively." in str(exc_info.value)

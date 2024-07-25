@@ -1,6 +1,11 @@
 from typing import Optional, Literal
 
-from score_models.layers import (
+import torch.nn as nn
+import numpy as np
+import torch
+from functools import partial
+
+from ..layers import (
         DDPMResnetBlock, 
         ResnetBlockBigGANpp, 
         GaussianFourierProjection, 
@@ -11,40 +16,18 @@ from score_models.layers import (
         conv3x3, 
         PositionalEncoding
         )
-from score_models.utils import get_activation
-from score_models.definitions import default_init
-from .conditional_branch import validate_conditional_arguments, conditional_branch
-import torch.nn as nn
-import functools
-import torch
-import numpy as np
+from ..utils import get_activation
+from ..definitions import default_init
+from .conditional_branch import (
+        validate_conditional_arguments, 
+        conditional_branch,
+        merge_conditional_time_branch,
+        merge_conditional_input_branch
+        )
 
 __all__ = ["NCSNpp"]
 
 class NCSNpp(nn.Module):
-    """
-    NCSN++ model
-
-    Args:
-        channels (int): Number of input channels. Default is 1.
-        dimensions (int): Number of dimensions of the input data. Default is 2.
-        nf (int): Number of filters in the first layer. Default is 128.
-        ch_mult (tuple): Channel multiplier for each layer. Default is (2, 2, 2, 2).
-        num_res_blocks (int): Number of residual blocks in each layer. Default is 2.
-        activation_type (str): Type of activation function. Default is "swish".
-        dropout (float): Dropout probability. Default is 0.
-        resample_with_conv (bool): Whether to use convolutional resampling. Default is True.
-        fir (bool): Whether to use finite impulse response filtering. Default is True.
-        fir_kernel (tuple): FIR filter kernel. Default is (1, 3, 3, 1).
-        skip_rescale (bool): Whether to rescale skip connections. Default is True.
-        progressive (str): Type of progressive training. Default is "output_skip".
-        progressive_input (str): Type of progressive
-        init_scale (float): The initial scale for the function. Default is 1e-2.
-        fourier_scale (float): The Fourier scale for the function. Default is 16.
-        resblock_type (str): The type of residual block to use. Default is "biggan".
-        combine_method (str): The method to use for combining the results. Default is "sum".
-        attention (bool): Whether or not to use attention. Default is True.
-    """
     def __init__(
             self,
             channels: int = 1,
@@ -73,6 +56,32 @@ class NCSNpp(nn.Module):
             # n_max=8,
             **kwargs
           ):
+        """
+        NCSN++ model
+
+        Args:
+            channels (int): Number of input channels. Default is 1.
+            dimensions (Literal[1, 2, 3]): Number of dimensions for input data. Default is 2.
+            nf (int): Number of filters in the first layer. Default is 128.
+            ch_mult (tuple[int]): Channel multiplier for each layer. Default is (2, 2, 2, 2).
+            num_res_blocks (int): Number of residual blocks. Default is 2.
+            activation_type (str): Type of activation function to use. Default is "swish".
+            dropout (float): Dropout probability. Default is 0.
+            resample_with_conv (bool): Whether to resample with convolution. Default is True.
+            fir (bool): Whether to use finite impulse response filter. Default is True.
+            fir_kernel (tuple[int]): Kernel size for FIR filter. Default is (1, 3, 3, 1).
+            skip_rescale (bool): Whether to skip rescaling. Default is True.
+            progressive (Literal["none", "output_skip", "residual"]): Type of progressive training. Default is "output_skip".
+            progressive_input (Literal["none", "input_skip", "residual"]): Type of progressive input. Default is "input_skip".
+            init_scale (float): Initial scale for weights. Default is 1e-2.
+            fourier_scale (float): Scale for Fourier features. Default is 16.
+            resblock_type (Literal["biggan", "ddpm"]): Type of residual block. Default is "biggan".
+            combine_method (Literal["concat", "sum"]): Method for combining features. Default is "sum".
+            attention (bool): Whether to use attention mechanism. Default is True.
+            conditions (Optional[tuple[Literal["time_discrete", "time_continuous", "time_vector", "input_tensor"]]]): Conditions for input data. Default is None.
+            condition_embeddings (Optional[tuple[int]]): Embedding size for conditions. Default is None.
+            condition_channels (Optional[int]): Number of channels for conditions. Default is None.
+        """
         super().__init__()
         if dimensions not in [1, 2, 3]:
             raise ValueError("Input must have 1, 2, or 3 spatial dimensions to use this architecture")
@@ -152,39 +161,39 @@ class NCSNpp(nn.Module):
         ####################################
 
         ########### Prepare layers ###########
-        combiner = functools.partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
-        AttnBlock = functools.partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
-        Upsample = functools.partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
-        Downsample = functools.partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
+        combiner = partial(Combine, method=combine_method.lower(), dimensions=self.dimensions)
+        AttnBlock = partial(SelfAttentionBlock, init_scale=init_scale, dimensions=dimensions)
+        Upsample = partial(UpsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
+        Downsample = partial(DownsampleLayer, with_conv=resample_with_conv, fir=fir, fir_kernel=fir_kernel, dimensions=self.dimensions)
         if progressive == 'output_skip':
             self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
         elif progressive == 'residual':
-            pyramid_upsample = functools.partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True, dimensions=self.dimensions)
+            pyramid_upsample = partial(UpsampleLayer, fir=fir, fir_kernel=fir_kernel, with_conv=True, dimensions=self.dimensions)
         if progressive_input == 'input_skip':
             self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
         elif progressive_input == 'residual':
-            pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
+            pyramid_downsample = partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
         if resblock_type == 'ddpm':
-            ResnetBlock = functools.partial(DDPMResnetBlock,
-                                            act=act,
-                                            dropout=dropout,
-                                            init_scale=init_scale,
-                                            skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4,
-                                            dimensions=self.dimensions
-                                            )
+            ResnetBlock = partial(DDPMResnetBlock,
+                                  act=act,
+                                  dropout=dropout,
+                                  init_scale=init_scale,
+                                  skip_rescale=skip_rescale,
+                                  temb_dim=nf * 4,
+                                  dimensions=self.dimensions
+                                  )
 
         elif resblock_type == 'biggan':
-            ResnetBlock = functools.partial(ResnetBlockBigGANpp,
-                                            act=act,
-                                            dropout=dropout,
-                                            fir=fir,
-                                            fir_kernel=fir_kernel,
-                                            init_scale=init_scale,
-                                            skip_rescale=skip_rescale,
-                                            temb_dim=nf * 4,
-                                            dimensions=self.dimensions
-                                            )
+            ResnetBlock = partial(ResnetBlockBigGANpp,
+                                  act=act,
+                                  dropout=dropout,
+                                  fir=fir,
+                                  fir_kernel=fir_kernel,
+                                  init_scale=init_scale,
+                                  skip_rescale=skip_rescale,
+                                  temb_dim=nf * 4,
+                                  dimensions=self.dimensions
+                                  )
 
         else:
             raise ValueError(f'resblock type {resblock_type} unrecognized.')
@@ -279,39 +288,22 @@ class NCSNpp(nn.Module):
         modules = self.all_modules
         m_idx = 0
         
-        # Time embedding
+        # Time branch
         temb = modules[m_idx](t).view(B, -1)
         m_idx += 1
-        
-        # Add conditionals to time branch
-        c_idx = 0
         if self.conditioned:
-            if len(args) != len(self.condition_type):
-                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
-            for j, condition in enumerate(args):
-                if "time" in self.condition_type[j].lower():
-                    c_emb = self.conditional_branch[c_idx](condition).view(B, -1)
-                    temb = torch.cat([temb, c_emb], dim=1)
-                    c_idx += 1
-                
-        # Time branch
+            temb = merge_conditional_time_branch(self, temb, *args)
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
         
-        # Add conditionals to input branch
+        # Input branch
         if self.conditioned:
-            for j, condition in enumerate(args):
-                if "input" in self.condition_type[j].lower():
-                    x = torch.cat([x, condition], dim=1)
-        
-        # Add Fourier features to input branch
+            x = merge_conditional_input_branch(self, x, *args)
         # if self.fourier_features:
             # ffeatures = self.fourier_features(x)
             # x = torch.concat([x, ffeatures], axis=1)
-        
-        ## Main input branch ##
         # Downsampling block
         input_pyramid = None
         if self.progressive_input != 'none':

@@ -2,10 +2,16 @@ from typing import Optional, Literal
 
 import torch
 import torch.nn as nn
-from .conditional_branch import validate_conditional_arguments, conditional_branch
+
 from ..layers import (
     GaussianFourierProjection, 
     ScaledAttentionLayer
+    )
+from .conditional_branch import (
+    validate_conditional_arguments,
+    conditional_branch,
+    merge_conditional_time_branch,
+    merge_conditional_input_branch
     )
 from ..utils import get_activation
 
@@ -31,6 +37,27 @@ class MLP(nn.Module):
             condition_embeddings: Optional[tuple[int]] = None,
             **kwargs
             ):
+        """
+        Multi-Layer Perceptron (MLP) neural network.
+
+        Parameters:
+        - channels (Optional[int]): Number of input channels. Default is None.
+        - units (int): Number of units in each hidden layer. Default is 100.
+        - layers (int): Number of hidden layers. Default is 2.
+        - time_branch_channels (int): Number of channels in the time branch. Default is 32.
+        - time_branch_layers (int): Number of layers in the time branch. Default is 1.
+        - fourier_scale (int): Scale factor for Fourier features. Default is 16.
+        - activation (str): Activation function to use. Default is "swish".
+        - bottleneck (Optional[int]): Number of units in the bottleneck layer. Default is None.
+        - attention (bool): Whether to use attention mechanism. Default is False.
+        - nn_is_energy (bool): Whether the neural network represents energy. Default is False.
+        - output_activation (str): Activation function for the output layer. Default is None.
+        - conditions (Optional[Literal["discrete", "continuous", "vector", "tensor"]]): Type of conditions. Default is None.
+        - condition_channels (Optional[tuple[int]]): Channels for conditioning. Default is None.
+        - condition_embeddings (Optional[tuple[int]]): Embeddings for conditioning. Default is None.
+        - **kwargs: Additional keyword arguments.
+
+        """
         super().__init__()
         validate_conditional_arguments(conditions, condition_embeddings, condition_channels)
         self.conditioned = conditions is not None
@@ -122,34 +149,19 @@ class MLP(nn.Module):
         B, D = x.shape
         modules = self.all_modules
         
-        # Time embedding
-        temb = modules[0](t)
-        
-        # Append conditional to time branch
-        c_idx = 0
-        if self.conditioned:
-            if len(args) != len(self.condition_type):
-                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
-            for j, condition in enumerate(args):
-                if "time" in self.condition_type[j].lower():
-                    c_emb = self.conditional_branch[c_idx](condition).view(B, -1)
-                    temb = torch.cat([temb, c_emb], dim=1)
-                    c_idx += 1
-                    
         # Time branch
+        temb = modules[0](t)
+        if self.conditioned:
+            temb = merge_conditional_time_branch(self, temb, *args)
         i = 1
         for _ in range(self.time_branch_layers):
             temb = self.act(modules[i](temb))
             i += 1
 
-        # Append conditionals to input branch
+        # Input branch
         x = torch.cat([x, temb], dim=1)
         if self.conditioned:
-            for j, condition in enumerate(args):
-                if "input" in self.condition_type[j].lower():
-                    x = torch.cat([x, condition], dim=1)
-        
-        # Input branch
+            x = merge_conditional_input_branch(self, x, *args)
         x = modules[i](x)
         i += 1
         for _ in range(self.layers//2):

@@ -1,14 +1,9 @@
-"""
-Code ported from Yang Song's repo https://github.com/yang-song/score_sde_pytorch/blob/main/
-with slight modifications to make it work on continuous time.
-"""
 from typing import Optional, Literal
 
 import torch
 from torch import nn
-import functools
+from functools import partial
 
-from .conditional_branch import validate_conditional_arguments, conditional_branch
 from ..utils import get_activation
 from ..layers import (
         DDPMResnetBlock, 
@@ -17,6 +12,12 @@ from ..layers import (
         UpsampleLayer, 
         DownsampleLayer,
         conv3x3
+        )
+from .conditional_branch import (
+        validate_conditional_arguments, 
+        conditional_branch,
+        merge_conditional_time_branch,
+        merge_conditional_input_branch
         )
 
 __all__ = ["DDPM"]
@@ -34,11 +35,33 @@ class DDPM(nn.Module):
             dropout: float = 0.,
             attention: bool = True,
             fourier_scale: float = 30.,
-            conditions : Optional[tuple[Literal["time_discrete", "time_continuous", "time_vector", "input_tensor"]]] = None,
-            condition_embeddings:  Optional[tuple[int]] = None,
+            conditions: Optional[tuple[str]] = None,
+            condition_embeddings: Optional[tuple[int]] = None,
             condition_channels: Optional[int] = None,
             **kwargs
-    ):
+            ):
+        """
+        Deep Diffusion Probabilistic Model (DDPM) implementation.
+
+        Args:
+            channels (int): Number of input channels. Default is 1.
+            dimensions (int): Number of spatial dimensions. Default is 2.
+            nf (int): Number of filters in the network. Default is 128.
+            activation_type (str): Type of activation function to use. Default is "relu".
+            ch_mult (tuple[int]): Channel multiplier for each layer. Default is (2, 2).
+            num_res_blocks (int): Number of residual blocks in the network. Default is 2.
+            resample_with_conv (bool): Whether to use convolutional resampling. Default is True.
+            dropout (float): Dropout rate. Default is 0.
+            attention (bool): Whether to use attention mechanism. Default is True.
+            fourier_scale (float): Scale parameter for Fourier features. Default is 30.
+            conditions (Optional[tuple[str]]): Types of conditioning inputs. Default is None.
+            condition_embeddings (Optional[tuple[int]]): Embedding sizes for conditioning inputs. Default is None.
+            condition_channels (Optional[int]): Number of channels for conditioning inputs. Default is None.
+            **kwargs: Additional keyword arguments.
+
+        References:
+            - Original implementation in Yang Song's repository: https://github.com/yang-song/score_sde_pytorch/blob/main/
+        """
         super().__init__()
         if dimensions not in [1, 2, 3]:
             raise ValueError(f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}.")
@@ -71,7 +94,7 @@ class DDPM(nn.Module):
         self.num_resolutions = num_resolutions = len(ch_mult)
 
         AttnBlock = SelfAttentionBlock
-        ResnetBlock = functools.partial(DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions)
+        ResnetBlock = partial(DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions)
 
         ########### Conditional branch ###########
         if self.conditioned:
@@ -100,7 +123,7 @@ class DDPM(nn.Module):
         ####################################
 
         # Downsampling block
-        Downsample = functools.partial(DownsampleLayer, dimensions=dimensions)
+        Downsample = partial(DownsampleLayer, dimensions=dimensions)
         modules.append(conv3x3(total_input_channels, nf))
         hs_c = [nf]
         in_ch = nf
@@ -122,7 +145,7 @@ class DDPM(nn.Module):
         modules.append(ResnetBlock(in_ch=in_ch))
 
         # Upsampling block
-        Upsample = functools.partial(UpsampleLayer, dimensions=dimensions)
+        Upsample = partial(UpsampleLayer, dimensions=dimensions)
         for i_level in reversed(range(num_resolutions)):
             for i_block in range(num_res_blocks + 1):
                 out_ch = nf * ch_mult[i_level]
@@ -139,38 +162,24 @@ class DDPM(nn.Module):
     def forward(self, t, x, *args):
         B, *D = x.shape
         modules = self.all_modules
+        
+        # Time branch
         m_idx = 0
         temb = modules[m_idx](t)
         m_idx += 1
-
-        # Append conditional to time branch
-        c_idx = 0
         if self.conditioned:
-            if len(args) != len(self.condition_type):
-                raise ValueError(f"The network requires {len(self.condition_type)} additional arguments, but {len(args)} were provided.")
-            for j, condition in enumerate(args):
-                if "time" in self.condition_type[j].lower():
-                    c_emb = self.conditional_branch[c_idx](condition).view(B, -1)
-                    temb = torch.cat([temb, c_emb], dim=1)
-                    c_idx += 1
-        
-        # Time branch
+            temb = merge_conditional_time_branch(self, temb, *args)
         temb = modules[m_idx](temb)
         m_idx += 1
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
 
-        # Add conditionals to input branch
+        # Input branch
         if self.conditioned:
-            for j, condition in enumerate(args):
-                if "input" in self.condition_type[j].lower():
-                    x = torch.cat([x, condition], dim=1)
-        
-        # Add Fourier features to input branch
+            x = merge_conditional_input_branch(self, x, *args)
         # if self.fourier_features:
             # ffeatures = self.fourier_features(x)
             # x = torch.concat([x, ffeatures], axis=1)
-
         # Downsampling block
         hs = [modules[m_idx](x)]
         m_idx += 1
