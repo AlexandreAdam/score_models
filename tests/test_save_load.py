@@ -69,7 +69,7 @@ def test_load(net, sde, Model, tmp_path):
         D = net.dimensions
         x = torch.randn(B, C, *[32]*D)
 
-    t = torch.randn(B)
+    t = torch.rand(B)
     if Model == SLIC:
         y = forward_model(t, x)
         print(model(t, y, x) - new_model(t, y, x))

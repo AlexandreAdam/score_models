@@ -92,20 +92,6 @@ def test_log_likelihood():
     assert ll.shape == torch.Size([3])
 
 
-def test_log_likelihood_analytic():
-    # Construct test with analytical solution to the probability flow ODE to check our implementation
-    pass
-
-# def test_score_at_zero_t():
-    # net = MLP(dimensions=2)
-    # score = ScoreModel(net, beta_min=1e-2, beta_max=10)
-    # print(score.sde)
-    # x = torch.randn(3, 2)
-    # t = torch.rand(3)
-    # ll, vjp_func = torch.func.vjp(lambda x: score.log_likelihood(t, x, ode_steps=10), x)
-    # grad = vjp_func(torch.ones_like(ll))
-    # print(grad)
-
 def test_sample_fn():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
@@ -115,7 +101,8 @@ def test_sample_fn():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
-def test_slic_score():
+@pytest.mark.parametrize("anneal_residuals", [True, False])
+def test_slic_score(anneal_residuals):
     B = 3
     m = 10
     D = 100
@@ -124,7 +111,7 @@ def test_slic_score():
     x = torch.randn(B, D)
     t = torch.rand(B)
     net = MLP(m) # Define SLIC in output space of forward model (m)
-    model = SLIC(forward_model, net, beta_min=1e-2, beta_max=10)
+    model = SLIC(forward_model, net, beta_min=1e-2, beta_max=10, anneal_residuals=anneal_residuals)
     y = forward_model(None, x)
     x = torch.randn(B, D)
     t = torch.rand(B)

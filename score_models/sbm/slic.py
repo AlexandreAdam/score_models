@@ -1,5 +1,6 @@
 from typing import Callable, Union, Optional
 
+import torch
 from torch.nn import Module
 from torch.func import vjp
 from inspect import signature, Parameter
