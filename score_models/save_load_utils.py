@@ -331,3 +331,50 @@ def load_sde(sde: Optional[Literal["ve", "vp", "tsve"]] = None, **kwargs) -> Tup
     # Making sure the sde name is recorded
     sde_hyperparameters["sde"] = sde.__class__.__name__.lower()
     return sde, sde_hyperparameters
+
+
+def serialize_object(obj, h5_path, object_name, date_str=None, metadata_path=None):
+    # Serialize and compress the object
+    serialized_obj = dill.dumps(obj)
+    compressed_obj = gzip.compress(serialized_obj)
+
+    # Save compressed object to h5
+    with h5py.File(h5_path, 'a') as hf:
+        hf.create_dataset(object_name, data=np.void(compressed_obj))
+
+    # Save metadata with checksum of the compressed object
+    if metadata_path is not None:
+        checksum = hashlib.sha256(compressed_obj).hexdigest()
+        metadata = {
+            "filename": os.path.basename(h5_path),
+            "object_name": object_name,
+            "checksum": checksum,
+            "creation_time": date_str if date_str is not None else datetime.now().strftime("%Y%m%d_%H%M%S"),
+        }
+        with open(metadata_path, 'w') as meta_file:
+            json.dump(metadata, meta_file)
+
+
+def deserialize_object(h5_path, dataset_name, metadata_path=None, checksum=None, safe_mode=True):
+    # Load compressed serialized object from H5 file
+    with h5py.File(h5_path, 'r') as hf:
+        compressed_obj = bytes(hf[dataset_name][()])
+
+    # Decompress the object
+    decompressed_obj = gzip.decompress(compressed_obj)
+
+    # Verify checksum in safe mode
+    if safe_mode:
+        expected_checksum = checksum
+        if metadata_path is not None:
+            with open(metadata_path, 'r') as meta_file:
+                metadata = json.load(meta_file)
+            expected_checksum = metadata['checksum']
+
+        loaded_checksum = hashlib.sha256(compressed_obj).hexdigest()
+        if expected_checksum is None or loaded_checksum != expected_checksum:
+            raise ValueError("Checksum does not match. Data may have been tampered with.")
+
+    # Deserialize the object
+    return dill.loads(decompressed_obj)
+

@@ -8,7 +8,12 @@ import pytest
 @pytest.mark.parametrize("net", [MLP(10), NCSNpp(1, ch_mult=[1, 1], nf=8)])
 def test_lora_sbm(net, sde, lora_rank, tmp_path):
     base_sbm = ScoreModel(net, **sde)
-    sbm = LoRAScoreModel(base_sbm, lora_rank=lora_rank)
+    
+    if isinstance(net, MLP):
+        likelihood_score = MLP(10) # make it potentially complicated
+    elif isinstance(net, NCSNpp):
+        likelihood_score = lambda t, x: x**2 # a simple quadratic function
+    sbm = LoRAPosteriorScoreModel(base_sbm, likelihood_score, lora_rank=lora_rank)
     
     # Check that checkpoints are being saved correctly
     path = os.path.join(tmp_path, "test")
@@ -20,12 +25,13 @@ def test_lora_sbm(net, sde, lora_rank, tmp_path):
     assert os.path.exists(os.path.join(path, "model_hparams.json"))
     assert os.path.exists(os.path.join(path, "base_sbm"))
     assert os.path.isdir(os.path.join(path, "base_sbm"))
+    assert os.path.isfile(os.path.join(path, "likelihood_score.pkl"))
     for i in range(1, 4):
         assert os.path.exists(os.path.join(path, f"lora_checkpoint_{i:03d}"))
         assert os.path.isdir(os.path.join(path, f"lora_checkpoint_{i:03d}"))
     
     # Check that we can reload the whole setup just from path
-    new_sbm = LoRAScoreModel(path=path)
+    new_sbm = LoRAPosteriorScoreModel(path=path)
     
     # Check that models are consistent with each other
     B = 10
@@ -39,3 +45,7 @@ def test_lora_sbm(net, sde, lora_rank, tmp_path):
         assert torch.allclose(sbm.lora_net(t, x), new_sbm.lora_net(t, x))
         assert torch.allclose(sbm.lora_net(t, x), sbm.reparametrized_score(t, x))
         assert torch.allclose(new_sbm.lora_net(t, x), new_sbm.reparametrized_score(t, x))
+    
+    # Check that the likelihood score is consistent
+    with torch.no_grad():
+        assert torch.allclose(likelihood_score(t, x), new_sbm.likelihood_score(t, x))

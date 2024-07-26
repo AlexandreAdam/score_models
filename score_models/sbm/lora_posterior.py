@@ -1,6 +1,8 @@
 from typing import Union, Optional, Callable
 
 import torch
+import dill
+import os
 from torch import Tensor
 
 from .lora import LoRAScoreModel
@@ -36,6 +38,10 @@ class LoRAPosteriorScoreModel(LoRAScoreModel):
                 target_modules=target_modules, 
                 device=device, 
                 **hyperparameters)
+        if not hasattr(self, "likelihood_score"):
+            if likelihood_score is None:
+                raise ValueError("Must provide a likelihood score function when initializing a LoRAPosteriorScoreModel.")
+            self.likelihood_score = likelihood_score
         
     def reparametrized_score(self, t, x, *args) -> Tensor:
         return self.lora_net(t, x, *args)
@@ -47,6 +53,11 @@ class LoRAPosteriorScoreModel(LoRAScoreModel):
             create_path: bool = True
             ):
         super().save(path=path, optimizer=optimizer, create_path=create_path)
+        path = path or self.path
+        # Serialize the likelihood score function
+        if path:
+            with open(os.path.join(path, "likelihood_score.pkl"), "wb") as f:
+                dill.dump(self.likelihood_score, f)
 
     def load(
             self, 
@@ -55,3 +66,6 @@ class LoRAPosteriorScoreModel(LoRAScoreModel):
             raise_error: bool = True
             ):
         super().load(checkpoint=checkpoint, optimizer=optimizer, raise_error=raise_error)
+        # Load/deserialize the likelihood score function
+        with open(os.path.join(self.path, "likelihood_score.pkl"), "rb") as f:
+            self.likelihood_score = dill.load(f)

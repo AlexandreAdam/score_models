@@ -39,4 +39,25 @@ def test_mlp(layers, time_branch_channels, time_branch_layers, bottleneck, atten
     out = model(t, x)
     assert out.shape == torch.Size([B, C])
     assert torch.isfinite(out).all()
-    
+
+
+# @pytset.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("D", [2])
+@pytest.mark.parametrize("C", [1, 3])
+@pytest.mark.parametrize("ch_mult", [(1, 1), (1, 2), (1, 1, 1)])
+@pytest.mark.parametrize("latent_size", (1, 10, 100))
+def test_encoder(D, C, ch_mult, latent_size):
+    B = 2
+    P = 16
+    x = torch.randn(B, C, *[P]*D)
+    t = torch.randn([B])
+    model = Encoder(
+            pixels=P,
+            channels=C,
+            dimensions=D,
+            ch_mult=ch_mult,
+            latent_size=latent_size
+            )
+    out = model(t, x)
+    assert out.shape == torch.Size([B, latent_size])
+    assert torch.isfinite(out).all()

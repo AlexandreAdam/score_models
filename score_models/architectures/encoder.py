@@ -9,7 +9,7 @@ from .conditional_branch import (
         merge_conditional_input_branch
         )
 from ..definitions import default_init
-from ..layers import Conv2dSame, ResnetBlockBigGANpp
+from ..layers import Conv2dSame, ResnetBlockBigGANpp, GaussianFourierProjection
 from ..utils import get_activation
 
 
@@ -37,6 +37,7 @@ class Encoder(nn.Module):
             hidden_layers: int = 1, 
             hidden_size: int = 256, 
             factor: int = 2,
+            fourier_scale: float = 16.,
             conditions : Optional[tuple[Literal["time_discrete", "time_continuous", "time_vector", "input_tensor"]]] = None,
             condition_embeddings:  Optional[tuple[int]] = None,
             condition_channels: Optional[int] = None,
@@ -76,26 +77,28 @@ class Encoder(nn.Module):
             "nf": channels,
             "input_kernel_size": input_kernel_size,
             "ch_mult": ch_mult,
-            "num_res_blocks": blocks,
+            "num_res_blocks": num_res_blocks,
             "activation": activation,
             "hidden_layers": hidden_layers,
             "hidden_size": hidden_size,
             "output_kernel": output_kernel,
+            "factor": factor,
+            "fourier_scale": fourier_scale,
             "conditions": conditions,
             "condition_embeddings": condition_embeddings,
             "condition_channels": condition_channels
         }
         assert (output_kernel % 2 == 0) or (output_kernel == 1), "output_kernel must be an even number or equal to 1 (no average pooling at the end)"
-        assert input_pixels % 2**len(ch_mult) == 0, "input_pixels must be divisible by 2**len(ch_mult)"
+        assert pixels % 2**len(ch_mult) == 0, "pixels must be divisible by 2**len(ch_mult)"
         
-        self.act = get_activation(act=activation)
+        self.act = get_activation(activation)
         self.nf = nf
         self.num_res_blocks = num_res_blocks
-        self.input_pixels = input_pixels
+        self.pixels = pixels
         self.channels = channels
         self.factor = factor
-        self._latent_pixels = input_pixels // factor**(len(ch_mult) + output_kernel//2)
-        self._latent_channels = int(ch * ch_mult[-1])
+        self._latent_pixels = pixels // factor**(len(ch_mult) + output_kernel//2)
+        self._latent_channels = int(nf * ch_mult[-1])
         assert self._latent_pixels > 0, "Network is too deep for the given input size and downsampling factor"
 
         ### Conditional branch ###
@@ -150,8 +153,6 @@ class Encoder(nn.Module):
                         factor=factor
                         ))
         self.input_branch = nn.ModuleList(layers)
-        
-        ch = nf * ch_mult[-1]
         self.final_pooling_layer = nn.AvgPool2d(kernel_size=output_kernel)
         
         ### Latent encoder ###
