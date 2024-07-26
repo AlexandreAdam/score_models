@@ -8,7 +8,7 @@ import torch
 __all__ = ["dsm", "denoising_score_matching", "second_order_dsm", "second_order_dsm_meng_variation"]
 
 
-def dsm(model: Union["ScoreModel", "EnergyModel"], samples: Tensor, *args: list[Tensor]):
+def dsm(model: "ScoreModel", samples: Tensor, *args: list[Tensor]):
     B, *D = samples.shape
     sde = model.sde
     
