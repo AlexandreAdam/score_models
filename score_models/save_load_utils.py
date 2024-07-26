@@ -6,6 +6,7 @@ import numpy as np
 import warnings
 import copy
 import shutil
+import dill
 from torch.nn import Module
 from peft import PeftModel
 
