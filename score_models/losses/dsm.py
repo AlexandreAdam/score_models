@@ -1,4 +1,7 @@
-from typing import Union
+from typing import Union, TYPE_CHECKING
+if TYPE_CHECKING:
+    from score_models import ScoreModel, HessianDiagonal
+
 from torch import Tensor
 import torch
 

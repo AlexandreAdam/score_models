@@ -1,4 +1,6 @@
-from typing import Optional, Literal, Tuple
+from typing import Optional, Literal, Tuple, TYPE_CHECKING
+if TYPE_CHECKING:
+    from score_models import ScoreModel, LoRAScoreModel, SDE
 
 import torch
 import os, glob, re, json
@@ -64,7 +66,7 @@ def save_checkpoint(
     
     Args:
         model: Model instance to save.
-        path: Path to a directory where to save the checkpoint files. Defaults to the path in the ScoreModelBase instance.
+        path: Path to a directory where to save the checkpoint files. Defaults to the path in the ScoreModel instance.
         create_path: If True, create the directory if it does not exist.
         key: Key to save the checkpoint with. Defaults to "checkpoint". Alternative is "optimizer".
     """
@@ -127,7 +129,7 @@ def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
             if os.path.exists(opt_path):
                 os.remove(opt_path)
 
-def load_sbm_state(sbm: "Base", path: str):
+def load_sbm_state(sbm: "ScoreModel", path: str):
     """
     Utility function to load the state dictionary of a model from a file.
     We use a try except to catch an old error in the model saving process.

@@ -1,4 +1,6 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, TYPE_CHECKING
+if TYPE_CHECKING:
+    from score_models import ScoreModel
 
 import torch
 import json, os
@@ -16,7 +18,7 @@ from .save_load_utils import remove_oldest_checkpoint, last_checkpoint
 class Trainer:
     def __init__(
         self,
-        model: "Base",
+        model: "ScoreModel",
         dataset: Dataset,
         preprocessing: Optional[Callable] = None,
         batch_size: int = 1,
