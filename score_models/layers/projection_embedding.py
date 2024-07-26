@@ -5,6 +5,8 @@ from numpy import pi
 
 left_matmul = vmap(torch.matmul, in_dims=(None,  0))
 
+__all__ = ['GaussianFourierProjection', 'PositionalEncoding']
+
 
 class GaussianFourierProjection(nn.Module):
     """Gaussian random features for encoding time steps."""

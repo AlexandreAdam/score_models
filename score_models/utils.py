@@ -40,6 +40,12 @@ def get_activation(activation_type="elu"):
         return nn.Identity()
     elif activation_type == "relu":
         activation = nn.ReLU()
+    elif activation_type == "leakyrelu":
+        activation = nn.LeakyReLU(0.2)
+    elif activation_type == "gelu":
+        activation = nn.GELU()
+    elif activation_type == "sigmoid":
+        activation = nn.Sigmoid()
     elif activation_type == "elu":
         activation = nn.ELU()
     elif activation_type == "tanh":

@@ -1,6 +1,8 @@
 import torch
 from .conv_layers import conv1x1
 
+__all__ = ['Combine']
+
 
 class Combine(torch.nn.Module):
     """Combine information from skip connections."""

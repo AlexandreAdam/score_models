@@ -6,7 +6,6 @@ from torch import nn
 from functools import partial
 from .conv2dsame import Conv2dSame
 
-
 def conv1x1(in_planes, out_planes, stride=1, bias=True, dilation=1):
     """1x1 convolution. Same as NCSNv1/v2."""
     conv = Conv2dSame(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias, dilation=dilation)

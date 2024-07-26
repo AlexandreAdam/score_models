@@ -93,8 +93,11 @@ class DDPM(nn.Module):
         self.num_res_blocks = num_res_blocks
         self.num_resolutions = num_resolutions = len(ch_mult)
 
-        AttnBlock = SelfAttentionBlock
+        # Prepare layers
+        AttnBlock = partial(SelfAttentionBlock, dimensions=dimensions)
         ResnetBlock = partial(DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions)
+        Downsample = partial(DownsampleLayer, dimensions=dimensions)
+        Upsample = partial(UpsampleLayer, dimensions=dimensions)
 
         ########### Conditional branch ###########
         if self.conditioned:
@@ -123,8 +126,7 @@ class DDPM(nn.Module):
         ####################################
 
         # Downsampling block
-        Downsample = partial(DownsampleLayer, dimensions=dimensions)
-        modules.append(conv3x3(total_input_channels, nf))
+        modules.append(conv3x3(total_input_channels, nf, dimensions=dimensions))
         hs_c = [nf]
         in_ch = nf
         for i_level in range(num_resolutions):
@@ -145,7 +147,6 @@ class DDPM(nn.Module):
         modules.append(ResnetBlock(in_ch=in_ch))
 
         # Upsampling block
-        Upsample = partial(UpsampleLayer, dimensions=dimensions)
         for i_level in reversed(range(num_resolutions)):
             for i_block in range(num_res_blocks + 1):
                 out_ch = nf * ch_mult[i_level]
@@ -156,7 +157,7 @@ class DDPM(nn.Module):
 
         assert not hs_c
         modules.append(nn.GroupNorm(num_channels=in_ch, num_groups=max(min(in_ch // 4, 32), 1), eps=1e-6))
-        modules.append(conv3x3(in_ch, channels))
+        modules.append(conv3x3(in_ch, channels, dimensions=dimensions))
         self.all_modules = nn.ModuleList(modules)
 
     def forward(self, t, x, *args):

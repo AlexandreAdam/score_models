@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch
 
+__all__ = ['ConditionalInstanceNorm2d']
+
 
 class ConditionalInstanceNorm2d(nn.Module):
     def __init__(self, num_features, num_classes=None, bias=True):

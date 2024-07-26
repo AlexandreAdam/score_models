@@ -6,6 +6,8 @@ Implementation detail: torch.bmm (batched matmul) is preferred to torch.einsum
 since the latter has some reported speed issues.
 """
 
+__all__ = ["SelfAttentionBlock", "ScaledAttentionLayer"]
+
 
 class SelfAttentionBlock(nn.Module):
     """

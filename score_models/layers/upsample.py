@@ -5,6 +5,8 @@ from .style_gan_conv import StyleGANConv
 from .up_or_downsampling import upsample
 from ..definitions import default_init
 
+__all__ = ['UpsampleLayer']
+
 
 class UpsampleLayer(Module):
     def __init__(self, in_ch=None, out_ch=None, with_conv=False, fir=False,
