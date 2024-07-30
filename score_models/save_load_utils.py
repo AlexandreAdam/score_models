@@ -46,9 +46,9 @@ def next_checkpoint(path: str) -> int:
 
 
 def save_checkpoint(
-        model: Module, 
-        path: str, 
-        create_path: bool = True, 
+        model: Module,
+        path: str,
+        create_path: bool = True,
         key: Literal["checkpoint", "optimizer", "lora_checkpoint"] = "checkpoint"
         ):
     """
@@ -84,22 +84,22 @@ def save_checkpoint(
     print(f"Saved {key} {checkpoint} to {path}")
  
 
-def save_hyperparameters(hyperparameters: dict, path: str):
+def save_hyperparameters(hyperparameters: dict, path: str, key: str = "model_hparams"):
     """
     Utility function to save the hyperparameters of a model to a standard file.
     """
-    file = os.path.join(path, "model_hparams.json")
+    file = os.path.join(path, f"{key}.json")
     if not os.path.isfile(file):
         with open(file, "w") as f:
             json.dump(hyperparameters, f, indent=4)
-        print(f"Saved hyperparameters to {path}")
+        print(f"Saved {key} to {path}")
 
 
-def load_hyperparameters(path: str) -> dict:
+def load_hyperparameters(path: str, key: str = "model_hparams") -> dict:
     """
     Utility function to load the hyperparameters of a model from a standard file.
     """
-    file = os.path.join(path, "model_hparams.json")
+    file = os.path.join(path, f"{key}.json")
     if os.path.isfile(file):
         with open(file, "r") as f:
             hparams = json.load(f)
@@ -128,6 +128,10 @@ def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
             opt_path = os.path.join(path, "optimizer_{:03d}.pt".format(checkpoints[0]))
             if os.path.exists(opt_path):
                 os.remove(opt_path)
+            # # remove associated scalar net
+            # scalar_path = os.path.join(path, "scalar_net_{:03d}.pt".format(checkpoints[0]))
+            # if os.path.exists(scalar_path):
+                # os.remove(scalar_path)
 
 def load_sbm_state(sbm: "ScoreModel", path: str):
     """
@@ -144,20 +148,20 @@ def load_sbm_state(sbm: "ScoreModel", path: str):
             print(e)
             raise KeyError(f"Could not load state of model from {path}. Make sure you are loading the correct model.")
 
-
 def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_error: bool = True):
     try:
         optimizer.load_state_dict(torch.load(path, map_location=optimizer.device))
     except (KeyError, RuntimeError) as e:
         if raise_error:
             print(e)
-        maybe_raise_error(f"Could not load state of optimizer from {path}.", raise_error, error_type=KeyError)
-
+        maybe_raise_error(f"Could not load state of the optimizer from {path}.", raise_error, error_type=KeyError)
 
 def load_lora_state(lora_sbm: "LoRAScoreModel", path: str):
     lora_sbm.lora_net = PeftModel.from_pretrained(copy.deepcopy(lora_sbm.net), path, is_trainable=True)
-        
 
+# def load_scalar_net(posterior_sbm: "LoRAPosteriorScoreModel", path: str):
+    # posterior_sbm.scalar_net.load_state_dict(torch.load(path, map_location=posterior_sbm.device))
+        
 def load_checkpoint(
         model: Module,
         path: str,
@@ -170,8 +174,8 @@ def load_checkpoint(
     This utility assumes the directory contains files with the following pattern:
     ```
         Path
-        ├── checkpoint_*_001.pt
-        ├── checkpoint_*_002.pt
+        ├── *checkpoint_*_001.pt
+        ├── *checkpoint_*_002.pt
         ├── ...
         ├── optimizer_*_001.pt
         ├── optimizer_*_002.pt
@@ -199,10 +203,14 @@ def load_checkpoint(
     
     if key == "checkpoint":
         loading_mecanism = load_sbm_state
-    elif key == "optimizer":
-        loading_mecanism = load_optimizer_state
     elif key == "lora_checkpoint":
         loading_mecanism = load_lora_state
+    elif key == "optimizer":
+        loading_mecanism = load_optimizer_state
+    # elif key == "scalar_net":
+        # loading_mecanism = load_scalar_net
+    else:
+        raise ValueError(f"Key {key} not recognized.")
     
     if checkpoints:
         if checkpoint:
@@ -224,6 +232,7 @@ def load_architecture(
         path: Optional[str] = None,
         net: Optional[str] = None,
         device=DEVICE,
+        hparams_filename="model_hparams",
         **hyperparameters
         ) -> Tuple[Module, dict]:
     """
@@ -240,7 +249,7 @@ def load_architecture(
         if not os.path.isdir(path):
             raise FileNotFoundError(f"Directory {path} does not exist. "
                                      "Please make sure to provide a valid path to the checkpoint directory.")
-        hparams = load_hyperparameters(path)
+        hparams = load_hyperparameters(path, key=hparams_filename)
         hyperparameters.update(hparams)
         net = hyperparameters.get("model_architecture", "ncsnpp")
     
@@ -254,6 +263,9 @@ def load_architecture(
         elif net.lower() == "mlp":
             from score_models import MLP
             net = MLP(**hyperparameters).to(device)
+        elif net.lower() == "encoder":
+            from score_models import Encoder
+            net = Encoder(**hyperparameters).to(device)
         else:
             raise ValueError(f"Architecture {net} not recognized.")
     else:
