@@ -201,6 +201,7 @@ def load_checkpoint(
         maybe_raise_error(f"{key} {checkpoint} not found in directory {path}.", raise_error)
         checkpoint = None # Overwrite to load the last checkpoint
     
+    # Refactor to use setattr for more generality or just returns the net and setattr is done at the class level
     if key == "checkpoint":
         loading_mecanism = load_sbm_state
     elif key == "lora_checkpoint":
@@ -216,12 +217,11 @@ def load_checkpoint(
         if checkpoint:
             # Load requested checkpoint
             index = checkpoints.index(checkpoint)
-            loading_mecanism(model, paths[index])
         else:
             # Load last checkpoint
             index = np.argmax(checkpoints)
-            loading_mecanism(model, paths[index])
             checkpoint = checkpoints[index]
+        loading_mecanism(model, paths[index])
         print(f"Loaded {key} {checkpoint} of model {name}.")
         return checkpoint
     else:

@@ -42,7 +42,7 @@ class LoRAScoreModel(ScoreModel):
             # Initialize from scratch
             net = base_sbm.net
             base_hyperparameters = base_sbm.hyperparameters
-            super().__init__(net, checkpoint=checkpoint, device=device, **base_hyperparameters)
+            super().__init__(net, device=device, **base_hyperparameters)
             
             # Freeze the base net
             for param in self.net.parameters():

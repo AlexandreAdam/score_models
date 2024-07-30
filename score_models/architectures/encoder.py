@@ -74,7 +74,7 @@ class Encoder(nn.Module):
             "pixels": pixels,
             "channels": channels,
             "latent_size": latent_size,
-            "nf": channels,
+            "nf": nf,
             "input_kernel_size": input_kernel_size,
             "ch_mult": ch_mult,
             "num_res_blocks": num_res_blocks,
