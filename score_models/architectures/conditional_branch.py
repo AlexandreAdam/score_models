@@ -14,7 +14,7 @@ def validate_conditional_arguments(
     discrete_index = 0 # Number of discrete conditional variables
     tensor_index = 0 # Number of vector/tensor conditional variables
     if conditions:
-        if not isinstance(conditions, tuple):
+        if not isinstance(conditions, (tuple, list)):
             raise ValueError("Conditions should be a tuple of strings.")
         for c in conditions:
             if c.lower() not in ["time_discrete", "time_continuous", "time_vector", "input_tensor"]:
@@ -26,7 +26,7 @@ def validate_conditional_arguments(
                 if len(condition_embeddings) <= discrete_index:
                     raise ValueError("condition_embeddings must be provided for a 'discrete' condition type, " 
                                      "and must be a tuple of integers of length equal to the number of 'discrete' conditions.")
-                if not isinstance(condition_embeddings, tuple) or not isinstance(condition_embeddings[discrete_index], int):
+                if not isinstance(condition_embeddings, (tuple, list)) or not isinstance(condition_embeddings[discrete_index], int):
                     raise ValueError("condition_embeddings must be provided and be a tuple of integers for a 'discrete' condition type")
                 discrete_index += 1
             elif c.lower() in ["input_tensor", "time_vector"]:
@@ -36,7 +36,7 @@ def validate_conditional_arguments(
                 if len(condition_channels) <= tensor_index:
                     raise ValueError("condition_channels must be provided for 'input_tensor' and 'time_vector' condition types, "
                                      "and must be a tuple of integers of length equal to the number of 'input_tensor' and 'time_vector' conditions.")
-                if not isinstance(condition_channels, tuple) or not isinstance(condition_channels[tensor_index], int):
+                if not isinstance(condition_channels, (tuple, list)) or not isinstance(condition_channels[tensor_index], int):
                     raise ValueError("condition_channels must be provided and be a tuple of integers for 'input_tensor' and 'time_vector' condition type.")
                 tensor_index += 1
 

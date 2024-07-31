@@ -133,7 +133,7 @@ def remove_oldest_checkpoint(path: str, models_to_keep: int = 5):
             # if os.path.exists(scalar_path):
                 # os.remove(scalar_path)
 
-def load_sbm_state(sbm: "ScoreModel", path: str):
+def load_sbm_state(sbm: "ScoreModel", path: str, device=DEVICE):
     """
     Utility function to load the state dictionary of a model from a file.
     We use a try except to catch an old error in the model saving process.
@@ -148,15 +148,15 @@ def load_sbm_state(sbm: "ScoreModel", path: str):
             print(e)
             raise KeyError(f"Could not load state of model from {path}. Make sure you are loading the correct model.")
 
-def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_error: bool = True):
+def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_error: bool = True, device=DEVICE):
     try:
-        optimizer.load_state_dict(torch.load(path, map_location=optimizer.device))
+        optimizer.load_state_dict(torch.load(path, map_location=device))
     except (KeyError, RuntimeError) as e:
         if raise_error:
             print(e)
         maybe_raise_error(f"Could not load state of the optimizer from {path}.", raise_error, error_type=KeyError)
 
-def load_lora_state(lora_sbm: "LoRAScoreModel", path: str):
+def load_lora_state(lora_sbm: "LoRAScoreModel", path: str, device=DEVICE):
     lora_sbm.lora_net = PeftModel.from_pretrained(copy.deepcopy(lora_sbm.net), path, is_trainable=True)
 
 # def load_scalar_net(posterior_sbm: "LoRAPosteriorScoreModel", path: str):
@@ -167,7 +167,8 @@ def load_checkpoint(
         path: str,
         checkpoint: Optional[int] = None,
         raise_error: bool = True,
-        key: Literal["checkpoint", "optimizer", "lora_checkpoint"] = "checkpoint"
+        key: Literal["checkpoint", "optimizer", "lora_checkpoint"] = "checkpoint",
+        device=DEVICE
         ):
     """
     Utility function to load the checkpoint of a model and its optimizer state. 
@@ -201,7 +202,7 @@ def load_checkpoint(
         maybe_raise_error(f"{key} {checkpoint} not found in directory {path}.", raise_error)
         checkpoint = None # Overwrite to load the last checkpoint
     
-    # Refactor to use setattr for more generality or just returns the net and setattr is done at the class level
+    # Refactor to use setattr for more generality or just returns the net.
     if key == "checkpoint":
         loading_mecanism = load_sbm_state
     elif key == "lora_checkpoint":
@@ -221,8 +222,8 @@ def load_checkpoint(
             # Load last checkpoint
             index = np.argmax(checkpoints)
             checkpoint = checkpoints[index]
-        loading_mecanism(model, paths[index])
-        print(f"Loaded {key} {checkpoint} of model {name}.")
+        loading_mecanism(model, paths[index], device=device)
+        print(f"Loaded {key} {checkpoint} from {name}.")
         return checkpoint
     else:
         maybe_raise_error(f"No {key} found in {path}")
@@ -276,9 +277,9 @@ def load_architecture(
         hyperparameters["model_architecture"] = net.__class__.__name__
 
     if path:
-        print(f"Successfully loaded model architecture {net.__class__.__name__} from {os.path.split(path)[-1]}.")
+        print(f"Loaded model architecture {net.__class__.__name__} from {os.path.split(path)[-1]}.")
     else:
-        print(f"Successfully loaded model architecture {net.__class__.__name__} from hyperparameters.")
+        print(f"Loaded model architecture {net.__class__.__name__} from hyperparameters.")
     return net, hyperparameters
 
 

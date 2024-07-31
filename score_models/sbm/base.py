@@ -122,7 +122,6 @@ class Base(Module, ABC):
     def load(
             self, 
             checkpoint: Optional[int] = None, 
-            optimizer: Optional[torch.optim.Optimizer] = None,
             raise_error: bool = True
             ):
         """
@@ -135,8 +134,6 @@ class Base(Module, ABC):
         """
         if self.path is None:
             raise ValueError("A checkpoint can only be loaded if the model is instantiated with a path, e.g. model = ScoreModel(path='path/to/checkpoint').")
-        if optimizer:
-            load_checkpoint(model=optimizer, checkpoint=checkpoint, path=self.path, key="optimizer", raise_error=raise_error)
         self.loaded_checkpoint = load_checkpoint(model=self, checkpoint=checkpoint, path=self.path, key="checkpoint", raise_error=raise_error)
     
     def fit(
@@ -189,4 +186,3 @@ class Base(Module, ABC):
             )
         losses = trainer.train()
         return losses
-

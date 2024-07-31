@@ -107,7 +107,6 @@ class LoRAScoreModel(ScoreModel):
     def load(
             self, 
             checkpoint: Optional[int] = None, 
-            optimizer: Optional[torch.optim.Optimizer] = None,
             raise_error: bool = True
             ):
         if self.path is None:

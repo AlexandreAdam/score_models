@@ -12,7 +12,11 @@ from datetime import datetime
 from tqdm import tqdm
 
 from .utils import DEVICE
-from .save_load_utils import remove_oldest_checkpoint, last_checkpoint
+from .save_load_utils import (
+        remove_oldest_checkpoint, 
+        last_checkpoint,
+        load_checkpoint
+        )
 
 
 class Trainer:
@@ -23,7 +27,7 @@ class Trainer:
         preprocessing: Optional[Callable] = None,
         batch_size: int = 1,
         shuffle: bool = False,
-        epochs: int = 100, 
+        epochs: int = 100,
         iterations_per_epoch: Optional[int] = None,
         max_time: float = float('inf'),
         optimizer: Optional[torch.optim.Optimizer] = None,
@@ -39,13 +43,12 @@ class Trainer:
     ):
         self.model = model
         self.net = model.net # Neural network to train
-        self.path = path
         self.dataset = dataset
         self.dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         self .data_iter = iter(self.dataloader)
         self.preprocessing = preprocessing or (lambda x: x)
-        self.optimizer = optimizer or torch.optim.Adam(self.net.parameters(), lr=learning_rate)
-        self.ema = ExponentialMovingAverage(self.net.parameters(), decay=ema_decay)
+        self.optimizer = optimizer or torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
         self.lr = learning_rate
         self.clip = clip
         self.warmup = warmup
@@ -58,8 +61,26 @@ class Trainer:
         self.iterations_per_epoch = iterations_per_epoch or len(self.dataloader)
         self.max_time = max_time
         
-        self.path = path or model.path # Path to save the model
-        if self.path:
+        # Provided model already has a path to load a checkpoint from
+        if path and self.model.path:
+            print(f"Loading a checkpoint from the model path {self.model.path} and saving in new path {path}...")
+        if self.model.path:
+            if not os.path.isdir(self.model.path): # Double check the path is valid
+                print(f"Provided path {self.model.path} is not a valid directory. Can't load checkpoint.")
+            else:
+                checkpoint = load_checkpoint(
+                        model=self.optimizer, 
+                        checkpoint=self.model.loaded_checkpoint, 
+                        path=self.model.path, 
+                        key="optimizer",
+                        device=self.model.device
+                        )
+                print(f"Resumed training from checkpoint {checkpoint}.")
+        print(self.optimizer.state_dict())
+            
+        # Create a new checkpoint and save checkpoint there 
+        if path:
+            self.path = path
             if name_prefix: # Instantiate a new model, stamped with the current time
                 model_name = name_prefix + "_" + datetime.now().strftime("%y%m%d%H%M%S")
                 self.path = os.path.join(self.path, model_name)
@@ -69,8 +90,7 @@ class Trainer:
                 os.makedirs(self.path, exist_ok=True)
 
             # Save Training parameters
-            file = os.path.join(path, "script_params.json")
-            print(file)
+            file = os.path.join(self.path, "script_params.json")
             if not os.path.isfile(file):
                 with open(file, "w") as f:
                     json.dump(
@@ -99,6 +119,12 @@ class Trainer:
                     )
             # Save model hyperparameters to reconstruct the model later
             self.model.save_hyperparameters(path)
+        elif self.model.path:
+            # Continue saving checkpoints in the model path
+            self.path = self.model.path
+        else:
+            self.path = None
+            print("No path provided. Training checkpoints will not be saved.")
 
     def save_checkpoint(self, loss: float):
         """
@@ -142,7 +168,7 @@ class Trainer:
                 for g in self.optimizer.param_groups:
                     g['lr'] = self.lr * np.minimum(self.global_step / self.warmup, 1.0)
             if self.clip > 0:
-                torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=self.clip)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.clip)
             self.optimizer.step()
             self.ema.update()
             # Logging
@@ -187,5 +213,5 @@ class Trainer:
 
         print(f"Finished training after {(time.time() - global_start) / 3600:.3f} hours.")
         # Save EMA weights in the model for dynamic use (e.g. Jupyter notebooks)
-        self.ema.copy_to(self.net.parameters())
+        self.ema.copy_to(self.model.parameters())
         return losses

@@ -82,13 +82,12 @@ class HessianDiagonal(Base):
     def load(
             self, 
             checkpoint: Optional[int] = None, 
-            optimizer: Optional[torch.optim.Optimizer] = None,
             raise_error: bool = True
             ):
         """
         Super method reloads the HessianDiagonal net.
         Then we load the base score model from the score_model sub-directory.
         """
-        super().load(checkpoint, optimizer, raise_error)
+        super().load(checkpoint, raise_error)
         sbm_path = os.path.join(self.path, "score_model")
         self.score_model = ScoreModel(path=sbm_path)
