@@ -51,7 +51,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           pwd
-          pytest --vvv --cov-report=xml --cov=score_models tests/
+          pytest --cov-report=xml --cov=score_models tests/
         shell: bash
 
       - name: Upload coverage report to Codecov
