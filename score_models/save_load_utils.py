@@ -139,18 +139,18 @@ def load_sbm_state(sbm: "ScoreModel", path: str, device=DEVICE):
     We use a try except to catch an old error in the model saving process.
     """
     try:
-        sbm.net.load_state_dict(torch.load(path, map_location=sbm.device))
+        sbm.net.load_state_dict(torch.load(path, map_location=sbm.device, weights_only=True))
     except (KeyError, RuntimeError) as e:
         # Maybe the ScoreModel instance was used when saving the weights... (mostly backward compatibility with old bugs)
         try:
-            sbm.load_state_dict(torch.load(path, map_location=sbm.device))
+            sbm.load_state_dict(torch.load(path, map_location=sbm.device, weights_only=True))
         except (KeyError, RuntimeError):
             print(e)
             raise KeyError(f"Could not load state of model from {path}. Make sure you are loading the correct model.")
 
 def load_optimizer_state(optimizer: torch.optim.Optimizer, path: str, raise_error: bool = True, device=DEVICE):
     try:
-        optimizer.load_state_dict(torch.load(path, map_location=device))
+        optimizer.load_state_dict(torch.load(path, map_location=device, weights_only=True))
     except (KeyError, RuntimeError) as e:
         if raise_error:
             print(e)

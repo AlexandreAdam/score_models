@@ -76,7 +76,6 @@ class Trainer:
                         device=self.model.device
                         )
                 print(f"Resumed training from checkpoint {checkpoint}.")
-        print(self.optimizer.state_dict())
             
         # Create a new checkpoint and save checkpoint there 
         if path:
