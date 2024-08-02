@@ -1,3 +1,5 @@
+from typing import Optional, Callable
+
 import torch
 from torch import nn
 from score_models.definitions import default_init
@@ -7,22 +9,25 @@ from .up_or_downsampling import *
 
 SQRT2 = 1.41421356237
 
+__all__ = ['ResnetBlockBigGANpp']
+
 
 class ResnetBlockBigGANpp(nn.Module):
     def __init__(
             self,
-            act,
-            in_ch,
-            out_ch=None,
-            temb_dim=None,
-            up=False,
-            down=False,
-            dropout=0.1,
-            fir=False,
-            fir_kernel=(1, 3, 3, 1),
-            skip_rescale=True,
-            init_scale=0.,
-            dimensions=2
+            act: Callable,
+            in_ch: int,
+            out_ch: Optional[int] = None,
+            temb_dim: Optional[int] = None,
+            up:  bool = False,
+            down: bool = False,
+            dropout: float = 0.,
+            fir: bool = False,
+            fir_kernel: tuple[int] = (1, 3, 3, 1),
+            skip_rescale: bool = True,
+            init_scale: float = 0.,
+            factor: int = 2,
+            dimensions: int = 2
     ):
         super().__init__()
         assert dimensions in [1, 2, 3]
@@ -36,8 +41,9 @@ class ResnetBlockBigGANpp(nn.Module):
         self.act = act
         self.in_ch = in_ch
         self.out_ch = out_ch
+        self.factor = factor 
 
-        self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
+        self.GroupNorm_0 = nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1), num_channels=in_ch, eps=1e-6)
         self.Conv_0 = conv3x3(in_ch, out_ch, dimensions=dimensions)
         if temb_dim is not None:
             self.Dense_0 = nn.Linear(temb_dim, out_ch)
@@ -45,13 +51,12 @@ class ResnetBlockBigGANpp(nn.Module):
                 self.Dense_0.weight.data = default_init()(self.Dense_0.weight.shape)
                 nn.init.zeros_(self.Dense_0.bias)
 
-        self.GroupNorm_1 = nn.GroupNorm(num_groups=min(out_ch // 4, 32), num_channels=out_ch, eps=1e-6)
+        self.GroupNorm_1 = nn.GroupNorm(num_groups=max(min(out_ch // 4, 32), 1), num_channels=out_ch, eps=1e-6)
         self.Dropout_0 = nn.Dropout(dropout)
         # suppress skip connection at initialization
         self.Conv_1 = conv3x3(out_ch, out_ch, init_scale=init_scale, dimensions=dimensions)
         if in_ch != out_ch or up or down:
             self.Conv_2 = conv1x1(in_ch, out_ch, dimensions=dimensions)
-
 
     def forward(self, x, temb=None):
         B, *_ = x.shape
@@ -59,18 +64,18 @@ class ResnetBlockBigGANpp(nn.Module):
 
         if self.up:
             if self.fir:
-                h = upsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
-                x = upsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
+                h = upsample(h, self.fir_kernel, factor=self.factor, dimensions=self.dimensions)
+                x = upsample(x, self.fir_kernel, factor=self.factor, dimensions=self.dimensions)
             else:
-                h = naive_upsample(h, factor=2, dimensions=self.dimensions)
-                x = naive_upsample(x, factor=2, dimensions=self.dimensions)
+                h = naive_upsample(h, factor=self.factor, dimensions=self.dimensions)
+                x = naive_upsample(x, factor=self.factor, dimensions=self.dimensions)
         elif self.down:
             if self.fir:
-                h = downsample(h, self.fir_kernel, factor=2, dimensions=self.dimensions)
-                x = downsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
+                h = downsample(h, self.fir_kernel, factor=self.factor, dimensions=self.dimensions)
+                x = downsample(x, self.fir_kernel, factor=self.factor, dimensions=self.dimensions)
             else:
-                h = naive_downsample(h, factor=2, dimensions=self.dimensions)
-                x = naive_downsample(x, factor=2, dimensions=self.dimensions)
+                h = naive_downsample(h, factor=self.factor, dimensions=self.dimensions)
+                x = naive_downsample(x, factor=self.factor, dimensions=self.dimensions)
 
         h = self.Conv_0(h)
         # Add bias to each feature map conditioned on the time embedding

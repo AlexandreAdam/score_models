@@ -38,6 +38,12 @@ class TSVESDE(SDE):
         self.sigma_max = sigma_max
         self.beta = beta
         self.t_star = t_star
+        self.hyperparameters.update({
+            "sigma_min": sigma_min,
+            "sigma_max": sigma_max,
+            "t_star": t_star,
+            "beta": beta
+            })
         
         if beta_fn == "relu":
             self.beta_fn = lambda t: - self.beta * F.relu(t/self.T - self.t_star)
@@ -47,14 +53,6 @@ class TSVESDE(SDE):
             self.beta_fn = lambda t: - self.beta * F.hardswish(alpha*(t/self.T - self.t_star))/alpha
         self.beta_fn_dot = vmap(grad(self.beta_fn))
     
-    def scale(self, t):
-        """
-        Piecewise continuous scale function that takes a VE at t < t_star and
-        attach it to a VP-like diffusion at t>t_star. Note that the variance isnan
-        still exploding but with a logarihmic slope reduced by the beta hyperparameter.
-        """
-        return torch.exp(self.beta_fn(t))
-
     def sigma(self, t: Tensor) -> Tensor:
         """
         Numerically stable formula for sigma
@@ -64,17 +62,24 @@ class TSVESDE(SDE):
         log_coeff = self.beta_fn(t) + (smax - smin) * t/self.T + smin
         return torch.exp(log_coeff)
     
+    def mu(self, t: Tensor) -> Tensor:
+        """
+        Piecewise continuous scale function that takes a VE at t < t_star and
+        attach it to a VP-like diffusion at t>t_star. Note that the variance isnan
+        still exploding but with a logarihmic slope reduced by the beta hyperparameter.
+        """
+        return torch.exp(self.beta_fn(t))
+    
     def prior(self, shape, device=DEVICE):
         mu = torch.zeros(shape).to(device) 
         sigma_max = np.exp(-self.beta * (1. - self.t_star) + np.log(self.sigma_max))
         return Independent(Normal(loc=mu, scale=sigma_max, validate_args=False), len(shape))
     
-    def marginal_prob_scalars(self, t) -> tuple[Tensor, Tensor]:
-        return self.scale(t), self.sigma(t)
-
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
-        _, *D = x.shape
-        return self.sigma(t).view(-1, *[1]*len(D)) * np.sqrt(2*(np.log(self.sigma_max) - np.log(self.sigma_min)))
+        _, *D = x.shape # broadcast diffusion coefficient to x shape
+        # Analytical derivative of the sigma**2 function, square rooted at the end 
+        prefactor = np.sqrt(2 * (np.log(self.sigma_max) - np.log(self.sigma_min)))
+        return prefactor * self.sigma(t).view(-1, *[1]*len(D))
 
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape

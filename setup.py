@@ -6,7 +6,7 @@ with open("long_description.rst", "r") as fh:
 
 setup(
 	name="score_models",
-	version="0.5.11",
+	version="0.6.0",
     description="A simple pytorch interface for score model and basic diffusion.",
     long_description=long_description,
     author="Alexandre Adam",
@@ -19,14 +19,15 @@ setup(
         "torch_ema",
         "h5py",
         "numpy",
-        "tqdm"
+        "tqdm",
+        "peft>=0.11"
     ],
-	python_requires=">=3.8",
+	python_requires=">=3.9",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
 )
 

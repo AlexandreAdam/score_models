@@ -7,6 +7,8 @@ from .spectral_normalization import SpectralNorm
 Implements same padding behavior as in Tensorflow
 """
 
+__all__ = ['Conv1dSame', 'ConvTransposed1dSame']
+
 
 class Conv1dSame(nn.Module):
     def __init__(

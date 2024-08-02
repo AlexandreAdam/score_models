@@ -6,6 +6,8 @@ from .up_or_downsampling1d import upsample_conv_1d, conv_downsample_1d
 from .up_or_downsampling2d import upsample_conv_2d, conv_downsample_2d
 from .up_or_downsampling3d import upsample_conv_3d, conv_downsample_3d
 
+__all__ = ['StyleGANConv']
+
 
 class StyleGANConv(nn.Module):
     """Conv2d layer with optimal upsampling and downsampling (StyleGAN2)."""

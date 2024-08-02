@@ -9,6 +9,8 @@ AVGPOOL_FUNC = {1: F.avg_pool1d,
                 2: F.avg_pool2d,
                 3: F.avg_pool3d}
 
+__all__ = ['DownsampleLayer']
+
 class DownsampleLayer(torch.nn.Module):
     def __init__(
             self, 

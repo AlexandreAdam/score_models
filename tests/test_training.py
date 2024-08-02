@@ -1,301 +1,371 @@
-import torch
 from torch.utils.data import TensorDataset
-from score_models import ScoreModel, EnergyModel, MLP, NCSNpp
+from score_models import ScoreModel, EnergyModel, SLIC, HessianDiagonal, LoRAScoreModel, MLP, NCSNpp, DDPM
+from functools import partial
+import pytest
+import torch
 import shutil, os
 import numpy as np
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, size, channels, dimensions:list, conditioning="None", test_input_list=False):
+    def __init__(
+            self, 
+            size, 
+            channels, 
+            dimensions,
+            time_branch_channels: int = 4,
+            conditions=None, 
+            condition_channels=None,
+            condition_embeddings=None,
+            **kwargs
+            ):
         self.size = size
-        self.channels = channels
-        self.dimensions = dimensions
-        self.conditioning = conditioning
-        self.test_input_list = test_input_list
+        self.C = channels
+        self.D = dimensions
+        self.conditions = conditions
+        self.condition_channels = condition_channels
+        self.condition_embeddings = condition_embeddings
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index):
-        if self.test_input_list:
-            return torch.randn(self.channels, *self.dimensions),
-        if self.conditioning.lower() == "none":
-            return torch.randn(self.channels, *self.dimensions)
-        elif self.conditioning.lower() == "time":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(1)
-        elif self.conditioning.lower() == "input":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions)
-        elif self.conditioning.lower() == "input_and_time":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(self.channels, *self.dimensions), torch.randn(1)
-        elif self.conditioning.lower() == "time_and_discrete":
-            return torch.randn(self.channels, *self.dimensions), torch.randn(1), torch.randint(10, (1,))
-        elif self.conditioning.lower() == "discrete_time":
-            return torch.randn(self.channels, *self.dimensions), torch.tensor(np.random.choice(range(10)))
-    
-def test_multiple_channels_ncsnpp():
+
+        x = [torch.randn(self.C, *self.D),]
+        if self.conditions:
+            c_idx = 0
+            e_idx = 0
+            for condition in self.conditions:
+                if condition == "time_continuous":
+                    c = torch.randn(1)
+                    x.append(c)
+                elif condition == "time_discrete":
+                    tokens = self.condition_embeddings[e_idx]
+                    c = torch.randint(tokens, (1,))
+                    x.append(c)
+                    e_idx += 1
+                elif condition == "time_vector":
+                    c = torch.randn(self.condition_channels[c_idx])
+                    x.append(c)
+                    c_idx += 1
+                elif condition == "input_tensor":
+                    c = torch.randn(self.condition_channels[c_idx], *self.D)
+                    x.append(c)
+                    c_idx += 1
+        return x
+
+@pytest.mark.parametrize("models_to_keep", [1, 2])
+@pytest.mark.parametrize("conditions", [
+    (None, None, None), 
+    (("input_tensor", "time_continuous", "time_vector", "time_discrete"), (15,), (15, 3)),
+    ])
+@pytest.mark.parametrize("sde", [
+    {"sde": "vp"}, 
+    {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
+    {"sde": "vp", "schedule": "cosine", "beta_max": 100}
+    ])
+@pytest.mark.parametrize("Net", [MLP, NCSNpp, DDPM])
+def test_training_score_model(conditions, sde, Net, models_to_keep, tmp_path, capsys):
+    condition_type, embeddings, channels = conditions
+    hp = {
+            "ch_mult": (1, 1),
+            "nf": 2,
+            "conditions": condition_type,
+            "condition_channels": channels,
+            "condition_embeddings": embeddings,
+            }
+    E = 3 # epochs
+    B = 2
     C = 3
-    D = 16
-    dim = 2
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D]*dim)
-    net = NCSNpp(nf=8, channels=C, ch_mul=(1, 1))
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    N = 4
+    D = [] if Net == MLP else [4, 4]
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = Net(C, **hp)
+    model = ScoreModel(net, **sde)
+    
+    path = tmp_path / "test"
+    losses = model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
+
+    print(losses)
+    assert len(losses) == E, f"Expected {E} losses, got {len(losses)}"
+    # Check that some improvement happens
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    for i in range(E+1-models_to_keep, E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+    
+    # Test resume from checkpoint
+    new_model = ScoreModel(path=path)
+    assert new_model.loaded_checkpoint == E, f"Expected loaded_checkpoint to be {E}, got {new_model.loaded_checkpoint}"
+    losses = new_model.fit(
+            dataset,
+            batch_size=B,
+            epochs=E,
+            checkpoint_every=1,
+            models_to_keep=models_to_keep
+            )
+    # Check stdout for the print statement declaring we resumed from a previous checkpoint for the optimizer
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert f"Resumed training from checkpoint {E}." in captured.out
+    
+    # Check that the new checkpoints are updated correctly
+    for i in range(2*E+1-models_to_keep, 2*E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(E, 2*E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
 
 
-def test_training_conditioned_input_ncsnpp():
-    C = 1
-    D = 16
-    dim = 2
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D]*dim, conditioning="input")
-    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["input"], condition_input_channels=1)
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+@pytest.mark.parametrize("Net", [MLP, NCSNpp])
+@pytest.mark.parametrize("sde", [
+    {"sde": "vp"}, 
+    {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
+    {"sde": "vp", "schedule": "cosine", "beta_max": 100}
+    ])
+def test_training_energy_model(sde, Net, tmp_path, capsys):
+    hp = {
+            "ch_mult": (1, 1),
+            "nf": 2,
+            }
+    E = 2 # epochs
+    B = 2
+    C = 3
+    N = 4
+    models_to_keep = 1
+    D = [] if Net == MLP else [4, 4]
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = Net(C, **hp)
+    model = EnergyModel(net, **sde)
+    
+    path = tmp_path / "test"
+    losses = model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
+
+    print(losses)
+    assert len(losses) == E, f"Expected {E} losses, got {len(losses)}"
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    for i in range(E+1-models_to_keep, E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+
+    # Test resume from checkpoint
+    new_model = EnergyModel(path=path)
+    assert new_model.loaded_checkpoint == E, f"Expected loaded_checkpoint to be {E}, got {new_model.loaded_checkpoint}"
+    losses = new_model.fit(
+            dataset,
+            batch_size=B,
+            epochs=E,
+            checkpoint_every=1,
+            models_to_keep=models_to_keep
+            )
+    # Check stdout for the print statement declaring we resumed from a previous checkpoint for the optimizer
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert f"Resumed training from checkpoint {E}." in captured.out
+    
+    # Check that the new checkpoints are updated correctly
+    for i in range(2*E+1-models_to_keep, 2*E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(E, 2*E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+
+
+@pytest.mark.parametrize("conditions", [
+    (None, None, None), # conditions, embeddings, channels
+    (("input_tensor", "time_continuous", "time_vector", "time_discrete"), (15,), (15, 3)),
+    ])
+@pytest.mark.parametrize("loss", ["canonical", "meng"])
+@pytest.mark.parametrize("sde", [
+    {"sde": "vp"}, 
+    {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
+    {"sde": "vp", "schedule": "cosine", "beta_max": 100}
+    ])
+@pytest.mark.parametrize("Net", [MLP, NCSNpp])
+def test_training_hessian_diagonal_model(conditions, loss, sde, Net, tmp_path, capsys):
+    condition_type, embeddings, channels = conditions
+    hp = {
+            "ch_mult": (1, 1),
+            "nf": 2,
+            "conditions": condition_type,
+            "condition_channels": channels,
+            "condition_embeddings": embeddings,
+            }
+    E = 3 # epochs
+    B = 2
+    C = 3
+    N = 4
+    D = [] if Net == MLP else [4, 4]
+    models_to_keep = 1
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = Net(C, **hp)
+    base_model = ScoreModel(net, **sde)
+    derivative_net = Net(C, **hp)
+    derivative_model = HessianDiagonal(base_model, net=derivative_net, loss=loss)
+    
+    path = tmp_path / "test"
+    losses = derivative_model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
+
+    print(losses)
+    assert len(losses) == E, f"Expected {E} losses, got {len(losses)}"
+    # Check that some improvement happens
+    assert os.path.isdir(os.path.join(path, "score_model")), "score_model directory not found, the base SBM has not been saved"
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    for i in range(E+1-models_to_keep, E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+
+    # Test resume from checkpoint
+    new_model = HessianDiagonal(path=path)
+    assert new_model.loaded_checkpoint == E, f"Expected loaded_checkpoint to be {E}, got {new_model.loaded_checkpoint}"
+    losses = new_model.fit(
+            dataset,
+            batch_size=B,
+            epochs=E,
+            checkpoint_every=1,
+            models_to_keep=models_to_keep
+            )
+    # Check stdout for the print statement declaring we resumed from a previous checkpoint for the optimizer
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert f"Resumed training from checkpoint {E}." in captured.out
+    
+    # Check that the new checkpoints are updated correctly
+    for i in range(2*E+1-models_to_keep, 2*E+1):
+        assert os.path.isfile(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(E, 2*E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
+
+
+@pytest.mark.parametrize("conditions", [
+    (None, None, None), # conditions, embeddings, channels
+    (("input_tensor", "time_continuous", "time_vector", "time_discrete"), (15,), (15, 3)),
+    ])
+@pytest.mark.parametrize("lora_rank", [1, 2])
+@pytest.mark.parametrize("sde", [
+    {"sde": "vp"}, 
+    {"sde": "ve", "sigma_min": 1e-2, "sigma_max": 1e2}, 
+    {"sde": "vp", "schedule": "cosine", "beta_max": 100}
+    ])
+@pytest.mark.parametrize("Net", [MLP, NCSNpp])
+def test_training_lora_model(conditions, lora_rank, sde, Net, tmp_path, capsys):
+    condition_type, embeddings, channels = conditions
+    hp = {
+            "ch_mult": (1, 1),
+            "nf": 2,
+            "conditions": condition_type,
+            "condition_channels": channels,
+            "condition_embeddings": embeddings,
+            }
+    E = 3 # epochs
+    B = 2
+    C = 3
+    N = 4
+    D = [] if Net == MLP else [4, 4]
+    models_to_keep = 1
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = Net(C, **hp)
+    base_model = ScoreModel(net, **sde)
+    lora_model = LoRAScoreModel(base_model, lora_rank=lora_rank)
+    
+    path = tmp_path / "test"
+    losses = lora_model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
+
+    print(losses)
+    assert len(losses) == E, f"Expected {E} losses, got {len(losses)}"
+    # Check that some improvement happens
+    assert os.path.isdir(os.path.join(path, "base_sbm")), "base_sbm directory not found, the base SBM has not been saved"
+    print(os.listdir(os.path.join(path, "base_sbm")))
+    assert os.path.isfile(os.path.join(path, "base_sbm", "model_hparams.json")), "model_hparams.json not found in base_sbm directory"
+    assert os.path.isfile(os.path.join(path, "base_sbm", "checkpoint_001.pt")), "checkpout_001.pt not found in base_sbm directory"
+    assert os.path.isfile(os.path.join(path, "model_hparams.json")), "model_hparams.json not found"
+    assert os.path.isfile(os.path.join(path, "script_params.json")), "script_params.json not found"
+    print(os.listdir(path))
+    for i in range(E+1-models_to_keep, E+1):
+        assert os.path.isdir(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(0, E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
     
 
-def test_training_conditioned_continuous_timelike_ncsnpp():
-    C = 1
-    D = 16
-    dim = 2
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D]*dim, conditioning="time")
-    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["continuous_timelike"])
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
+    # Check the network is reloaded correctly
+    new_model = LoRAScoreModel(path=path)
+    assert new_model.loaded_checkpoint == E, f"Expected loaded_checkpoint to be {E}, got {new_model.loaded_checkpoint}"
+    losses = new_model.fit(
+            dataset,
+            batch_size=B,
+            epochs=E,
+            checkpoint_every=1,
+            models_to_keep=models_to_keep
+            )
+    # Check stdout for the print statement declaring we resumed from a previous checkpoint for the optimizer
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert f"Resumed training from checkpoint {E}." in captured.out
+    
+    # Check that the new checkpoints are updated correctly
+    print(os.listdir(path))
+    for i in range(2*E+1-models_to_keep, 2*E+1):
+        assert os.path.isdir(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} not found"
+        assert os.path.isfile(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt not found"
+    for i in range(E, 2*E+1-models_to_keep): # Check that files are cleaned up
+        assert not os.path.exists(os.path.join(path, f"lora_checkpoint_{i:03}")), f"lora_checkpoint_{i:03} found, should not be there"
+        assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
 
-def test_training_conditioned_discrete_timelike_ncsnpp():
-    C = 1
-    D = 16
-    dim = 2
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D]*dim, conditioning="discrete_time")
-    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["discrete_timelike"], condition_num_embedding=(10,))
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
 
-
-def test_training_conditioned_discrete_and_timelike_ncsnpp():
-    C = 1
-    D = 16
-    dim = 2
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D]*dim, conditioning="time_and_discrete")
-    net = NCSNpp(nf=8, ch_mul=(1, 1), condition=["continuous_timelike", "discrete_timelike"], condition_num_embedding=(10,))
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-    model.fit(dataset, batch_size=B, epochs=2)
-        
-
-def test_training_score_mlp():
-    C = 10
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [])
-    hyperparameters = {
-        "dimensions": C,
-        "units": 2*C,
-        "layers": 2,
-        "time_embedding_dimensions": 32,
-        "embedding_scale": 32,
-        "activation": "swish",
-        "time_branch_layers": 1
-    }
-    net = MLP(**hyperparameters)
-    # Create an instance of ScoreModel
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-
-    # Define any preprocessing function if needed
-    def preprocessing_fn(x):
-        return x
-
-    # Set the hyperparameters and other options for training
-    learning_rate = 1e-3
-    ema_decay = 0.9999
-    batch_size = 1
-    epochs = 10
-    warmup = 0 # learning rate warmup
-    clip = 0. # gradient clipping
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    seed = 42
-
-    # Fit the model to the dataset
+def test_backward_compatibility_optimizer_state(tmp_path, capsys):
+    # First, train a model with custom optimizer target network
+    E = 3 # epochs
+    B = 2
+    C = 3
+    N = 4
+    D = []
+    dataset = Dataset(N, C, dimensions=D)
+    net = MLP(C)
+    model = ScoreModel(net, "vp")
+    
+    # Simulate case where optimizer targets the network
+    optim = torch.optim.Adam(net.parameters(), lr=1e-3)
+    path = tmp_path / "test"
     losses = model.fit(
-        dataset, 
-        preprocessing_fn=preprocessing_fn, 
-        learning_rate=learning_rate, 
-        ema_decay=ema_decay,
-        batch_size=batch_size, 
-        epochs=epochs, 
-        warmup=warmup, 
-        clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
-        seed=seed
-        )
-    print(losses)
-    # leave the checpoints there until next test
-
-def test_training_score_mlp_input_list():
-    C = 10
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [], test_input_list=True)
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model = ScoreModel(checkpoints_directory=checkpoints_directory)
-    losses = model.fit(
-        dataset, 
-        checkpoints_directory=checkpoints_directory, 
-        epochs=10,
-        checkpoints=1,
-        models_to_keep=12, # keep all checkpoints for next test
-        batch_size=1
-        )
-
-
-def test_load_checkpoint_at_scoremodel_init():
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model1 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=1)
-    assert model1.loaded_checkpoint == 1, f"Expected checkpoint 1, got {model1.loaded_checkpoint}"
-
-    model2 = ScoreModel(checkpoints_directory=checkpoints_directory, model_checkpoint=4)
-    assert model2.loaded_checkpoint == 4, f"Expected checkpoint 4, got {model2.loaded_checkpoint}"
-
-    model3 = ScoreModel(checkpoints_directory=checkpoints_directory)
-    # Additional assertion based on the expected behavior when model_checkpoint is not provided
-    expected_checkpoint = 11  # Based on previous test, training 10 epochs and saving each one, we should have 11 checkpoints (also saving the last one)
-    assert model3.loaded_checkpoint == expected_checkpoint, f"Expected checkpoint {expected_checkpoint}, got {model3.loaded_checkpoint}"
-
-
-def test_training_load_checkpoint():
-    C = 10
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [])
-    checkpoints_directory = os.path.dirname(os.path.abspath(__file__)) + "/checkpoints"
-    model = ScoreModel(checkpoints_directory=checkpoints_directory)
-    losses = model.fit(
-        dataset, 
-        checkpoints_directory=checkpoints_directory, 
-        epochs=10,
-        batch_size=1
-        )
-    # Finally remove the checkpoint directory to keep the logic of the test above sound
-    shutil.rmtree(checkpoints_directory)
+            dataset, 
+            batch_size=B, 
+            epochs=E, 
+            path=path, 
+            checkpoint_every=1, 
+            optimizer=optim,
+            models_to_keep=1)
 
     
-def test_training_score_ncsnpp():
-    C = 1
-    D = 140
-    B = 5
-    size = 2*B
-    dataset = Dataset(size, C, [D])
-    hyperparameters = {
-     'channels': C,
-     'nf': 8,
-     'activation_type': 'swish',
-     'ch_mult': (2, 2),
-     'num_res_blocks': 2,
-     'resample_with_conv': True,
-     'dropout': 0.0,
-     'fir': True,
-     'fir_kernel': (1, 3, 3, 1),
-     'skip_rescale': True,
-     'progressive': 'output_skip',
-     'progressive_input': 'input_skip',
-     'init_scale': 0.01,
-     'fourier_scale': 16.0,
-     'resblock_type': 'biggan',
-     'combine_method': 'sum',
-     'attention': True,
-     'dimensions': 1,
-     'sde': 'vesde',
-     'sigma_min': 0.001,
-     'sigma_max': 200,
-     'T': 1.0}
-    net = NCSNpp(**hyperparameters)
-    # Create an instance of ScoreModel
-    model = ScoreModel(model=net, sigma_min=1e-2, sigma_max=10)
-
-    # Define any preprocessing function if needed
-    def preprocessing_fn(x):
-        return x
-
-    # Set the hyperparameters and other options for training
-    learning_rate = 1e-3
-    ema_decay = 0.9999
-    batch_size = 1
-    epochs = 2
-    warmup = 0 # learning rate warmup
-    clip = 0. # gradient clipping
-    checkpoints_directory = None
-    seed = 42
-
-    # Fit the model to the dataset
-    losses = model.fit(
-        dataset, 
-        preprocessing_fn=preprocessing_fn, 
-        learning_rate=learning_rate, 
-        ema_decay=ema_decay,
-        batch_size=batch_size, 
-        epochs=epochs, 
-        warmup=warmup, 
-        clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
-        seed=seed
-        )
-    print(losses)
-
-def test_training_energy():
-    # Create a dummy dataset
-    X = torch.randn(10, 10)
-
-    # Convert the data into a TensorDataset
-    dataset = TensorDataset(X)
-
-    hyperparameters = {
-        "dimensions": 10,
-        "units": 10,
-        "layers": 2,
-        "time_embedding_dimensions": 32,
-        "embedding_scale": 32,
-        "activation": "swish",
-        "time_branch_layers": 1,
-        # "nn_is_energy": True
-    }
-    net = MLP(**hyperparameters)
-    # Create an instance of ScoreModel
-    model = EnergyModel(model=net, sigma_min=1e-2, sigma_max=10)
-
-    # Define any preprocessing function if needed
-    def preprocessing_fn(x):
-        return x
-
-    # Set the hyperparameters and other options for training
-    learning_rate = 1e-3
-    ema_decay = 0.9999
-    batch_size = 1
-    epochs = 10
-    warmup = 0 # learning rate warmup
-    clip = 0. # gradient clipping
-    checkpoints_directory = None
-    seed = 42
-
-    # Fit the model to the dataset
-    losses = model.fit(
-        dataset, 
-        preprocessing_fn=preprocessing_fn, 
-        learning_rate=learning_rate, 
-        ema_decay=ema_decay,
-        batch_size=batch_size, 
-        epochs=epochs, 
-        warmup=warmup, 
-        clip=clip, 
-        checkpoints_directory=checkpoints_directory, 
-        seed=seed
-        )
-    print(losses)
-
-
+    # Now we resume training, and check that we managed to load the checkpoint
+    new_model = ScoreModel(path=path)
+    assert new_model.loaded_checkpoint == E, f"Expected loaded_checkpoint to be {E}, got {new_model.loaded_checkpoint}"
+    # Don't provide the optimizer here to simulate the backward compatibility component of loading the optimizer
+    losses = new_model.fit(
+            dataset,
+            batch_size=B,
+            epochs=E,
+            checkpoint_every=1,
+            models_to_keep=1
+            )
+    # Check stdout for the print statement declaring we resumed from a previous checkpoint for the optimizer
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert f"Resumed training from checkpoint {E}." in captured.out
+    assert f"Loaded optimizer {E} from test." in captured.out

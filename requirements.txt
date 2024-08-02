@@ -1,6 +1,8 @@
 torch>=2.0
+torch_ema
+peft>=0.11 
+dill
 numpy
 h5py
-torch_ema
 scipy
 tqdm
