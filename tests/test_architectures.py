@@ -66,8 +66,9 @@ def test_encoder(D, C, ch_mult, latent_size):
 @pytest.mark.parametrize("factor", [(2, 4), (2, 3), (2, 6)])
 def test_uneven_pooling(factor):
     B = 2
-    P = 16
-    x = torch.randn(B, 1, P, P)
+    P1 = 16
+    P2 = 32
+    x = torch.randn(B, 1, P1, P2)
     t = torch.randn([B])
     model = NCSNpp(
             C=1,
@@ -79,4 +80,4 @@ def test_uneven_pooling(factor):
             attention=True
             )
     out = model(t, x)
-    assert out.shape == torch.Size([B, 1, P, P])
+    assert out.shape == torch.Size([B, 1, P1, P2])

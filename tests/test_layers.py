@@ -4,6 +4,7 @@ from score_models.layers.attention_block import SelfAttentionBlock, ScaledAttent
 from score_models.definitions import default_init
 from score_models.utils import get_activation
 import numpy as np
+import pytest
 
 def init_test_fn(shape, dtype=torch.float32, device="cpu"):
     return torch.ones(shape, dtype=dtype, device=device)
@@ -29,34 +30,22 @@ def test_attention():
     print("shape",out.shape)
     print("out", out)
 
-
-def test_resnet_biggan():
+@pytest.mark.parametrize("dimensions", [1, 2, 3])
+@pytest.mark.parametrize("kernel", [3, 5])
+@pytest.mark.parametrize("temb_dim", [None, 10])
+@pytest.mark.parametrize("up_down", [(False, False), (True, False), (False, True)])
+@pytest.mark.parametrize("fir", [True, False])
+@pytest.mark.parametrize("skip_rescale", [True, False])
+@pytest.mark.parametrize("factor", [(2, 2), (2, 4)])
+def test_resnet_biggan(dimensions, temb_dim, up_down, fir, factor, skip_rescale):
     # out channels has to be at least 4
+    C = 8
+    up, down = up_down
     act = get_activation("relu")
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=None, up=False, down=False, fir=False, skip_rescale=True, dimensions=2) 
-    x = torch.randn(1, 8, 8, 8)
+    layer = ResnetBlockBigGANpp(act=act, in_ch=C, out_ch=4, temb_dim=temb_dim, up=up, down=down, fir=fir, skip_rescale=skip_rescale, dimensions=dimensions) 
+    x = torch.randn(1, C, *[8]*dimensions)
     out  = layer(x)
-    assert list(out.shape) == [1, 4, 8, 8]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=False, fir=False, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 8, 8, 8]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=True, down=False, fir=False, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 16, 16, 16]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=True, fir=True, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 4, 4, 4]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=True, fir=True, skip_rescale=False, dimensions=1) 
-    x = torch.randn(1, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 4]
+    assert list(out.shape) == [1, 4, *[8]*dimensions]
 
 def test_combine():
     x = torch.randn(1, 1, 8, 8)
