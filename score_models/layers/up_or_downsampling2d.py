@@ -120,14 +120,14 @@ def conv_downsample_2d(x, w, k=None, factor=2, gain=1):
 def _setup_kernel(k):
     k = np.asarray(k, dtype=np.float32)
     if k.ndim == 1:
-      k = np.outer(k, k)
+        k = np.outer(k, k)
     k /= np.sum(k)
     assert k.ndim == 2
     assert k.shape[0] == k.shape[1]
     return k
 
 
-def upsample_2d(x, k=None, factor=2, gain=1):
+def upsample_2d(x, k=None, factor=(2, 2), gain=1):
     r"""Upsample a batch of 2D images with the given filter.
       Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
       and upsamples each image with the given filter. The filter is normalized so
@@ -143,21 +143,37 @@ def upsample_2d(x, k=None, factor=2, gain=1):
           k:            FIR filter of the shape `[firH, firW]` or `[firN]`
             (separable). The default is `[1] * factor`, which corresponds to
             nearest-neighbor upsampling.
-          factor:       Integer upsampling factor (default: 2).
+          factor:       Integer upsampling factor (default: (2, 2)).
           gain:         Scaling factor for signal magnitude (default: 1.0).
       Returns:
-          Tensor of the shape `[N, C, H * factor, W * factor]`
+          Tensor of the shape `[N, C, H * factor[0], W * factor[1]]`
     """
-    assert isinstance(factor, int) and factor >= 1
+    assert all([factor[i] >= 1 for i in range(2)])
     if k is None:
-        k = [1] * factor
-    k = _setup_kernel(k) * (gain * (factor ** 2))
-    p = k.shape[0] - factor
-    return upfirdn2d(x, torch.tensor(k, device=x.device),
-                     up=factor, pad=((p + 1) // 2 + factor - 1, p // 2))
+        k = [1] * max(factor) # Make sure this is fine
+    k = _setup_kernel(k) * gain * factor[0] * factor[1]
+    
+    p0 = k.shape[0] - factor[0]
+    p1 = k.shape[1] - factor[1]
+    pad_x0 = (p0 + 1) // 2 + factor[0] - 1
+    pad_x1 = p0 // 2
+    pad_y0 = (p1 + 1) // 2 + factor[1] - 1
+    pad_y1 = p1 // 2
+    return upfirdn2d(
+            x, 
+            kernel=torch.tensor(k, device=x.device),
+            up_x=factor[0], 
+            up_y=factor[1],
+            down_x=1,
+            down_y=1,
+            pad_x0=pad_x0,
+            pad_x1=pad_x1,
+            pad_y0=pad_y0,
+            pad_y1=pad_y1
+            )
 
 
-def downsample_2d(x, k=None, factor=2, gain=1):
+def downsample_2d(x, k=None, factor=(2, 2), gain=1):
     r"""Downsample a batch of 2D images with the given filter.
       Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
       and downsamples each image with the given filter. The filter is normalized
@@ -176,13 +192,28 @@ def downsample_2d(x, k=None, factor=2, gain=1):
           factor:       Integer downsampling factor (default: 2).
           gain:         Scaling factor for signal magnitude (default: 1.0).
       Returns:
-          Tensor of the shape `[N, C, H // factor, W // factor]`
+          Tensor of the shape `[N, C, H // factor[0], W // factor[1]`
     """
 
-    assert isinstance(factor, int) and factor >= 1
+    assert all([factor[i] >= 1 for i in range(2)])
     if k is None:
-        k = [1] * factor
+        k = [1] * max(factor)
     k = _setup_kernel(k) * gain
-    p = k.shape[0] - factor
-    return upfirdn2d(x, torch.tensor(k, device=x.device),
-                     down=factor, pad=((p + 1) // 2, p // 2))
+    p0 = k.shape[0] - factor[0]
+    p1 = k.shape[1] - factor[1]
+    pad_x0 = (p0 + 1) // 2
+    pad_x1 = p0 // 2
+    pad_y0 = (p1 + 1) // 2
+    pad_y1 = p1 // 2
+    return upfirdn2d(
+            x, 
+            kernel=torch.tensor(k, device=x.device),
+            up_x=1,
+            up_y=1,
+            down_x=factor[0],
+            down_y=factor[1],
+            pad_x0=pad_x0,
+            pad_x1=pad_x1,
+            pad_y0=pad_y0,
+            pad_y1=pad_y1
+            )

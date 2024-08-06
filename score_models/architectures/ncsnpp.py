@@ -34,6 +34,7 @@ class NCSNpp(nn.Module):
             dimensions: Literal[1, 2, 3] = 2,
             nf: int = 128,
             ch_mult: tuple[int] = (2, 2, 2, 2),
+            downsample_factor: tuple[int] = (2, 2),
             num_res_blocks: int =  2,
             activation_type: str = "swish",
             dropout: float = 0.,
@@ -64,6 +65,7 @@ class NCSNpp(nn.Module):
             dimensions (Literal[1, 2, 3]): Number of dimensions for input data. Default is 2.
             nf (int): Number of filters in the first layer. Default is 128.
             ch_mult (tuple[int]): Channel multiplier for each layer. Default is (2, 2, 2, 2).
+            downsample_factor (tuple[int]): Downsample factor for each layer. Default is (2, 2).
             num_res_blocks (int): Number of residual blocks. Default is 2.
             activation_type (str): Type of activation function to use. Default is "swish".
             dropout (float): Dropout probability. Default is 0.
@@ -105,11 +107,14 @@ class NCSNpp(nn.Module):
             raise ValueError(f"progressive must be in ['none', 'output_skip', 'residual'], received {progressive}")
         if progressive_input not in ['none', 'input_skip', 'residual']:
             raise ValueError(f"progressive_input must be in ['none', 'input_skip', 'residual'], received {progressive_input}")
+        if any([downsample_factor[i] % 2 != 0 for i in range(len(downsample_factor))]):
+            raise ValueError("Downsample factor must be even")
         self.hyperparameters = {
             "channels": channels,
             "nf": nf,
             "activation_type": activation_type,
             "ch_mult": ch_mult,
+            "downsample_factor": downsample_factor,
             "num_res_blocks": num_res_blocks,
             "resample_with_conv": resample_with_conv,
             "dropout": dropout,
@@ -192,7 +197,8 @@ class NCSNpp(nn.Module):
                                   init_scale=init_scale,
                                   skip_rescale=skip_rescale,
                                   temb_dim=nf * 4,
-                                  dimensions=self.dimensions
+                                  dimensions=self.dimensions,
+                                  factor=downsample_factor
                                   )
 
         else:

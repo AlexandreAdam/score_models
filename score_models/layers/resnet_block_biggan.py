@@ -22,11 +22,11 @@ class ResnetBlockBigGANpp(nn.Module):
             up:  bool = False,
             down: bool = False,
             dropout: float = 0.,
-            fir: bool = False,
+            fir: bool = True,
             fir_kernel: tuple[int] = (1, 3, 3, 1),
             skip_rescale: bool = True,
             init_scale: float = 0.,
-            factor: int = 2,
+            factor: tuple[int] = (2, 2),
             dimensions: int = 2
     ):
         super().__init__()
