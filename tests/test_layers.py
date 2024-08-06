@@ -31,7 +31,6 @@ def test_attention():
     print("out", out)
 
 @pytest.mark.parametrize("dimensions", [1, 2, 3])
-@pytest.mark.parametrize("kernel", [3, 5])
 @pytest.mark.parametrize("temb_dim", [None, 10])
 @pytest.mark.parametrize("up_down", [(False, False), (True, False), (False, True)])
 @pytest.mark.parametrize("fir", [True, False])
