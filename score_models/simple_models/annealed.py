@@ -4,6 +4,24 @@ import numpy as np
 
 
 class AnnealedScoreModel(nn.Module):
+    """
+    Smoothly transitions between two score models as a function of t.
+
+    This score model class allows for the interpolation of the scores between
+    two models. Can be useful when one model is better at capturing the score in
+    the early stages of the SDE and another model is better at capturing the
+    score in the later stages of the SDE.
+
+    Args:
+        sde: The SDE that the score model is associated with.
+        hight_model: The high temperature model.
+        lowt_model: The low temperature model.
+        beta_scheme: The scheme for the beta parameter. Can be "linear", "square",
+            "sqrt", "linear:<i>", "sqrt:<i>", or "sin:<i>". For the "<i>" models
+            the ``i`` parameter can be used to scale the ``t`` input to beta making
+            the transition happen later.
+
+    """
 
     def __init__(
         self, sde, approx_model, target_model, beta_scheme="linear", epsilon=0.01, **kwargs

@@ -3,6 +3,20 @@ import torch.nn as nn
 
 
 class MVGScoreModel(nn.Module):
+    """
+    A multivariate gaussian score model.
+
+    A multivariate gaussian energy model, which can be used as a single
+    multivariate gaussian or a mixture of them. if the ``mean`` is 1D, then it
+    is a single gaussian, if it is 2D, then it is a mixture of gaussians.
+
+    Args:
+        sde: The SDE that the score model is associated with.
+        mean: The mean of the gaussian(s).
+        cov: The covariance of the gaussian(s).
+        w: The weights of the mixture of gaussians. Default is equal weight.
+    """
+
     def __init__(self, sde, mean, cov, w=None):
         super().__init__()
         self.sde = sde

@@ -4,6 +4,28 @@ import numpy as np
 
 
 class JointScoreModel(nn.Module):
+    """
+    A score model which combines the scores from multiple models.
+
+    This score model class allows for multiple score models to combine their
+    scores arbitrarily. They may share all, some, or none of the model space
+    with the class handling the bookkeeping. The scores from each model (where
+    they use the same model dimensions) are simply summed. The class may also
+    handle multiple inputs, internally they are combined into a single massive
+    concatenated ``x`` vector, when passed to the models the ``x`` vector is
+    split into the appropriate segments ``x_0, x_1, ..., x_n`` and each one is
+    converted into the expected shape (defined by the ``x_shapes`` argument).
+
+    Args:
+        sde: The SDE that the score model is associated with.
+        models: A list of score models.
+        x_shapes: A list of shapes for the x vectors that the models expect.
+            These are the shapes that the flat-concatenated ``x`` vector will
+            be split into.
+        model_uses: A list of lists of integers, where each list is the indices
+            of the x vectors corresponding to ``x_shapes`` that each model uses.
+            If None, the model will be passed the full ``x`` vector.
+    """
 
     def __init__(self, sde, models, x_shapes, model_uses, **kwargs):
         super().__init__()

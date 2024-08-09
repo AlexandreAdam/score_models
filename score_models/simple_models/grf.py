@@ -3,6 +3,16 @@ import torch.nn as nn
 
 
 class GRFScoreModel(nn.Module):
+    """
+    Gaussian random field score model.
+
+    Computes the energy for a gaussian random field based on a provided power spectrum.
+
+    Args:
+        sde: The SDE that the score model is associated with.
+        power_spectrum: The power spectrum of the Gaussian random field.
+    """
+
     def __init__(self, sde, power_spectrum, dims=2):
         super().__init__()
         self.sde = sde
