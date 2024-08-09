@@ -5,12 +5,8 @@ from .grf import GRFScoreModel
 from .joint import JointScoreModel
 from .conv_likelihood import (
     ConvolvedLikelihood,
-    PriorNormalScoreModel,
-    ConvolvedPriorApproximation,
 )
 from .tweedie import TweedieScoreModel
-from .gaussianprior_approx import GaussianPriorApproximation
-from .spotlight import SpotlightScoreModel
 
 __all__ = (
     "SampleScoreModel",
@@ -19,9 +15,5 @@ __all__ = (
     "GRFScoreModel",
     "JointScoreModel",
     "ConvolvedLikelihood",
-    "PriorNormalScoreModel",
-    "ConvolvedPriorApproximation",
     "TweedieScoreModel",
-    "GaussianPriorApproximation",
-    "SpotlightScoreModel",
 )
