@@ -11,25 +11,25 @@ from score_models.utils import DEVICE
 
 class TSVESDE(SDE):
     def __init__(
-            self,
-            sigma_min: float,
-            sigma_max: float,
-            t_star: float,
-            beta: float,
-            T:float=1.0,
-            epsilon:float=0.0,
-            beta_fn="relu",
-            alpha=30, # silu and hardswish recaling of t
-            **kwargs
+        self,
+        sigma_min: float,
+        sigma_max: float,
+        t_star: float,
+        beta: float,
+        T: float = 1.0,
+        epsilon: float = 0.0,
+        beta_fn="relu",
+        alpha=30,  # silu and hardswish recaling of t
+        **kwargs
     ):
         """
-        Truncated Scaled Variance Exploding stochastic differential equation 
-        
+        Truncated Scaled Variance Exploding stochastic differential equation
+
         Args:
             sigma_min (float): The minimum value of the standard deviation of the noise term.
             sigma_max (float): The maximum value of the standard deviation of the noise term.
             t_star (float): Time at which to truncate the VE SDE and start the scaled VE.
-            beta (float): Slope of the scale SDE, and also its drift (akin to the VPSDE). 
+            beta (float): Slope of the scale SDE, and also its drift (akin to the VPSDE).
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
@@ -38,30 +38,37 @@ class TSVESDE(SDE):
         self.sigma_max = sigma_max
         self.beta = beta
         self.t_star = t_star
-        self.hyperparameters.update({
-            "sigma_min": sigma_min,
-            "sigma_max": sigma_max,
-            "t_star": t_star,
-            "beta": beta
-            })
-        
+        self.hyperparameters.update(
+            {"sigma_min": sigma_min, "sigma_max": sigma_max, "t_star": t_star, "beta": beta}
+        )
+
         if beta_fn == "relu":
-            self.beta_fn = lambda t: - self.beta * F.relu(t/self.T - self.t_star)
+            self.beta_fn = lambda t: -self.beta * F.relu(t / self.T - self.t_star)
         elif beta_fn == "swish" or beta_fn == "silu":
-            self.beta_fn = lambda t: - self.beta * F.silu(alpha*(t/self.T - self.t_star))/alpha
+            self.beta_fn = lambda t: -self.beta * F.silu(alpha * (t / self.T - self.t_star)) / alpha
         elif beta_fn == "hardswish":
-            self.beta_fn = lambda t: - self.beta * F.hardswish(alpha*(t/self.T - self.t_star))/alpha
+            self.beta_fn = (
+                lambda t: -self.beta * F.hardswish(alpha * (t / self.T - self.t_star)) / alpha
+            )
         self.beta_fn_dot = vmap(grad(self.beta_fn))
-    
+
     def sigma(self, t: Tensor) -> Tensor:
         """
         Numerically stable formula for sigma
         """
         smin = np.log(self.sigma_min)
         smax = np.log(self.sigma_max)
-        log_coeff = self.beta_fn(t) + (smax - smin) * t/self.T + smin
+        log_coeff = self.beta_fn(t) + (smax - smin) * t / self.T + smin
         return torch.exp(log_coeff)
-    
+
+    def t_sigma(self, sigma: Tensor) -> Tensor:
+        """
+        Inverse of the sigma function. Should give the time at which the kernel has standard deviation sigma.
+        """
+        raise NotImplementedError(
+            "Inverse of the sigma function is not implemented for the TSVESDE."
+        )
+
     def mu(self, t: Tensor) -> Tensor:
         """
         Piecewise continuous scale function that takes a VE at t < t_star and
@@ -69,19 +76,18 @@ class TSVESDE(SDE):
         still exploding but with a logarihmic slope reduced by the beta hyperparameter.
         """
         return torch.exp(self.beta_fn(t))
-    
+
     def prior(self, shape, device=DEVICE):
-        mu = torch.zeros(shape).to(device) 
-        sigma_max = np.exp(-self.beta * (1. - self.t_star) + np.log(self.sigma_max))
+        mu = torch.zeros(shape).to(device)
+        sigma_max = np.exp(-self.beta * (1.0 - self.t_star) + np.log(self.sigma_max))
         return Independent(Normal(loc=mu, scale=sigma_max, validate_args=False), len(shape))
-    
+
     def diffusion(self, t: Tensor, x: Tensor) -> Tensor:
-        _, *D = x.shape # broadcast diffusion coefficient to x shape
-        # Analytical derivative of the sigma**2 function, square rooted at the end 
+        _, *D = x.shape  # broadcast diffusion coefficient to x shape
+        # Analytical derivative of the sigma**2 function, square rooted at the end
         prefactor = np.sqrt(2 * (np.log(self.sigma_max) - np.log(self.sigma_min)))
-        return prefactor * self.sigma(t).view(-1, *[1]*len(D))
+        return prefactor * self.sigma(t).view(-1, *[1] * len(D))
 
     def drift(self, t: Tensor, x: Tensor) -> Tensor:
         _, *D = x.shape
-        return self.beta_fn_dot(t).view(-1, *[1]*len(D)) * x
-
+        return self.beta_fn_dot(t).view(-1, *[1] * len(D)) * x

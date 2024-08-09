@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 import numpy as np
 from tqdm import tqdm
-from .utils import DEVICE
+from ..utils import DEVICE
 
 
 class Solver(ABC):

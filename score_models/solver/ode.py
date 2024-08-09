@@ -6,7 +6,7 @@ import torch
 from torch import Tensor
 from torch.func import vjp
 from tqdm import tqdm
-from .utils import DEVICE
+from ..utils import DEVICE
 
 # TODO: maybe merge ODE and Solver into single class?
 
