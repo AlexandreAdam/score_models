@@ -1,16 +1,13 @@
-from typing import Union, Optional, Callable
-from abc import abstractmethod
+from typing import Union, Optional
 
-from torch.func import grad
-from torch import vmap, Tensor
+from torch import Tensor
 from torch.nn import Module
-import numpy as np
 import torch
 
 from .base import Base
 from ..sde import SDE
 from ..losses import dsm
-from ..ode import probability_flow_ode, divergence_with_hutchinson_trick
+from ..ode import divergence_with_hutchinson_trick
 from ..solver import EM_SDE, RK2_SDE, RK4_SDE, Euler_ODE, RK2_ODE, RK4_ODE
 from ..utils import DEVICE
 
@@ -79,25 +76,31 @@ class ScoreModel(Base):
         """
         return self.hessian_trace_model(t, x, *args, **kwargs)
 
-    def log_likelihood(self, x, *args, steps, t=0.0, method="euler", **kwargs) -> Tensor:
+    def log_likelihood(self, x, *args, steps, t=0.0, method="Euler_ODE", **kwargs) -> Tensor:
         """
         Compute the log likelihood of point x using the probability flow ODE,
         which makes use of the instantaneous change of variable formula
         developed by Chen et al. 2018 (arxiv.org/abs/1806.07366).
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
-        drift = self.ode_drift
-        hessian_trace = lambda t, x, *args: self.hessian_trace(t, x, *args, **kwargs)
+        if method == "Euler_ODE":
+            solver = Euler_ODE(self, **kwargs)
+        elif method == "RK2_ODE":
+            solver = RK2_ODE(self, **kwargs)
+        elif method == "RK4_ODE":
+            solver = RK4_ODE(self, **kwargs)
+        else:
+            raise ValueError(
+                "Method not supported, should be one of 'Euler_ODE', 'RK2_ODE', 'RK4_ODE'"
+            )
+        hessian_trace = lambda t, x, dt, *args: self.hessian_trace(t, x, *args, **kwargs) * dt
         # Solve the probability flow ODE up in temperature to time t=1.
-        xT, delta_log_p = probability_flow_ode(
+        xT, delta_log_p = solver.forward(
             x,
-            *args,
-            steps=steps,
-            drift=drift,
+            steps,
             hessian_trace=hessian_trace,
-            t0=t,
-            t1=1.0,
-            method=method
+            t_min=t,
+            **kwargs,
         )
         # Add the log likelihood of the prior at time t=1.
         log_p = self.sde.prior(x.shape).log_prob(xT) + delta_log_p
