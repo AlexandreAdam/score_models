@@ -79,7 +79,7 @@ class Solver(ABC):
                 )
             if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
                 raise ValueError("NaN encountered in SDE solver")
-            x = self._step(t, x, dt, dx, sk=sk, **kwargs)
+            x = x + self._step(t, x, dt, dx, sk=sk, **kwargs)
             for _ in range(self.corrector_steps):
                 x = self.corrector(t, x, **kwargs)
             if trace:
@@ -135,7 +135,7 @@ class EM_SDE(Solver):
     def _step(self, t, x, dt, dx, sk=None, **kwargs):
         """base SDE solver"""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
-        return x + dx(t, x, dt, dw, **kwargs)
+        return dx(t, x, dt, dw, **kwargs)
 
 
 class RK2_SDE(Solver):
@@ -149,7 +149,7 @@ class RK2_SDE(Solver):
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
         k1 = dx(t, x, dt, dw - skdt, **kwargs)
         k2 = dx(t + dt, x + k1, dt, dw + skdt, **kwargs)
-        return x + (k1 + k2) / 2
+        return (k1 + k2) / 2
 
 
 class RK4_SDE(Solver):
@@ -165,4 +165,4 @@ class RK4_SDE(Solver):
         k2 = dx(t + dt / 2, x + k1 / 2, dt, dw + skdt, **kwargs)
         k3 = dx(t + dt / 2, x + k2 / 2, dt, dw - skdt, **kwargs)
         k4 = dx(t + dt, x + k3, dt, dw + skdt, **kwargs)
-        return x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+        return (k1 + 2 * k2 + 2 * k3 + k4) / 6
