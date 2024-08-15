@@ -74,8 +74,8 @@ class Solver(ABC):
         for t in pbar:
             if progress_bar:
                 pbar.set_description(
-                    f"t = {t[0].item():.1g} | sigma = {self.sde.sigma(t)[0].item():.1g} | "
-                    f"x = {x.mean().item():.1g} \u00B1 {x.std().item():.1g}"
+                    f"t={t[0].item():.1g} | sigma={self.sde.sigma(t)[0].item():.1g} | "
+                    f"x={x.mean().item():.1g}\u00B1{x.std().item():.1g}"
                 )
             if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
                 raise ValueError("NaN encountered in SDE solver")

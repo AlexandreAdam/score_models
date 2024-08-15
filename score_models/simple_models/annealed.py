@@ -23,13 +23,11 @@ class AnnealedScoreModel(nn.Module):
 
     """
 
-    def __init__(
-        self, sde, approx_model, target_model, beta_scheme="linear", epsilon=0.01, **kwargs
-    ):
+    def __init__(self, sde, hight_model, lowt_model, beta_scheme="linear", epsilon=0.01, **kwargs):
         super().__init__()
         self.sde = sde
-        self.approx_model = approx_model
-        self.target_model = target_model
+        self.hight_model = hight_model
+        self.lowt_model = lowt_model
         self.beta_scheme = beta_scheme
         self.epsilon = epsilon
 
@@ -57,7 +55,7 @@ class AnnealedScoreModel(nn.Module):
         beta = torch.clamp(self.beta(kwargs.get("t_a", t)[0]), 0.0, 1.0)
         score = torch.zeros_like(x)
         if beta.item() > self.epsilon:
-            score += self.approx_model(t, x, **kwargs) * beta
+            score += self.hight_model(t, x, **kwargs) * beta
         if beta.item() < (1 - self.epsilon):
-            score += self.target_model(t, x, **kwargs) * (1.0 - beta)
+            score += self.lowt_model(t, x, **kwargs) * (1.0 - beta)
         return score * self.sde.sigma(t).view(-1, *[1] * len(D))

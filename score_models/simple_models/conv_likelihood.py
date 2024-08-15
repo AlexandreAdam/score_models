@@ -86,8 +86,13 @@ class ConvolvedLikelihood(nn.Module):
         ll = 0.5 * torch.sum(r**2 * sigma).unsqueeze(0)
         return ll.unsqueeze(0) * self.sde.sigma(t)
 
-    def full_forward(self, t, xt, **kwargs):
+    def _full_forward(self, t, xt, sigma):
         r = self.y.reshape(-1) - self.A @ xt.reshape(-1)
-        sigma = torch.linalg.inv(self.Sigma_y + self.sde.sigma(t[0]) ** 2 * self.AAT)
         ll = 0.5 * (r @ sigma @ r.reshape(1, r.shape[0]).T)
-        return ll.unsqueeze(0) * self.sde.sigma(t)
+        return ll * self.sde.sigma(t)
+
+    def full_forward(self, t, xt, **kwargs):
+        sigma = torch.linalg.inv(
+            self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
+        )
+        return torch.vmap(self._full_forward, in_dims=(0, 0, None))(t, xt, sigma)
