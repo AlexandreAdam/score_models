@@ -24,17 +24,17 @@ class Trainer:
         self,
         model: "ScoreModel",
         dataset: Dataset,
-        preprocessing: Optional[Callable] = None,
-        batch_size: int = 1,
-        shuffle: bool = False,
         epochs: int = 100,
-        iterations_per_epoch: Optional[int] = None,
-        max_time: float = float('inf'),
-        optimizer: Optional[torch.optim.Optimizer] = None,
+        batch_size: Optional[int] = None,
         learning_rate: float = 1e-3,
         ema_decay: float = 0.999,
         clip: float = 0.,
         warmup: int = 0,
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        preprocessing: Optional[Callable] = None,
+        shuffle: bool = False,
+        iterations_per_epoch: Optional[int] = None,
+        max_time: float = float('inf'),
         checkpoint_every: int = 10,
         models_to_keep: int = 3,
         path: Optional[str] = None,
@@ -43,9 +43,11 @@ class Trainer:
     ):
         self.model = model
         self.net = model.net # Neural network to train
-        self.dataset = dataset
-        self.dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-        self .data_iter = iter(self.dataloader)
+        if batch_size is not None:
+            self.dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+        else:
+            self.dataloader = dataset
+        self.data_iter = iter(self.dataloader)
         self.preprocessing = preprocessing or (lambda x: x)
         self.optimizer = optimizer or torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         self.ema = ExponentialMovingAverage(self.model.parameters(), decay=ema_decay)
