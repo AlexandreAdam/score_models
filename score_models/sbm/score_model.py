@@ -129,7 +129,7 @@ class ScoreModel(Base):
         To denoise a sample from some time t, use the denoise or tweedie method instead.
         
         """
-        batch_size, *D = shape
+        B, *D = shape
         likelihood_score = likelihood_score or (lambda t, x: torch.zeros_like(x))
         score = lambda t, x: self.score(t, x, *args) + guidance_factor * likelihood_score(t, x)
         
