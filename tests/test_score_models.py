@@ -92,7 +92,7 @@ def test_log_likelihood():
     assert ll.shape == torch.Size([3])
 
 
-def test_sample_fn():
+def test_sample_method():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
@@ -100,6 +100,16 @@ def test_sample_fn():
     net = DDPM(1, nf=32, ch_mult=(2, 2))
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
+
+
+@pytest.mark.parametrize("epsilon", [None, 1e-3, 0.1])
+def test_denoise_method(epsilon):
+    net = NCSNpp(1, nf=8, ch_mult=(2, 2))
+    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    B = 5
+    t = torch.rand(1) * torch.ones(B)
+    x = torch.randn(B, 1, 16, 16)
+    score.denoise(t, x, steps=10, epsilon=epsilon)
 
 @pytest.mark.parametrize("anneal_residuals", [True, False])
 def test_slic_score(anneal_residuals):

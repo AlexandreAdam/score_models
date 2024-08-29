@@ -114,8 +114,8 @@ class ScoreModel(Base):
     @torch.no_grad()
     def sample(
             self, 
-            shape: tuple, # TODO grab dimensions from model hyperparams if available
-            steps: int, 
+            shape: tuple,
+            steps: int,
             *args,
             likelihood_score: Optional[Callable] = None,
             guidance_factor: float = 1.,
@@ -124,13 +124,21 @@ class ScoreModel(Base):
             ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
+        
+        The initial condition is sample from the high temperature prior at time t=T. 
+        To denoise a sample from some time t, use the denoise or tweedie method instead.
+        
         """
         batch_size, *D = shape
         likelihood_score = likelihood_score or (lambda t, x: torch.zeros_like(x))
         score = lambda t, x: self.score(t, x, *args) + guidance_factor * likelihood_score(t, x)
+        
+        # Sample from high temperature boundary condition
+        xT = self.sde.prior(D).sample([B])
+        # Solve the reverse-time SDE
         t, x = euler_maruyama_method(
-                batch_size=batch_size, 
-                dimensions=D, 
+                t=self.sde.T,
+                xt=xT,
                 steps=steps, 
                 sde=self.sde, 
                 score=score,
@@ -138,4 +146,40 @@ class ScoreModel(Base):
                 )
         if denoise_last_step:
             x = self.tweedie(t, x, *args)
+        return x
+    
+    @torch.no_grad()
+    def denoise(
+            self,
+            t: Tensor,
+            xt: Tensor,
+            steps: int,
+            *args,
+            epsilon: Optional[float] = None,
+            likelihood_score: Optional[Callable] = None,
+            guidance_factor: float = 1.,
+            stopping_factor: float = np.inf
+            ):
+
+        """
+        Denoise a given sample xt at time t using the score model.
+        
+        Tweedie formula is applied after the Euler-Maruyama solver 
+        is used to solve the reverse-time SDE.
+        """
+        likelihood_score = likelihood_score or (lambda t, x: torch.zeros_like(x))
+        score = lambda t, x: self.score(t, x, *args) + guidance_factor * likelihood_score(t, x)
+        
+        # Solve the reverse-time SDE
+        t, x = euler_maruyama_method(
+                t=t,
+                xt=xt,
+                steps=steps, 
+                sde=self.sde, 
+                score=score,
+                epsilon=epsilon,
+                stopping_factor=stopping_factor
+                )
+        # Apply the Tweedie formula
+        x = self.tweedie(t, x, *args)
         return x
