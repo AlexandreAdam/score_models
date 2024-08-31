@@ -2,4 +2,5 @@ from .sbm import *
 from .architectures import *
 from .sde import *
 from .losses import *
-from . import solver
+from .solver import *
+from .simple_models import *

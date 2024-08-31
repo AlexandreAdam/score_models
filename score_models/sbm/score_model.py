@@ -156,5 +156,7 @@ class ScoreModel(Base):
         xT = self.sde.prior(D).sample([B])
         x0 = solver.reverse(xT, steps, progress_bar=progress_bar, **kwargs)
         if denoise_last_step:
-            x0 = self.tweedie(self.sde.t_min * torch.ones(x0.shape[0], device=DEVICE), x0, *args)
+            x0 = self.tweedie(
+                self.sde.t_min * torch.ones(B, dtype=x0.dtype, device=DEVICE), x0, *args
+            )
         return x0
