@@ -47,7 +47,7 @@ class ODE(ABC):
         B, *_ = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N, **kwargs)
-        dlogp = 0.0
+        dlogp = torch.zeros(B, device=x.device, dtype=x.dtype)
         ht = kwargs.get("hessian_trace", lambda *a, **k: 0.0)
         trace = kwargs.pop("trace", False)
         if trace:

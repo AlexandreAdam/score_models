@@ -76,22 +76,22 @@ class ScoreModel(Base):
         """
         return self.hessian_trace_model(t, x, *args, **kwargs)
 
-    def log_likelihood(self, x, *args, steps, t=0.0, method="Euler_ODE", **kwargs) -> Tensor:
+    def log_likelihood(self, x, *args, steps, t=0.0, method="euler_ode", **kwargs) -> Tensor:
         """
         Compute the log likelihood of point x using the probability flow ODE,
         which makes use of the instantaneous change of variable formula
         developed by Chen et al. 2018 (arxiv.org/abs/1806.07366).
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
-        if method == "Euler_ODE":
+        if method.lower() == "euler_ode":
             solver = Euler_ODE(self, **kwargs)
-        elif method == "RK2_ODE":
+        elif method.lower() == "rk2_ode":
             solver = RK2_ODE(self, **kwargs)
-        elif method == "RK4_ODE":
+        elif method.lower() == "rk4_ode":
             solver = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
-                "Method not supported, should be one of 'Euler_ODE', 'RK2_ODE', 'RK4_ODE'"
+                "Method not supported, should be one of 'euler_ode', 'rk2_ode', 'rk4_ode'"
             )
         hessian_trace = lambda t, x, dt, *args: self.hessian_trace(t, x, *args, **kwargs) * dt
         # Solve the probability flow ODE up in temperature to time t=1.
