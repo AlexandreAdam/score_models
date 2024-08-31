@@ -105,7 +105,10 @@ class Solver(ABC):
 
     def reverse_f(self, t, x, **kwargs):
         """reverse SDE coefficient a"""
-        return self.sde.drift(t, x) - self.sde.diffusion(t, x) ** 2 * self.score(t, x, **kwargs)
+        f = self.sde.drift(t, x)
+        g = self.sde.diffusion(t, x)
+        s = self.score(t, x, **kwargs)
+        return f - g**2 * s
 
     def reverse_dx(self, t, x, dt, dw=None, **kwargs):
         """reverse SDE differential element dx"""
@@ -124,7 +127,7 @@ class Solver(ABC):
     def stepsize(self, N, device=DEVICE, **kwargs):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.tensor((t_max - t_min) / N, device=device)
+        return torch.as_tensor((t_max - t_min) / N, device=device)
 
 
 class EM_SDE(Solver):
