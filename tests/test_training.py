@@ -16,6 +16,7 @@ class Dataset(torch.utils.data.Dataset):
             conditions=None, 
             condition_channels=None,
             condition_embeddings=None,
+            batch_size=None,
             **kwargs
             ):
         self.size = size
@@ -24,34 +25,35 @@ class Dataset(torch.utils.data.Dataset):
         self.conditions = conditions
         self.condition_channels = condition_channels
         self.condition_embeddings = condition_embeddings
+        self.B = batch_size or 1
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index):
-
-        x = [torch.randn(self.C, *self.D),]
+        # We use a batch size to simulate the case when batch_size = None and we don't have a dataloader
+        x = [torch.randn(self.B, self.C, *self.D),]
         if self.conditions:
             c_idx = 0
             e_idx = 0
             for condition in self.conditions:
                 if condition == "time_continuous":
-                    c = torch.randn(1)
+                    c = torch.randn(self.B, 1)
                     x.append(c)
                 elif condition == "time_discrete":
                     tokens = self.condition_embeddings[e_idx]
-                    c = torch.randint(tokens, (1,))
+                    c = torch.randint(tokens, (self.B, 1,))
                     x.append(c)
                     e_idx += 1
                 elif condition == "time_vector":
-                    c = torch.randn(self.condition_channels[c_idx])
+                    c = torch.randn(self.B, self.condition_channels[c_idx])
                     x.append(c)
                     c_idx += 1
                 elif condition == "input_tensor":
-                    c = torch.randn(self.condition_channels[c_idx], *self.D)
+                    c = torch.randn(self.B, self.condition_channels[c_idx], *self.D)
                     x.append(c)
                     c_idx += 1
-        return x
+        return [x_.squeeze(0) for x_ in x] # Remove the batch dimension for dataloader
 
 @pytest.mark.parametrize("models_to_keep", [1, 2])
 @pytest.mark.parametrize("conditions", [
@@ -64,17 +66,18 @@ class Dataset(torch.utils.data.Dataset):
     {"sde": "vp", "schedule": "cosine", "beta_max": 100}
     ])
 @pytest.mark.parametrize("Net", [MLP, NCSNpp, DDPM])
-def test_training_score_model(conditions, sde, Net, models_to_keep, tmp_path, capsys):
+@pytest.mark.parametrize("B", [None, 2]) # Make sure we don't create a dataloader if batch_size is None
+def test_training_score_model(B, conditions, sde, Net, models_to_keep, tmp_path, capsys):
     condition_type, embeddings, channels = conditions
-    hp = {
+    hp = { # Hyperparameters for the dataset
             "ch_mult": (1, 1),
             "nf": 2,
             "conditions": condition_type,
             "condition_channels": channels,
             "condition_embeddings": embeddings,
+            "batch_size": B # If B is None, we use the Dataloader to handle the batch size (which we set to a default below)
             }
     E = 3 # epochs
-    B = 2
     C = 3
     N = 4
     D = [] if Net == MLP else [4, 4]
@@ -83,6 +86,11 @@ def test_training_score_model(conditions, sde, Net, models_to_keep, tmp_path, ca
     model = ScoreModel(net, **sde)
     
     path = tmp_path / "test"
+    # Fitting method's batch_size argument is basically the reverse of Dataset, since we turn off/on the dataloader
+    if B is None:
+        B = 2
+    elif isinstance(B, int):
+        B = None
     losses = model.fit(dataset, batch_size=B, epochs=E, path=path, checkpoint_every=1, models_to_keep=models_to_keep)
 
     print(losses)

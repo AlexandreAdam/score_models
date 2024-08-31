@@ -58,22 +58,22 @@ class SelfAttentionBlock(nn.Module):
 
 class ScaledAttentionLayer(nn.Module):
     """
-    Simple self attention mechanism, with MLP and no skip connections for MLP network
+    Simple self attention mechanism with MLP and no skip connections
     """
-    def __init__(self, dimensions):
+    def __init__(self, channels):
         super().__init__()
-        self.query = nn.Linear(in_features=dimensions, out_features=dimensions)
-        self.key = nn.Linear(in_features=dimensions, out_features=dimensions)
-        self.value = nn.Linear(in_features=dimensions, out_features=dimensions)
-        self.to_out = nn.Linear(in_features=dimensions, out_features=dimensions)
+        c = channels
+        self.query = nn.Linear(in_features=c, out_features=c)
+        self.key = nn.Linear(in_features=c, out_features=c)
+        self.value = nn.Linear(in_features=c, out_features=c)
+        self.to_out = nn.Linear(in_features=c, out_features=c)
 
         # Initialization
         with torch.no_grad():
-            bound = 1 / dimensions ** (1 / 2)
+            bound = 1 / c**(1/2)
             for layer in (self.query, self.key, self.value):
                 layer.weight.uniform_(-bound, bound)
                 layer.bias.zero_()
-            bound = 1 / dimensions ** (1 / 2)
             self.to_out.weight.uniform_(-bound, bound)
             self.to_out.bias.zero_()
 

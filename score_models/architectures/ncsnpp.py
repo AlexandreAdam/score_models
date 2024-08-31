@@ -46,7 +46,7 @@ class NCSNpp(nn.Module):
             init_scale: float = 1e-2,
             fourier_scale: float = 16.,
             resblock_type: Literal["biggan", "ddpm"] = "biggan",
-            combine_method: Literal["concat", "sum"] = "sum",
+            combine_method: Literal["cat", "sum"] = "cat",
             attention: bool = True,
             conditions : Optional[tuple[Literal["time_discrete", "time_continuous", "time_vector", "input_tensor"]]] = None,
             condition_embeddings:  Optional[tuple[int]] = None,
@@ -406,4 +406,3 @@ class NCSNpp(nn.Module):
         assert m_idx == len(modules)
 
         return h
-

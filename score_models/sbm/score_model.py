@@ -130,6 +130,10 @@ class ScoreModel(Base):
     ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
+
+        The initial condition is sample from the high temperature prior at time t=T.
+        To denoise a sample from some time t, use the denoise or tweedie method instead.
+
         """
         if method.lower() == "EM_SDE":
             solver = EM_SDE(self, **kwargs)

@@ -4,164 +4,134 @@ from score_models.layers.attention_block import SelfAttentionBlock, ScaledAttent
 from score_models.definitions import default_init
 from score_models.utils import get_activation
 import numpy as np
+import pytest
 
 def init_test_fn(shape, dtype=torch.float32, device="cpu"):
     return torch.ones(shape, dtype=dtype, device=device)
 
-def test_attention():
-    x = torch.randn([10, 4, 8, 8])
-    print(x[0, 0, 0, 0], x[0, 0, 0, 1])
-    att = SelfAttentionBlock(4)
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [8])
+@pytest.mark.parametrize("C", [4])
+@pytest.mark.parametrize("B", [10])
+def test_attention(B, D, C, P):
+    x = torch.randn([B, C, *[P]*D])
+    att = SelfAttentionBlock(C, dimensions=D)
     y = att(x)
-    print(y[0, 0, 0, 0], y[0, 0, 0, 1])
-    x = torch.randn([10, 4, 8, 8, 8])
-    SelfAttentionBlock(4, dimensions=3)(x)
-    x = torch.randn([10, 4, 8])
-    SelfAttentionBlock(4, dimensions=1)(x)
+    assert y.shape == x.shape
     
-    x = torch.randn(10, 5) * 100
-    B, D = x.shape
-    temb = torch.randn(B, D)
+
+@pytest.mark.parametrize("C", [4])
+@pytest.mark.parametrize("B", [10])
+def test_scaled_attention_layer(C, B):
+    x = torch.randn(B, C) * 100
+    temb = torch.randn(B, C)
     context = torch.stack([x, temb], dim=1)
+    att = ScaledAttentionLayer(channels=C)
+    out = att(x.view(B, 1, C), context)
+    assert out.squeeze().shape == x.shape
+    
     print("context shape", context.shape)
-    att = ScaledAttentionLayer(dimensions=5)
-    out = att(x.view(B, 1, D), context)
     print("shape",out.shape)
     print("out", out)
 
 
-def test_resnet_biggan():
-    # out channels has to be at least 4
-    act = get_activation("relu")
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=None, up=False, down=False, fir=False, skip_rescale=True, dimensions=2) 
-    x = torch.randn(1, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 8, 8]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=False, fir=False, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 8, 8, 8]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=True, down=False, fir=False, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 16, 16, 16]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=True, fir=True, skip_rescale=True, dimensions=3) 
-    x = torch.randn(1, 8, 8, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 4, 4, 4]
-
-    layer = ResnetBlockBigGANpp(act=act, in_ch=8, out_ch=4, temb_dim=10, up=False, down=True, fir=True, skip_rescale=False, dimensions=1) 
-    x = torch.randn(1, 8, 8)
-    out  = layer(x)
-    assert list(out.shape) == [1, 4, 4]
-
-def test_combine():
-    x = torch.randn(1, 1, 8, 8)
-    y = torch.randn(1, 1, 8, 8)
-    layer = Combine(in_ch=1, out_ch=4, method="cat", dimensions=2)
-    out = layer(x, y)
-    assert list(out.shape) == [1, 5, 8, 8]
-
-    x = torch.randn(1, 1, 8, 8, 8)
-    y = torch.randn(1, 1, 8, 8, 8)
-    layer = Combine(in_ch=1, out_ch=4, method="cat", dimensions=3)
-    out = layer(x, y)
-    assert list(out.shape) == [1, 5, 8, 8, 8]
-
-    x = torch.randn(1, 1, 8, 8, 8)
-    y = torch.randn(1, 4, 8, 8, 8)
-    layer = Combine(in_ch=1, out_ch=4, method="sum", dimensions=3)
-    out = layer(x, y)
-    assert list(out.shape) == [1, 4, 8, 8, 8]
-
-
-def test_upsample_layer():
-    x = torch.randn(1, 1, 8, 8)
-    layer = UpsampleLayer(1, 3, with_conv=True, fir=True, dimensions=2)
-    out = layer(x)
-    assert list(out.shape) == [1, 3, 16, 16] 
-
-    x = torch.randn(1, 1, 8)
-    layer = UpsampleLayer(1, 3, with_conv=True, fir=True, dimensions=1)
-    out = layer(x)
-    assert list(out.shape) == [1, 3, 16] 
-
-    x = torch.randn(1, 1, 8)
-    layer = UpsampleLayer(1, 1, with_conv=False, fir=False, dimensions=1)
-    out = layer(x)
-    assert list(out.shape) == [1, 1, 16] 
-
-    x = torch.randn(1, 1, 8, 8, 8)
-    layer = UpsampleLayer(1, 1, with_conv=False, fir=False, dimensions=3)
-    out = layer(x)
-    assert list(out.shape) == [1, 1, 16, 16, 16] 
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [4, 8])
+@pytest.mark.parametrize("Cin", [4])
+@pytest.mark.parametrize("Cout", [2, 4])
+@pytest.mark.parametrize("temb_dim", [None, 10])
+@pytest.mark.parametrize("up_down", [(False, False), (True, False), (False, True)])
+@pytest.mark.parametrize("fir", [True, False])
+@pytest.mark.parametrize("skip_rescale", [True, False])
+def test_resnet_biggan(D, P, Cin, Cout, temb_dim, up_down, fir, skip_rescale):
+    up = up_down[0]
+    down = up_down[1]
+    layer = ResnetBlockBigGANpp(
+            act=get_activation("relu"), 
+            in_ch=Cin, 
+            out_ch=Cout, 
+            temb_dim=temb_dim, 
+            up=up, 
+            down=down, 
+            fir=fir, 
+            skip_rescale=skip_rescale, 
+            dimensions=D) 
     
+    x = torch.randn(1, Cin, *[P]*D)
+    out  = layer(x)
+    Pout = P*2 if up else P//2 if down else P
+    assert list(out.shape) == [1, Cout, *[Pout]*D]
 
-def test_downsample_layer():
-    x = torch.randn(1, 1, 8, 8)
-    layer = DownsampleLayer(1, 3, with_conv=True, fir=True, dimensions=2)
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [4, 8])
+@pytest.mark.parametrize("Cin", [4])
+@pytest.mark.parametrize("Cout", [2, 4])
+@pytest.mark.parametrize("method", ["cat", "sum"])
+def test_combine(D, P, Cin, Cout, method):
+    if method == "sum":
+        Cout = Cin # Sum requires the same number of channels
+    layer = Combine(in_ch=Cin, out_ch=Cout, method=method, dimensions=D)
+    x = torch.randn(1, Cin, *[P]*D)
+    y = torch.randn(1, Cin, *[P]*D)
+    out = layer(x, y)
+    if method == "cat": # Concatenation will append the channels
+        assert list(out.shape) == [1, Cin+Cout, *[P]*D]
+    else:
+        assert list(out.shape) == [1, Cout, *[P]*D]
+
+def test_combine_errors():
+    with pytest.raises(ValueError) as e:
+        layer = Combine(in_ch=4, out_ch=6, method="sum", dimensions=2)
+        assert "Method sum requires in_ch == out" in str(e)
+    
+    with pytest.raises(ValueError) as e:
+        layer = Combine(in_ch=4, out_ch=6, method="not_a_method", dimensions=2)
+        assert "Method not_a_method not recognized for the Combine layer." in str(e)
+
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [4, 8])
+@pytest.mark.parametrize("Cin", [1, 3])
+@pytest.mark.parametrize("Cout", [3, 4])
+@pytest.mark.parametrize("fir", [True, False])
+@pytest.mark.parametrize("with_conv", [True, False])
+def test_up_down_sampling_layer(D, P, Cin, Cout, fir, with_conv):
+    x = torch.randn(1, Cin, *[P]*D)
+    # Upsample layer
+    if Cin != Cout: # If the number of channels is different, we need to use a convolutional layer
+        with_conv = True
+    layer = UpsampleLayer(Cin, Cout, with_conv=with_conv, fir=fir, dimensions=D)
     out = layer(x)
-    assert list(out.shape) == [1, 3, 4, 4] 
-
-    x = torch.randn(1, 1, 8)
-    layer = DownsampleLayer(1, 3, with_conv=True, fir=True, dimensions=1)
+    assert list(out.shape) == [1, Cout, *[2*P]*D]
+    # Downsample
+    layer = DownsampleLayer(Cin, Cout, with_conv=with_conv, fir=fir, dimensions=D)
     out = layer(x)
-    assert list(out.shape) == [1, 3, 4] 
-
-    x = torch.randn(1, 1, 8)
-    layer = DownsampleLayer(1, 1, with_conv=False, fir=False, dimensions=1)
-    out = layer(x)
-    assert list(out.shape) == [1, 1, 4] 
-
-    x = torch.randn(1, 1, 8, 8, 8)
-    layer = DownsampleLayer(1, 1, with_conv=False, fir=False, dimensions=3)
-    out = layer(x)
-    assert list(out.shape) == [1, 1, 4, 4, 4] 
+    assert list(out.shape) == [1, Cout, *[P//2]*D]
 
 
-def test_stylegan_conv_shape():
-    x = torch.randn(1, 1, 8, 8)
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=False, use_bias=True, kernel_init=default_init(), dimensions=2)
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [4, 8])
+@pytest.mark.parametrize("Cin", [1, 2])
+@pytest.mark.parametrize("Cout", [3, 4])
+@pytest.mark.parametrize("up_down", [(False, False), (True, False), (False, True)])
+def test_stylegan_conv_shape(D, P, Cin, Cout, up_down):
+    up = up_down[0]
+    down = up_down[1]
+    conv = StyleGANConv(
+            in_ch=Cin,
+            out_ch=Cout,
+            kernel=3,
+            up=up,
+            down=down,
+            use_bias=True,
+            kernel_init=default_init(),
+            dimensions=D
+            )
+
+    x = torch.randn(1, Cin, *[P]*D)
     out = conv(x)
-    assert list(out.shape) == [1, 3, 8, 8]
+    Pout = P*2 if up else P//2 if down else P
+    assert list(out.shape) == [1, Cout, *[Pout]*D]
    
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=True, down=False, use_bias=True, kernel_init=default_init(), dimensions=2)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 16, 16]
-
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=True, use_bias=True, kernel_init=default_init(), dimensions=2)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 4, 4]
-    
-    x = torch.randn(1, 1, 8)
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=False, use_bias=True, kernel_init=default_init(), dimensions=1)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 8]
-
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=True, down=False, use_bias=True, kernel_init=default_init(), dimensions=1)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 16]
-
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=True, use_bias=True, kernel_init=default_init(), dimensions=1)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 4]
-
-    x = torch.randn(1, 1, 8, 8, 8)
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=False, use_bias=True, kernel_init=default_init(), dimensions=3)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 8, 8, 8]
-
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=True, down=False, use_bias=True, kernel_init=default_init(), dimensions=3)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 16, 16, 16]
-
-    conv = StyleGANConv(in_ch=1, out_ch=3, kernel=3, up=False, down=True, use_bias=True, kernel_init=default_init(), dimensions=3)
-    out = conv(x)
-    assert list(out.shape) == [1, 3, 4, 4, 4]
-
 
 def test_stylegan_conv_resample_kernel():
     x = torch.ones(1, 1, 8, 8)
