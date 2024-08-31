@@ -1,4 +1,4 @@
-from typing import Union, Optional
+from typing import Union, Optional, Literal
 
 from torch import Tensor
 from torch.nn import Module
@@ -121,7 +121,9 @@ class ScoreModel(Base):
         shape: tuple,  # TODO grab dimensions from model hyperparams if available
         steps: int,
         *args,
-        method: str = "EM_SDE",
+        method: Literal[
+            "em_sde", "rk2_sde", "rk4_sde", "euler_ode", "rk2_ode", "rk4_ode"
+        ] = "em_sde",
         progress_bar: bool = True,
         denoise_last_step: bool = True,
         **kwargs
@@ -129,17 +131,17 @@ class ScoreModel(Base):
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
         """
-        if method == "EM_SDE":
+        if method.lower() == "EM_SDE":
             solver = EM_SDE(self, **kwargs)
-        elif method == "RK2_SDE":
+        elif method.lower() == "RK2_SDE":
             solver = RK2_SDE(self, **kwargs)
-        elif method == "RK4_SDE":
+        elif method.lower() == "RK4_SDE":
             solver = RK4_SDE(self, **kwargs)
-        elif method == "Euler_ODE":
+        elif method.lower() == "Euler_ODE":
             solver = Euler_ODE(self, **kwargs)
-        elif method == "RK2_ODE":
+        elif method.lower() == "RK2_ODE":
             solver = RK2_ODE(self, **kwargs)
-        elif method == "RK4_ODE":
+        elif method.lower() == "RK4_ODE":
             solver = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(

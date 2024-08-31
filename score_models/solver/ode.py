@@ -21,21 +21,18 @@ class ODE(ABC):
 
     def forward(self, x0, N, **kwargs):
         """Call this to solve the ODE forward in time from x0 at time t_min to xT at time t_max"""
-        return self._solve(x0, N, self.forward_dx, True, **kwargs)
+        return self._solve(x0, N, self.dx, True, **kwargs)
 
     def reverse(self, xT, N, **kwargs):
         """Call this to solve the ODE backward in time from xT at time t_max to x0 at time t_min"""
-        return self._solve(xT, N, self.reverse_dx, False, **kwargs)
+        return self._solve(xT, N, self.dx, False, **kwargs)
 
-    def forward_dx(self, t, x, dt):
-        """Forward discretization of the ODE, this is the update for x"""
-        return self.sde.drift(t, x) * dt
-
-    def reverse_dx(self, t, x, dt, **kwargs):
-        """Reverse discretization of the ODE, this is the update for x"""
-        return (
-            self.sde.drift(t, x) - 0.5 * self.sde.diffusion(t, x) ** 2 * self.score(t, x, **kwargs)
-        ) * dt
+    def dx(self, t, x, dt, **kwargs):
+        """Discretization of the ODE, this is the update for x"""
+        f = self.sde.drift(t, x)
+        g = self.sde.diffusion(t, x)
+        s = self.score(t, x, **kwargs)
+        return (f - 0.5 * g**2 * s) * dt
 
     @torch.no_grad()
     def _solve(
