@@ -30,7 +30,7 @@ class EnergyModel(ScoreModel):
         else:
             self._energy = self._unet_energy
 
-    def forward(self, t, x, *args):
+    def forward(self, t, x, *args, **kwargs):
         """
         Overwrite the forward method to return the energy function instead of the model output.
         """
@@ -40,11 +40,11 @@ class EnergyModel(ScoreModel):
             t = t.unsqueeze(0)
             x = x.unsqueeze(0)
             args = [a.unsqueeze(0) for a in args]
-            return self.energy(t, x, *args).squeeze(0)
+            return self.energy(t, x, *args, **kwargs).squeeze(0)
 
         return -vmap(grad(energy_wrapper, argnums=1))(t, x, *args)  # Don't forget the minus sign!
 
-    def reparametrized_score(self, t, x, *args):
+    def reparametrized_score(self, t, x, *args, **kwargs):
         """
         Numerically stable reparametrization of the score function for the DSM loss.
         Score function uses this method so self.score(t, x, *args) will also work as expected.
@@ -55,21 +55,21 @@ class EnergyModel(ScoreModel):
             t = t.unsqueeze(0)
             x = x.unsqueeze(0)
             args = [a.unsqueeze(0) for a in args]
-            return self.unnormalized_energy(t, x, *args).squeeze(0)
+            return self.unnormalized_energy(t, x, *args, **kwargs).squeeze(0)
 
         return -vmap(grad(energy, argnums=1))(t, x, *args)  # Don't forget the minus sign!
 
-    def unnormalized_energy(self, t, x, *args):
-        return self._energy(t, x, *args)
+    def unnormalized_energy(self, t, x, *args, **kwargs):
+        return self._energy(t, x, *args, **kwargs)
 
-    def energy(self, t, x, *args):
+    def energy(self, t, x, *args, **kwargs):
         sigma_t = self.sde.sigma(t)
-        energy = self.unnormalized_energy(t, x, *args)
+        energy = self.unnormalized_energy(t, x, *args, **kwargs)
         return energy / sigma_t
 
-    def _unet_energy(self, t, x, *args):
+    def _unet_energy(self, t, x, *args, **kwargs):
         _, *D = x.shape
-        return 0.5 * torch.sum((x - self.model(t, x, *args)).flatten(1) ** 2, dim=1)
+        return 0.5 * torch.sum((x - self.model(t, x, *args, **kwargs)).flatten(1) ** 2, dim=1)
 
-    def _nn_energy(self, t, x, *args):
-        return self.model(t, x, *args).squeeze(1)
+    def _nn_energy(self, t, x, *args, **kwargs):
+        return self.model(t, x, *args, **kwargs).squeeze(1)

@@ -35,33 +35,33 @@ class ScoreModel(Base):
     def loss(self, x, *args) -> Tensor:
         return dsm(self, x, *args)
 
-    def reparametrized_score(self, t, x, *args) -> Tensor:
+    def reparametrized_score(self, t, x, *args, **kwargs) -> Tensor:
         """
         Numerically stable reparametrization of the score function for the DSM loss.
         """
-        return self.net(t, x, *args)
+        return self.net(t, x, *args, **kwargs)
 
-    def forward(self, t, x, *args):
+    def forward(self, t, x, *args, **kwargs):
         """
         Overwrite the forward method to return the score function instead of the model output.
         This also affects the __call__ method of the class, meaning that
         ScoreModel(t, x, *args) is equivalent to ScoreModel.forward(t, x, *args).
         """
-        return self.score(t, x, *args)
+        return self.score(t, x, *args, **kwargs)
 
-    def score(self, t, x, *args) -> Tensor:
+    def score(self, t, x, *args, **kwargs) -> Tensor:
         _, *D = x.shape
         sigma_t = self.sde.sigma(t).view(-1, *[1] * len(D))
-        epsilon_theta = self.reparametrized_score(t, x, *args)
+        epsilon_theta = self.reparametrized_score(t, x, *args, **kwargs)
         return epsilon_theta / sigma_t
 
-    def ode_drift(self, t, x, *args) -> Tensor:
+    def ode_drift(self, t, x, *args, **kwargs) -> Tensor:
         """
         Compute the drift of the ODE defined by the score function.
         """
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
-        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args)
+        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args, **kwargs)
         return f_tilde
 
     def divergence(self, t, x, *args, **kwargs) -> Tensor:
@@ -106,14 +106,14 @@ class ScoreModel(Base):
         log_p = self.sde.prior(x.shape).log_prob(xT) + delta_log_p
         return log_p
 
-    def tweedie(self, t: Tensor, x: Tensor, *args) -> Tensor:
+    def tweedie(self, t: Tensor, x: Tensor, *args, **kwargs) -> Tensor:
         """
         Compute the Tweedie formula for the expectation E[x0 | xt]
         """
         B, *D = x.shape
         mu = self.sde.mu(t).view(-1, *[1] * len(D))
         sigma = self.sde.sigma(t).view(-1, *[1] * len(D))
-        return (x + sigma**2 * self.score(t, x, *args)) / mu
+        return (x + sigma**2 * self.score(t, x, *args, **kwargs)) / mu
 
     @torch.no_grad()
     def sample(
@@ -135,28 +135,33 @@ class ScoreModel(Base):
         To denoise a sample from some time t, use the denoise or tweedie method instead.
 
         """
-        if method.lower() == "EM_SDE":
+        if method.lower() == "em_sde":
             solver = EM_SDE(self, **kwargs)
-        elif method.lower() == "RK2_SDE":
+        elif method.lower() == "rk2_sde":
             solver = RK2_SDE(self, **kwargs)
-        elif method.lower() == "RK4_SDE":
+        elif method.lower() == "rk4_sde":
             solver = RK4_SDE(self, **kwargs)
-        elif method.lower() == "Euler_ODE":
+        elif method.lower() == "euler_ode":
             solver = Euler_ODE(self, **kwargs)
-        elif method.lower() == "RK2_ODE":
+        elif method.lower() == "rk2_ode":
             solver = RK2_ODE(self, **kwargs)
-        elif method.lower() == "RK4_ODE":
+        elif method.lower() == "rk4_ode":
             solver = RK4_ODE(self, **kwargs)
         else:
             raise ValueError(
-                "Method not supported, should be one of 'EM_SDE', 'RK2_SDE', 'RK4_SDE', 'Euler_ODE', 'RK2_ODE', 'RK4_ODE'"
+                "Method not supported, should be one of 'em_sde', 'rk2_sde', 'rk4_sde', 'euler_ode', 'rk2_ode', 'rk4_ode'"
             )
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
         x0 = solver.reverse(xT, steps, progress_bar=progress_bar, **kwargs)
         if denoise_last_step:
-            x0 = self.tweedie(
-                self.sde.t_min * torch.ones(B, dtype=x0.dtype, device=DEVICE), x0, *args
+            xfin = x0[-1] if kwargs.get("trace", False) else x0
+            xfin = self.tweedie(
+                self.sde.t_min * torch.ones(B, dtype=x0.dtype, device=DEVICE), xfin, *args, **kwargs
             )
+            if kwargs.get("trace", False):
+                x0[-1] = xfin
+            else:
+                x0 = xfin
         return x0
