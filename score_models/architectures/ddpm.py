@@ -6,40 +6,41 @@ from functools import partial
 
 from ..utils import get_activation
 from ..layers import (
-        DDPMResnetBlock, 
-        SelfAttentionBlock, 
-        GaussianFourierProjection, 
-        UpsampleLayer, 
-        DownsampleLayer,
-        conv3x3
-        )
+    DDPMResnetBlock,
+    SelfAttentionBlock,
+    GaussianFourierProjection,
+    UpsampleLayer,
+    DownsampleLayer,
+    conv3x3,
+)
 from .conditional_branch import (
-        validate_conditional_arguments, 
-        conditional_branch,
-        merge_conditional_time_branch,
-        merge_conditional_input_branch
-        )
+    validate_conditional_arguments,
+    conditional_branch,
+    merge_conditional_time_branch,
+    merge_conditional_input_branch,
+)
 
 __all__ = ["DDPM"]
 
+
 class DDPM(nn.Module):
     def __init__(
-            self,
-            channels: int = 1,
-            dimensions: int = 2,
-            nf: int = 128,
-            activation_type: str = "relu",
-            ch_mult: tuple[int] = (2, 2),
-            num_res_blocks: int = 2,
-            resample_with_conv: bool = True,
-            dropout: float = 0.,
-            attention: bool = True,
-            fourier_scale: float = 30.,
-            conditions: Optional[tuple[str]] = None,
-            condition_embeddings: Optional[tuple[int]] = None,
-            condition_channels: Optional[int] = None,
-            **kwargs
-            ):
+        self,
+        channels: int = 1,
+        dimensions: int = 2,
+        nf: int = 128,
+        activation_type: str = "relu",
+        ch_mult: tuple[int] = (2, 2),
+        num_res_blocks: int = 2,
+        resample_with_conv: bool = True,
+        dropout: float = 0.0,
+        attention: bool = True,
+        fourier_scale: float = 30.0,
+        conditions: Optional[tuple[str]] = None,
+        condition_embeddings: Optional[tuple[int]] = None,
+        condition_channels: Optional[int] = None,
+        **kwargs,
+    ):
         """
         Deep Diffusion Probabilistic Model (DDPM) implementation.
 
@@ -64,7 +65,9 @@ class DDPM(nn.Module):
         """
         super().__init__()
         if dimensions not in [1, 2, 3]:
-            raise ValueError(f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}.")
+            raise ValueError(
+                f"Input must have 1, 2, or 3 spatial dimensions to use this architecture, received {dimensions}."
+            )
         validate_conditional_arguments(conditions, condition_embeddings, condition_channels)
         self.conditioned = conditions is not None
         self.condition_type = conditions
@@ -83,7 +86,7 @@ class DDPM(nn.Module):
             "fourier_scale": fourier_scale,
             "conditions": conditions,
             "condition_embeddings": condition_embeddings,
-            "condition_channels": condition_channels
+            "condition_channels": condition_channels,
         }
         self.dimensions = dimensions
         self.act = act = get_activation(activation_type=activation_type)
@@ -95,20 +98,22 @@ class DDPM(nn.Module):
 
         # Prepare layers
         AttnBlock = partial(SelfAttentionBlock, dimensions=dimensions)
-        ResnetBlock = partial(DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions)
+        ResnetBlock = partial(
+            DDPMResnetBlock, act=act, temb_dim=4 * nf, dropout=dropout, dimensions=dimensions
+        )
         Downsample = partial(DownsampleLayer, dimensions=dimensions)
         Upsample = partial(UpsampleLayer, dimensions=dimensions)
 
         ########### Conditional branch ###########
         if self.conditioned:
             total_time_channels, total_input_channels = conditional_branch(
-                    self,
-                    time_branch_channels=nf,
-                    input_branch_channels=channels,
-                    condition_embeddings=condition_embeddings,
-                    condition_channels=condition_channels,
-                    fourier_scale=fourier_scale
-                    ) # This method attach a Module list to self.conditional_branch
+                self,
+                time_branch_channels=nf,
+                input_branch_channels=channels,
+                condition_embeddings=condition_embeddings,
+                condition_channels=condition_channels,
+                fourier_scale=fourier_scale,
+            )  # This method attach a Module list to self.conditional_branch
         else:
             total_time_channels = nf
             total_input_channels = channels
@@ -116,10 +121,10 @@ class DDPM(nn.Module):
 
         ########### Time branch ###########
         modules = [
-                GaussianFourierProjection(embed_dim=nf, scale=fourier_scale),
-                nn.Linear(total_time_channels, nf * 4), 
-                nn.Linear(nf * 4, nf * 4)
-                ]
+            GaussianFourierProjection(embed_dim=nf, scale=fourier_scale),
+            nn.Linear(total_time_channels, nf * 4),
+            nn.Linear(nf * 4, nf * 4),
+        ]
         with torch.no_grad():
             modules[1].bias.zero_()
             modules[2].bias.zero_()
@@ -156,14 +161,16 @@ class DDPM(nn.Module):
                 modules.append(Upsample(in_ch=in_ch, with_conv=resample_with_conv))
 
         assert not hs_c
-        modules.append(nn.GroupNorm(num_channels=in_ch, num_groups=max(min(in_ch // 4, 32), 1), eps=1e-6))
+        modules.append(
+            nn.GroupNorm(num_channels=in_ch, num_groups=max(min(in_ch // 4, 32), 1), eps=1e-6)
+        )
         modules.append(conv3x3(in_ch, channels, dimensions=dimensions))
         self.all_modules = nn.ModuleList(modules)
 
-    def forward(self, t, x, *args):
+    def forward(self, t, x, *args, **kwargs):
         B, *D = x.shape
         modules = self.all_modules
-        
+
         # Time branch
         m_idx = 0
         temb = modules[m_idx](t)
@@ -179,8 +186,8 @@ class DDPM(nn.Module):
         if self.conditioned:
             x = merge_conditional_input_branch(self, x, *args)
         # if self.fourier_features:
-            # ffeatures = self.fourier_features(x)
-            # x = torch.concat([x, ffeatures], axis=1)
+        # ffeatures = self.fourier_features(x)
+        # x = torch.concat([x, ffeatures], axis=1)
         # Downsampling block
         hs = [modules[m_idx](x)]
         m_idx += 1

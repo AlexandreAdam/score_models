@@ -65,6 +65,11 @@ class ODESolver(Solver):
         else:
             ht = lambda *args, **kwargs: self.score.hessian_trace_model(*args, **kwargs) * dt
 
+        if get_logP:
+            dp = ht
+        else:
+            dp = lambda *args, **kwargs: 0.0
+
         # Trace ODE path if requested
         if trace:
             path = [x]
@@ -83,11 +88,9 @@ class ODESolver(Solver):
                 raise ValueError("NaN encountered in ODE solver")
 
             # Update x
-            x = x + self._step(t, x, args, dt, self.dx, **kwargs)
-
-            # Update logP if requested
-            if get_logP:
-                logp = logp + self._step(t, x, args, dt, ht, **kwargs)
+            step = self.step(t, x, args, dt, self.dx, dp, **kwargs)
+            x = x + step[0]
+            logp = logp + step[1]
 
             if trace:
                 path.append(x)
@@ -116,7 +119,8 @@ class ODESolver(Solver):
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
         s = self.score(t, x, *args, **kwargs)
-        return (f - 0.5 * g**2 * s) * dt
+        ret = (f - 0.5 * g**2 * s) * dt
+        return ret
 
     def divergence_hutchinson_trick(
         self,
@@ -165,8 +169,8 @@ class Euler_ODE(ODESolver):
     Euler method for solving an ODE
     """
 
-    def _step(self, t, x, args, dt, dx, **kwargs):
-        return dx(t, x, args, dt, **kwargs)
+    def step(self, t, x, args, dt, dx, dp, **kwargs):
+        return dx(t, x, args, dt, **kwargs), dp(t, x, args, dt, **kwargs)
 
 
 class RK2_ODE(ODESolver):
@@ -174,10 +178,12 @@ class RK2_ODE(ODESolver):
     Runge Kutta 2nd order ODE solver
     """
 
-    def _step(self, t, x, args, dt, dx, **kwargs):
+    def step(self, t, x, args, dt, dx, dp, **kwargs):
         k1 = dx(t, x, args, dt, **kwargs)
+        l1 = dp(t, x, args, dt, **kwargs)
         k2 = dx(t + dt, x + k1, args, dt, **kwargs)
-        return (k1 + k2) / 2
+        l2 = dp(t + dt, x + k1, args, dt, **kwargs)
+        return (k1 + k2) / 2, (l1 + l2) / 2
 
 
 class RK4_ODE(ODESolver):
@@ -185,9 +191,13 @@ class RK4_ODE(ODESolver):
     Runge Kutta 4th order ODE solver
     """
 
-    def _step(self, t, x, args, dt, dx, **kwargs):
+    def step(self, t, x, args, dt, dx, dp, **kwargs):
         k1 = dx(t, x, args, dt, **kwargs)
+        l1 = dp(t, x, args, dt, **kwargs)
         k2 = dx(t + dt / 2, x + k1 / 2, args, dt, **kwargs)
+        l2 = dp(t + dt / 2, x + k1 / 2, args, dt, **kwargs)
         k3 = dx(t + dt / 2, x + k2 / 2, args, dt, **kwargs)
+        l3 = dp(t + dt / 2, x + k2 / 2, args, dt, **kwargs)
         k4 = dx(t + dt, x + k3, args, dt, **kwargs)
-        return (k1 + 2 * k2 + 2 * k3 + k4) / 6
+        l4 = dp(t + dt, x + k3, args, dt, **kwargs)
+        return (k1 + 2 * k2 + 2 * k3 + k4) / 6, (l1 + 2 * l2 + 2 * l3 + l4) / 6

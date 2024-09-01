@@ -80,7 +80,7 @@ class ConvolvedLikelihood(nn.Module):
         self._diag = value
         self.forward = self.diag_forward if value else self.full_forward
 
-    def diag_forward(self, t, xt, **kwargs):
+    def diag_forward(self, t, xt, *args, **kwargs):
         r = self.y - self.f(xt.squeeze())
         sigma = 1 / (self.Sigma_y + self.sde.sigma(t) ** 2 * self.AAT)
         ll = 0.5 * torch.sum(r**2 * sigma).unsqueeze(0)
@@ -91,7 +91,7 @@ class ConvolvedLikelihood(nn.Module):
         ll = 0.5 * (r @ sigma @ r.reshape(1, r.shape[0]).T)
         return ll * self.sde.sigma(t)
 
-    def full_forward(self, t, xt, **kwargs):
+    def full_forward(self, t, xt, *args, **kwargs):
         sigma = torch.linalg.inv(
             self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
         )

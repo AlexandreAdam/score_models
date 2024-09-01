@@ -27,7 +27,7 @@ class GRFEnergyModel(nn.Module):
             raise ValueError("Only 1D and 2D power spectra are supported")
         self.hyperparameters = {"nn_is_energy": True}
 
-    def forward(self, t, x, **kwargs):
+    def forward(self, t, x, *args, **kwargs):
         t_scale = self.sde.sigma(t)
         t_mu = self.sde.mu(t)
 

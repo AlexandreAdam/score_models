@@ -65,7 +65,7 @@ class JointScoreModel(nn.Module):
     def xsize(self):
         return sum(np.prod(shapex) for shapex in self.x_shapes)
 
-    def forward(self, t, x, **kwargs):
+    def forward(self, t, x, *args, **kwargs):
         # Split x into segments
         sub_x = self.split_x(x)
 
@@ -75,11 +75,11 @@ class JointScoreModel(nn.Module):
             # Select the segments from x that this model uses
             if self.model_uses[i] is None:
                 model_x = x
-                model_score = model(t, model_x, **kwargs)
+                model_score = model(t, model_x, *args, **kwargs)
             else:
                 model_x = tuple(sub_x[j] for j in self.model_uses[i])
                 # Compute the score for this model
-                model_score = model(t, *model_x, **kwargs)
+                model_score = model(t, *model_x, *args, **kwargs)
 
             # Ensure the score is a tuple
             if not isinstance(model_score, tuple):

@@ -49,9 +49,9 @@ class MVGEnergyModel(nn.Module):
         ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
         return ll.unsqueeze(0)
 
-    def forward_single(self, t, x, **kwargs):
+    def forward_single(self, t, x, *args, **kwargs):
         return -self.ll(t, x, self.mean, self.cov, self.w) * self.sde.sigma(t)
 
-    def forward_mixture(self, t, x, **kwargs):
+    def forward_mixture(self, t, x, *args, **kwargs):
         ll = torch.vmap(self.ll, in_dims=(None, None, 0, 0, 0))(t, x, self.mean, self.cov, self.w)
         return -torch.logsumexp(ll, dim=0) * self.sde.sigma(t)

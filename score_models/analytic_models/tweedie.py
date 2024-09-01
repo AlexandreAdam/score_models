@@ -30,23 +30,25 @@ class TweedieScoreModel(nn.Module):
         self.log_likelihood = log_likelihood
         self.hyperparameters = {"nn_is_energy": True}
 
-    def tweedie(self, t, xt):
+    def tweedie(self, t, xt, *args, **kwargs):
         sigma_t = self.sde.sigma(t)
         t_mu = self.sde.mu(t)
-        x0 = (xt + sigma_t.unsqueeze(-1) ** 2 * self.model.score(t, xt)) / t_mu.unsqueeze(-1)
+        x0 = (
+            xt + sigma_t.unsqueeze(-1) ** 2 * self.model.score(t, xt, *args, **kwargs)
+        ) / t_mu.unsqueeze(-1)
         return x0
 
-    def log_likelihood_score0(self, t, x0):
+    def log_likelihood_score0(self, t, x0, *args, **kwargs):
         sigma_t = self.sde.sigma(t[0])
-        return vmap(grad(lambda x: self.log_likelihood(sigma_t, x).squeeze()))(x0)
+        return vmap(grad(lambda x: self.log_likelihood(sigma_t, x, *args, **kwargs).squeeze()))(x0)
 
-    def log_likelihood_score(self, t, xt):
-        x0, vjp_func = torch.func.vjp(lambda x: self.tweedie(t, x), xt)
-        score0 = self.log_likelihood_score0(t, x0)
+    def log_likelihood_score(self, t, xt, *args, **kwargs):
+        x0, vjp_func = torch.func.vjp(lambda x: self.tweedie(t, x, *args, **kwargs), xt)
+        score0 = self.log_likelihood_score0(t, x0, *args, **kwargs)
         return vjp_func(score0)
 
     def forward(self, t, xt, *args, **kwargs):
 
         sigma_t = self.sde.sigma(t[0])
-        (scores,) = self.log_likelihood_score(t, xt)
+        (scores,) = self.log_likelihood_score(t, xt, *args, **kwargs)
         return scores * sigma_t

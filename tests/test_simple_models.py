@@ -3,8 +3,8 @@ import numpy as np
 from score_models.sde import VESDE
 from score_models import EnergyModel, ScoreModel
 from score_models.analytic_models import (
-    GRFScoreModel,
-    MVGScoreModel,
+    GRFEnergyModel,
+    MVGEnergyModel,
     JointScoreModel,
     SampleScoreModel,
     AnnealedScoreModel,
@@ -41,7 +41,7 @@ def test_grf(psd_shape):
 
     psd = torch.tensor(power_spectrum, dtype=torch.float32)
 
-    model = EnergyModel(sde=sde, model=GRFScoreModel(sde, power_spectrum=psd))
+    model = EnergyModel(sde=sde, model=GRFEnergyModel(sde, power_spectrum=psd))
 
     samples = model.sample(shape=(2, *psd_shape), steps=25)
 
@@ -62,7 +62,7 @@ def test_mvg(mean, cov):
     cov = torch.tensor(cov, dtype=torch.float32)
     model = EnergyModel(
         sde=sde,
-        model=MVGScoreModel(
+        model=MVGEnergyModel(
             sde,
             mean=mean,
             cov=cov,
@@ -206,7 +206,7 @@ def test_convolved_likelihood():
 
     priormodel = EnergyModel(
         sde=sde,
-        model=MVGScoreModel(
+        model=MVGEnergyModel(
             sde,
             mean=torch.zeros(3),
             cov=torch.eye(3),
@@ -254,7 +254,7 @@ def test_tweedie():
 
     priormodel = EnergyModel(
         sde=sde,
-        model=MVGScoreModel(
+        model=MVGEnergyModel(
             sde,
             mean=torch.zeros(3),
             cov=torch.eye(3),

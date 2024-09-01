@@ -48,5 +48,5 @@ class SampleScoreModel(nn.Module):
         return t_scale * torch.sum(W * (self.samples - x) / (t_scale**2 + self.sigma_min**2), dim=0)
 
     @torch.no_grad()
-    def forward(self, t, x, **kwargs):
+    def forward(self, t, x, *args, **kwargs):
         return vmap(self.single_score)(t, x)

@@ -3,16 +3,13 @@ from typing import Optional, Literal
 import torch
 import torch.nn as nn
 
-from ..layers import (
-    GaussianFourierProjection, 
-    ScaledAttentionLayer
-    )
+from ..layers import GaussianFourierProjection, ScaledAttentionLayer
 from .conditional_branch import (
     validate_conditional_arguments,
     conditional_branch,
     merge_conditional_time_branch,
-    merge_conditional_input_branch
-    )
+    merge_conditional_input_branch,
+)
 from ..utils import get_activation
 
 __all__ = ["MLP"]
@@ -20,23 +17,23 @@ __all__ = ["MLP"]
 
 class MLP(nn.Module):
     def __init__(
-            self, 
-            channels: Optional[int] = None,
-            units: int = 100,
-            layers: int = 2,
-            time_branch_channels: int = 32,
-            time_branch_layers: int = 1,
-            fourier_scale: int = 16,
-            activation: int = "swish",
-            bottleneck: Optional[int] = None,
-            attention: bool = False,
-            nn_is_energy: bool = False,
-            output_activation: str = None,
-            conditions: Optional[Literal["discrete", "continuous", "vector", "tensor"]] = None,
-            condition_channels: Optional[tuple[int]] = None,
-            condition_embeddings: Optional[tuple[int]] = None,
-            **kwargs
-            ):
+        self,
+        channels: Optional[int] = None,
+        units: int = 100,
+        layers: int = 2,
+        time_branch_channels: int = 32,
+        time_branch_layers: int = 1,
+        fourier_scale: int = 16,
+        activation: int = "swish",
+        bottleneck: Optional[int] = None,
+        attention: bool = False,
+        nn_is_energy: bool = False,
+        output_activation: str = None,
+        conditions: Optional[Literal["discrete", "continuous", "vector", "tensor"]] = None,
+        condition_channels: Optional[tuple[int]] = None,
+        condition_embeddings: Optional[tuple[int]] = None,
+        **kwargs,
+    ):
         """
         Multi-Layer Perceptron (MLP) neural network.
 
@@ -73,54 +70,61 @@ class MLP(nn.Module):
             if "dimensions" in kwargs:
                 channels = kwargs["dimensions"]
             else:
-                raise ValueError("You must provide a 'channels' argument to initialize the MLP architecture.")
+                raise ValueError(
+                    "You must provide a 'channels' argument to initialize the MLP architecture."
+                )
         self.hyperparameters = {
-                "channels": channels,
-                "units": units,
-                "layers": layers,
-                "time_branch_channels": time_branch_channels,
-                "fourier_scale": fourier_scale,
-                "activation": activation,
-                "time_branch_layers": time_branch_layers,
-                "botleneck": bottleneck,
-                "attention": attention,
-                "nn_is_energy": nn_is_energy,
-                "output_activation": output_activation,
-                "conditions": conditions,
-                "condition_channels": condition_channels,
-                "condition_embeddings": condition_embeddings,
-                }
+            "channels": channels,
+            "units": units,
+            "layers": layers,
+            "time_branch_channels": time_branch_channels,
+            "fourier_scale": fourier_scale,
+            "activation": activation,
+            "time_branch_layers": time_branch_layers,
+            "botleneck": bottleneck,
+            "attention": attention,
+            "nn_is_energy": nn_is_energy,
+            "output_activation": output_activation,
+            "conditions": conditions,
+            "condition_channels": condition_channels,
+            "condition_embeddings": condition_embeddings,
+        }
         self.time_branch_layers = time_branch_layers
         self.layers = layers
         self.nn_is_energy = nn_is_energy
         if layers % 2 == 1:
-            print(f"Number of layers must be an even number for this architecture. Adding one more layer...")
+            print(
+                f"Number of layers must be an even number for this architecture. Adding one more layer..."
+            )
             layers += 1
 
         ########### Conditional branch ###########
         if self.conditioned:
             total_time_channels, total_input_channels = conditional_branch(
-                    self,
-                    time_branch_channels=time_branch_channels,
-                    input_branch_channels=channels,
-                    condition_embeddings=condition_embeddings,
-                    condition_channels=condition_channels,
-                    fourier_scale=fourier_scale
-                    ) # This method attach a Module list to self.conditional_branch
+                self,
+                time_branch_channels=time_branch_channels,
+                input_branch_channels=channels,
+                condition_embeddings=condition_embeddings,
+                condition_channels=condition_channels,
+                fourier_scale=fourier_scale,
+            )  # This method attach a Module list to self.conditional_branch
         else:
             total_time_channels = time_branch_channels
             total_input_channels = channels
         #########################################
-            
+
         ########### Time branch ###########
         t_dim = time_branch_channels
-        modules = [GaussianFourierProjection(t_dim, scale=fourier_scale), # Time embedding
-                   nn.Linear(total_time_channels, t_dim) # Compress the signal from time index and the other conditionals if any
-                   ]
+        modules = [
+            GaussianFourierProjection(t_dim, scale=fourier_scale),  # Time embedding
+            nn.Linear(
+                total_time_channels, t_dim
+            ),  # Compress the signal from time index and the other conditionals if any
+        ]
         for _ in range(time_branch_layers - 1):
             modules.append(nn.Linear(t_dim, t_dim))
         ###################################
-        
+
         ########### Input branch ###########
         modules.append(nn.Linear(total_input_channels + t_dim, units))
         if bottleneck is not None:
@@ -144,11 +148,11 @@ class MLP(nn.Module):
         self.act = get_activation(activation)
         self.all_modules = nn.ModuleList(modules)
         ###################################
-    
-    def forward(self, t, x, *args):
+
+    def forward(self, t, x, *args, **kwargs):
         B, D = x.shape
         modules = self.all_modules
-        
+
         # Time branch
         temb = modules[0](t)
         if self.conditioned:
@@ -164,7 +168,7 @@ class MLP(nn.Module):
             x = merge_conditional_input_branch(self, x, *args)
         x = modules[i](x)
         i += 1
-        for _ in range(self.layers//2):
+        for _ in range(self.layers // 2):
             x = self.act(modules[i](x))
             i += 1
         if self.bottleneck:
@@ -175,7 +179,7 @@ class MLP(nn.Module):
             x = self.attention_layer(x.view(B, 1, -1), context).view(B, -1)
         if self.bottleneck:
             x = self.act(self.bottleneck_out(x))
-        for _ in range(self.layers//2):
+        for _ in range(self.layers // 2):
             x = self.act(modules[i](x))
             i += 1
         out = self.output_layer(x)

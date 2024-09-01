@@ -78,7 +78,7 @@ class SDESolver(Solver):
                 raise ValueError("NaN encountered in SDE solver")
 
             # Update x
-            x = x + self._step(t, x, args, dt, forward, sk=sk, **kwargs)
+            x = x + self.step(t, x, args, dt, forward, sk=sk, **kwargs)
 
             # Add requested corrector steps
             for _ in range(corrector_steps):
@@ -125,14 +125,14 @@ class EM_SDE(SDESolver):
     Base solver for a stochastic differential equation (SDE) using the Euler-Maruyama method.
     """
 
-    def _step(self, t, x, args, dt, forward, sk=None, **kwargs):
+    def step(self, t, x, args, dt, forward, sk=None, **kwargs):
         """base SDE solver"""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         return self.dx(t, x, args, dt, forward, dw, **kwargs)
 
 
 class RK2_SDE(SDESolver):
-    def _step(self, t, x, dt, forward, sk, **kwargs):
+    def step(self, t, x, dt, forward, sk, **kwargs):
         """Base SDE solver using a 2nd order Runge-Kutta method. For more
         details see Equation 2.5 in chapter 7.2 of the book "Introduction to
         Stochastic Differential Equations" by Thomas C. Gard. The equations have
@@ -146,7 +146,7 @@ class RK2_SDE(SDESolver):
 
 
 class RK4_SDE(SDESolver):
-    def _step(self, t, x, dt, forward, sk, **kwargs):
+    def step(self, t, x, dt, forward, sk, **kwargs):
         """Base SDE solver using a 4th order Runge-Kutta method. For more
         details see Equation 3.6 in chapter 7.3 of the book "Introduction to
         Stochastic Differential Equations" by Thomas C. Gard. The equations have

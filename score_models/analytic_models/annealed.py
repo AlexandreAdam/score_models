@@ -49,7 +49,7 @@ class AnnealedScoreModel(nn.Module):
         else:
             raise NotImplementedError(f"Unknown beta_scheme {self.beta_scheme}")
 
-    def forward(self, t, x, **kwargs):
+    def forward(self, t, x, *args, **kwargs):
         B, *D = x.shape
         # Compute the weighted score for each model
         beta = torch.clamp(self.beta(kwargs.get("t_a", t)[0]), 0.0, 1.0)
