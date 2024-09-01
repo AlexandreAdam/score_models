@@ -23,9 +23,11 @@ class SDESolver(Solver):
         x: Tensor,
         steps: int,
         forward: bool,
+        *args: tuple,
         progress_bar: bool = True,
         trace=False,
         kill_on_nan: bool = False,
+        denoise_last_step: bool = False,
         corrector_steps: int = 0,
         corrector_snr: float = 0.1,
         sk: float = 0,  # Set to -1 for Ito SDE, TODO: make sure this is right
@@ -56,37 +58,45 @@ class SDESolver(Solver):
                 raise ValueError("NaN encountered in SDE solver")
 
             # Update x
-            x = x + self._step(t, x, dt, forward, sk=sk, **kwargs)
+            x = x + self._step(t, x, args, dt, forward, sk=sk, **kwargs)
 
             # Add requested corrector steps
             for _ in range(corrector_steps):
-                x = self.corrector_step(t, x, corrector_snr, **kwargs)
+                x = self.corrector_step(t, x, args, corrector_snr, **kwargs)
+
             if trace:
                 path.append(x)
+
+        # Project to boundary if denoising
+        if denoise_last_step and not forward:
+            x = self.tweedie(t, x, *args, **kwargs)
+            if trace:
+                path[-1] = x
+
         if trace:
             return torch.stack(path)
         return x
 
-    def corrector_step(self, t, x, snr, **kwargs):
+    def corrector_step(self, t, x, args, snr, **kwargs):
         """Basic Langevin corrector step for the SDE."""
         _, *D = x.shape
         z = torch.randn_like(x)
         epsilon = (snr * self.sde.sigma(t).view(-1, *[1] * len(D))) ** 2
-        return x + epsilon * self.score(t, x) + z * torch.sqrt(2 * epsilon)
+        return x + epsilon * self.score(t, x, *args, **kwargs) + z * torch.sqrt(2 * epsilon)
 
-    def drift(self, t: Tensor, x: Tensor, forward: bool, **kwargs):
+    def drift(self, t: Tensor, x: Tensor, args: tuple, forward: bool, **kwargs):
         f = self.sde.drift(t, x)
         if forward:
             return f
         g = self.sde.diffusion(t, x)
-        s = self.score(t, x, **kwargs)
+        s = self.score(t, x, *args, **kwargs)
         return f - g**2 * s
 
-    def dx(self, t, x, dt, forward, dw=None, **kwargs):
+    def dx(self, t, x, args, dt, forward, dw=None, **kwargs):
         """SDE differential element dx"""
         if dw is None:
             dw = torch.randn_like(x) * torch.sqrt(dt.abs())
-        return self.drift(t, x, forward, **kwargs) * dt + self.sde.diffusion(t, x) * dw
+        return self.drift(t, x, args, forward, **kwargs) * dt + self.sde.diffusion(t, x) * dw
 
 
 class EM_SDE(SDESolver):
@@ -94,10 +104,10 @@ class EM_SDE(SDESolver):
     Base solver for a stochastic differential equation (SDE) using the Euler-Maruyama method.
     """
 
-    def _step(self, t, x, dt, forward, sk=None, **kwargs):
+    def _step(self, t, x, args, dt, forward, sk=None, **kwargs):
         """base SDE solver"""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
-        return self.dx(t, x, dt, forward, dw, **kwargs)
+        return self.dx(t, x, args, dt, forward, dw, **kwargs)
 
 
 class RK2_SDE(SDESolver):

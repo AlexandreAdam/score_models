@@ -78,18 +78,9 @@ class ScoreModel(Base):
                 "Method not supported, should be one of 'euler_ode', 'rk2_ode', 'rk4_ode'"
             )
         # Solve the probability flow ODE up in temperature to time t=1.
-        _, log_p = solver(x, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
+        _, log_p = solver(x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
 
         return log_p
-
-    def tweedie(self, t: Tensor, x: Tensor, *args, **kwargs) -> Tensor:
-        """
-        Compute the Tweedie formula for the expectation E[x0 | xt]
-        """
-        B, *D = x.shape
-        mu = self.sde.mu(t).view(-1, *[1] * len(D))
-        sigma = self.sde.sigma(t).view(-1, *[1] * len(D))
-        return (x + sigma**2 * self.score(t, x, *args, **kwargs)) / mu
 
     @torch.no_grad()
     def sample(
@@ -130,14 +121,14 @@ class ScoreModel(Base):
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
-        x0 = solver(xT, steps=steps, forward=False, progress_bar=progress_bar, **kwargs)
-        if denoise_last_step:
-            xfin = x0[-1] if kwargs.get("trace", False) else x0
-            xfin = self.tweedie(
-                self.sde.t_min * torch.ones(B, dtype=x0.dtype, device=DEVICE), xfin, *args, **kwargs
-            )
-            if kwargs.get("trace", False):
-                x0[-1] = xfin
-            else:
-                x0 = xfin
+        x0 = solver(
+            xT,
+            *args,
+            steps=steps,
+            forward=False,
+            progress_bar=progress_bar,
+            denoise_last_step=denoise_last_step,
+            **kwargs
+        )
+
         return x0

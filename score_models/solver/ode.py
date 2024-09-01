@@ -17,9 +17,11 @@ class ODESolver(Solver):
         x: Tensor,
         steps: int,
         forward: bool,
+        *args: tuple,
         progress_bar: bool = True,
         trace=False,
         kill_on_nan: bool = False,
+        denoise_last_step: bool = False,
         get_logP: bool = False,
         **kwargs,
     ):
@@ -54,15 +56,20 @@ class ODESolver(Solver):
                 raise ValueError("NaN encountered in ODE solver")
 
             # Update x
-            x = x + self._step(t, x, dt, self.dx, **kwargs)
+            x = x + self._step(t, x, args, dt, self.dx, **kwargs)
 
             # Update logP if requested
             if get_logP:
-                logp = logp + self._step(t, x, dt, ht, **kwargs)
+                logp = logp + self._step(t, x, args, dt, ht, **kwargs)
 
-            # Trace path if requested
             if trace:
                 path.append(x)
+
+        # Project to boundary if denoising
+        if denoise_last_step and not forward:
+            x = self.tweedie(t, x, *args, **kwargs)
+            if trace:
+                path[-1] = x
 
         # add boundary condition PDF probability
         if get_logP and forward:
@@ -77,19 +84,19 @@ class ODESolver(Solver):
             return x, logp
         return x
 
-    def dx(self, t: Tensor, x: Tensor, dt: Tensor, **kwargs):
+    def dx(self, t: Tensor, x: Tensor, args: tuple, dt: Tensor, **kwargs):
         """Discretization of the ODE, this is the update for x"""
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
-        s = self.score(t, x, **kwargs)
+        s = self.score(t, x, *args, **kwargs)
         return (f - 0.5 * g**2 * s) * dt
 
     def divergence_hutchinson_trick(
         self,
         t: Tensor,
         x: Tensor,
+        args,
         dt: Tensor,
-        *args,
         n_cot_vec: int = 1,
         noise_type: Literal["rademacher", "gaussian"] = "rademacher",
         **kwargs,
@@ -109,15 +116,15 @@ class ODESolver(Solver):
         if noise_type == "rademacher":
             vectors = vectors.sign()
 
-        f = lambda x: self.dx(t, x, dt, *_args, **kwargs)
+        f = lambda x: self.dx(t, x, _args, dt, **kwargs)
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
 
 
 class Euler_ODE(ODESolver):
-    def _step(self, t, x, dt, dx, **kwargs):
-        return dx(t, x, dt, **kwargs)
+    def _step(self, t, x, args, dt, dx, **kwargs):
+        return dx(t, x, args, dt, **kwargs)
 
 
 class RK2_ODE(ODESolver):
@@ -125,9 +132,9 @@ class RK2_ODE(ODESolver):
     Runge Kutta 2nd order ODE solver
     """
 
-    def _step(self, t, x, dt, dx, **kwargs):
-        k1 = dx(t, x, dt, **kwargs)
-        k2 = dx(t + dt, x + k1, dt, **kwargs)
+    def _step(self, t, x, args, dt, dx, **kwargs):
+        k1 = dx(t, x, args, dt, **kwargs)
+        k2 = dx(t + dt, x + k1, args, dt, **kwargs)
         return (k1 + k2) / 2
 
 
@@ -136,9 +143,9 @@ class RK4_ODE(ODESolver):
     Runge Kutta 4th order ODE solver
     """
 
-    def _step(self, t, x, dt, dx, **kwargs):
-        k1 = dx(t, x, dt, **kwargs)
-        k2 = dx(t + dt / 2, x + k1 / 2, dt, **kwargs)
-        k3 = dx(t + dt / 2, x + k2 / 2, dt, **kwargs)
-        k4 = dx(t + dt, x + k3, dt, **kwargs)
+    def _step(self, t, x, args, dt, dx, **kwargs):
+        k1 = dx(t, x, args, dt, **kwargs)
+        k2 = dx(t + dt / 2, x + k1 / 2, args, dt, **kwargs)
+        k3 = dx(t + dt / 2, x + k2 / 2, args, dt, **kwargs)
+        k4 = dx(t + dt, x + k3, args, dt, **kwargs)
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6
