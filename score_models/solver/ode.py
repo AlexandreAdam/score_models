@@ -11,7 +11,7 @@ from ..utils import DEVICE
 # TODO: maybe merge ODE and Solver into single class?
 
 
-class ODE(ABC):
+class ODE_Solver(ABC):
     def __init__(self, score, **kwargs):
         self.score = score
 
@@ -125,12 +125,12 @@ class ODE(ABC):
         return torch.as_tensor((t_max - t_min) / N, device=device)
 
 
-class Euler_ODE(ODE):
+class Euler_ODE(ODE_Solver):
     def _step(self, t, x, dt, dx, **kwargs):
         return dx(t, x, dt, **kwargs)
 
 
-class RK2_ODE(ODE):
+class RK2_ODE(ODE_Solver):
     """
     Runge Kutta 2nd order ODE solver
     """
@@ -141,7 +141,7 @@ class RK2_ODE(ODE):
         return (k1 + k2) / 2
 
 
-class RK4_ODE(ODE):
+class RK4_ODE(ODE_Solver):
     """
     Runge Kutta 4th order ODE solver
     """
