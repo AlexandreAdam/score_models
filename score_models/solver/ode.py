@@ -25,6 +25,33 @@ class ODESolver(Solver):
         get_logP: bool = False,
         **kwargs,
     ):
+        """
+        Integrate the diffusion ODE forward or backward in time.
+
+        Discretizes the ODE using the given method and integrates the ODE with
+
+        .. math::
+            x_{i+1} = x_i + \\frac{dx}{dt}(t_i, x_i) dt
+
+        where the :math:`\\frac{dx}{dt}` is the diffusion drift of
+
+        .. math::
+            \\frac{dx}{dt} = f(t, x) - \\frac{1}{2} g(t, x)^2 s(t, x)
+
+        where :math:`f(t, x)` is the sde drift, :math:`g(t, x)` is the sde diffusion,
+        and :math:`s(t, x)` is the score.
+
+        Args:
+            x: Initial condition.
+            steps: integration discretization.
+            forward: Direction of integration.
+            *args: Additional arguments to pass to the score model.
+            progress_bar: Whether to display a progress bar.
+            trace: Whether to return the full path or just the last point.
+            kill_on_nan: Whether to raise an error if NaNs are encountered.
+            denoise_last_step: Whether to project to the boundary at the last step.
+            get_logP: Whether to return the log probability of the input x (should be used with forward=True).
+        """
         B, *D = x.shape
 
         # Step
@@ -101,6 +128,17 @@ class ODESolver(Solver):
         noise_type: Literal["rademacher", "gaussian"] = "rademacher",
         **kwargs,
     ):
+        """
+        Compute the divergence of the drift function using the Hutchinson trace estimator.
+
+        Args:
+            t: Time of the ODE.
+            x: State of the ODE.
+            args: Additional arguments to pass to the drift function.
+            dt: Time step of the ODE.
+            n_cot_vec: Number of cotangent vectors to sample for the Hutchinson trace estimator.
+            noise_type: Type of noise to sample, either 'rademacher' or 'gaussian'.
+        """
         B, *D = x.shape
         # duplicate samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cot_vec, *[1] * len(D)])
@@ -123,6 +161,10 @@ class ODESolver(Solver):
 
 
 class Euler_ODE(ODESolver):
+    """
+    Euler method for solving an ODE
+    """
+
     def _step(self, t, x, args, dt, dx, **kwargs):
         return dx(t, x, args, dt, **kwargs)
 

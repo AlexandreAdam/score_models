@@ -7,6 +7,16 @@ from ..utils import DEVICE
 
 
 class Solver(ABC):
+    """
+    Base class for a solver of a stochastic/ordinary differential equation
+    (SDE/ODE).
+
+    Defines the signatures for methods related to integrating a differential
+    equation (stochastic or ordinary) in the context of diffusion models.
+
+    The only requirement on init is a ScoreModel object, which is used to define
+    the DE by providing the SDE object and the score.
+    """
 
     def __init__(self, score, *args, **kwargs):
         self.score = score
@@ -33,6 +43,7 @@ class Solver(ABC):
         kill_on_nan=False,
         **kwargs
     ):
+        """Calls the solve method with the given arguments."""
         return self.solve(
             x,
             steps,
@@ -49,6 +60,13 @@ class Solver(ABC):
         return self.score.sde
 
     def time_steps(self, steps: int, B: int = 1, forward: bool = True, device=DEVICE, **kwargs):
+        """
+        Generate a tensor of time steps for integration. Note that the last
+        entry is removed because it is the endpoint and not a step. For example
+        if going from 0 to 1 with 10 steps, the steps are [0, 0.1, 0.2, ...,
+        0.9], thus the returned tensor has the time value for the beginning of
+        each block of time.
+        """
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
@@ -57,6 +75,10 @@ class Solver(ABC):
             return torch.linspace(t_max, t_min, steps + 1, device=device)[:-1].repeat(B, 1).T
 
     def step_size(self, steps: int, forward: bool, device=DEVICE, **kwargs):
+        """Returns the step size for the integration. This is simply the time
+        window divided by the number of steps. However, it is negative if going
+        backwards in time."""
+
         h = 1 if forward else -1
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)

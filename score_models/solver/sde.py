@@ -8,14 +8,6 @@ from .solver import Solver
 
 
 class SDESolver(Solver):
-    """
-    Base solver for a stochastic differential equation (SDE).
-
-    The SDE defines the differential element ``dx`` for the stochastic process
-    ``x``. Both the forward and reverse processes are defined using the
-    coefficients and score provided. This class represents essentially any SDE
-    of the form: :math:`dx = f(t, x) dt + g(t, x) dw`.
-    """
 
     @torch.no_grad()
     def solve(
@@ -33,7 +25,35 @@ class SDESolver(Solver):
         sk: float = 0,  # Set to -1 for Ito SDE, TODO: make sure this is right
         **kwargs,
     ):
-        """base SDE solver"""
+        """
+        Integrate the diffusion SDE forward or backward in time.
+
+        Discretizes the SDE using the given method and integrates with
+
+        .. math::
+            x_{i+1} = x_i + \\frac{dx}{dt}(t_i, x_i) * dt + g(t_i, x_i) * dw
+
+        where the :math:`\\frac{dx}{dt}` is the diffusion drift of
+
+        .. math::
+            \\frac{dx}{dt} = f(t, x) - \\frac{1}{2} g(t, x)^2 s(t, x)
+
+        where :math:`f(t, x)` is the sde drift, :math:`g(t, x)` is the sde diffusion,
+        and :math:`s(t, x)` is the score.
+
+        Args:
+            x: Initial condition.
+            steps: integration discretization.
+            forward: Direction of integration.
+            *args: Additional arguments to pass to the score model.
+            progress_bar: Whether to display a progress bar.
+            trace: Whether to return the full path or just the last point.
+            kill_on_nan: Whether to raise an error if NaNs are encountered.
+            denoise_last_step: Whether to project to the boundary at the last step.
+            corrector_steps: Number of corrector steps to add after each SDE step (0 for no corrector steps).
+            corrector_snr: Signal-to-noise ratio for the corrector steps.
+            sk: Stratonovich correction term (set to -1 for Ito SDE).
+        """
         B, *D = x.shape
 
         # Step
@@ -85,6 +105,7 @@ class SDESolver(Solver):
         return x + epsilon * self.score(t, x, *args, **kwargs) + z * torch.sqrt(2 * epsilon)
 
     def drift(self, t: Tensor, x: Tensor, args: tuple, forward: bool, **kwargs):
+        """SDE drift term"""
         f = self.sde.drift(t, x)
         if forward:
             return f
