@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class MVGScoreModel(nn.Module):
+class MVGEnergyModel(nn.Module):
     """
     A multivariate gaussian score model.
 

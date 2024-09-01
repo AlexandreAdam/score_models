@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class GRFScoreModel(nn.Module):
+class GRFEnergyModel(nn.Module):
     """
     Gaussian random field score model.
 

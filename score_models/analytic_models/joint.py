@@ -9,19 +9,30 @@ class JointScoreModel(nn.Module):
 
     This score model class allows for multiple score models to combine their
     scores arbitrarily. They may share all, some, or none of the model space
-    with the class handling the bookkeeping. The scores from each model (where
+    with this class handling the bookkeeping. The scores from each model (where
     they use the same model dimensions) are simply summed. The class may also
     handle multiple inputs, internally they are combined into a single massive
     concatenated ``x`` vector, when passed to the models the ``x`` vector is
     split into the appropriate segments ``x_0, x_1, ..., x_n`` and each one is
     converted into the expected shape (defined by the ``x_shapes`` argument).
 
+    Usage: a list of M models is passed to the constructor, these models will be
+    used to compute the score. The x vector is split into N segments defined by
+    the x_shapes argument (N does not need to equal M). The model_uses argument
+    identifies which segments of x (defined by x_shapes) each model uses. For
+    example Imagine three models [M1, M2, M3], and x_shapes = [(2, 3), (3, 4),
+    (4, 5)], and model_uses = [[0, 1], [0, 2], None]. This means that M1 uses
+    the first two segments of x (M1(x1, x2)), M2 uses the first and third
+    segments of x (M2(x1, x3)), and M3 uses the full x vector (as a flat tensor
+    M3(x)). The score will be broken up into similar segments and summed then
+    returned as a flat tensor like x.
+
     Args:
-        sde: The SDE that the score model is associated with.
-        models: A list of score models.
-        x_shapes: A list of shapes for the x vectors that the models expect.
-            These are the shapes that the flat-concatenated ``x`` vector will
-            be split into.
+        sde: The SDE that the score model is associated with. models: A list of
+        score models. x_shapes: A list of shapes for the x vectors that the
+        models expect.
+            These are the shapes that the flat-concatenated ``x`` vector will be
+            split into.
         model_uses: A list of lists of integers, where each list is the indices
             of the x vectors corresponding to ``x_shapes`` that each model uses.
             If None, the model will be passed the full ``x`` vector.
