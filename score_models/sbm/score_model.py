@@ -7,7 +7,6 @@ import torch
 from .base import Base
 from ..sde import SDE
 from ..losses import dsm
-from ..ode import divergence_with_hutchinson_trick
 from ..solver import EM_SDE, RK2_SDE, RK4_SDE, Euler_ODE, RK2_ODE, RK4_ODE
 from ..utils import DEVICE
 
@@ -67,16 +66,8 @@ class ScoreModel(Base):
         developed by Chen et al. 2018 (arxiv.org/abs/1806.07366).
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
-        if method.lower() == "euler_ode":
-            solver = Euler_ODE(self, **kwargs)
-        elif method.lower() == "rk2_ode":
-            solver = RK2_ODE(self, **kwargs)
-        elif method.lower() == "rk4_ode":
-            solver = RK4_ODE(self, **kwargs)
-        else:
-            raise ValueError(
-                "Method not supported, should be one of 'euler_ode', 'rk2_ode', 'rk4_ode'"
-            )
+
+        solver = self.get_solver(method, ["ode"], **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         _, log_p = solver(x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
 
@@ -102,6 +93,33 @@ class ScoreModel(Base):
         To denoise a sample from some time t, use the denoise or tweedie method instead.
 
         """
+        B, *D = shape
+
+        solver = self.get_solver(method, **kwargs)
+        xT = self.sde.prior(D).sample([B])
+        x0 = solver(
+            xT,
+            *args,
+            steps=steps,
+            forward=False,
+            progress_bar=progress_bar,
+            denoise_last_step=denoise_last_step,
+            **kwargs
+        )
+
+        return x0
+
+    def get_solver(self, method, category=["ode", "sde"], **kwargs):
+        msg = "Method not supported, should be one of"
+        if "sde" in category:
+            msg += " 'em_sde', 'rk2_sde', 'rk4_sde'"
+        if "ode" in category:
+            msg += " 'euler_ode', 'rk2_ode', 'rk4_ode'"
+        for cat in category:
+            if cat in method.lower():
+                break
+        else:
+            raise ValueError(msg)
         if method.lower() == "em_sde":
             solver = EM_SDE(self, **kwargs)
         elif method.lower() == "rk2_sde":
@@ -115,20 +133,5 @@ class ScoreModel(Base):
         elif method.lower() == "rk4_ode":
             solver = RK4_ODE(self, **kwargs)
         else:
-            raise ValueError(
-                "Method not supported, should be one of 'em_sde', 'rk2_sde', 'rk4_sde', 'euler_ode', 'rk2_ode', 'rk4_ode'"
-            )
-
-        B, *D = shape
-        xT = self.sde.prior(D).sample([B])
-        x0 = solver(
-            xT,
-            *args,
-            steps=steps,
-            forward=False,
-            progress_bar=progress_bar,
-            denoise_last_step=denoise_last_step,
-            **kwargs
-        )
-
-        return x0
+            raise ValueError(msg)
+        return solver
