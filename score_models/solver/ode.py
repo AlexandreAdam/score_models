@@ -1,31 +1,87 @@
-from abc import ABC, abstractmethod
 from typing import Callable, Literal
 
-import numpy as np
 import torch
 from torch import Tensor
 from torch.func import vjp
 from tqdm import tqdm
-from ..utils import DEVICE
+from .solver import Solver
 
 # TODO: maybe merge ODE and Solver into single class?
 
 
-class ODESolver(ABC):
-    def __init__(self, score, **kwargs):
-        self.score = score
+class ODESolver(Solver):
 
-    @property
-    def sde(self):
-        return self.score.sde
+    @torch.no_grad()
+    def solve(
+        self,
+        x: Tensor,
+        steps: int,
+        forward: bool,
+        progress_bar: bool = True,
+        trace=False,
+        kill_on_nan: bool = False,
+        get_logP: bool = False,
+        **kwargs,
+    ):
+        B, *D = x.shape
 
-    def forward(self, x0: Tensor, N: int, **kwargs):
-        """Call this to solve the ODE forward in time from x0 at time t_min to xT at time t_max"""
-        return self._solve(x0, N, self.dx, True, **kwargs)
+        # Step
+        h = 1 if forward else -1
+        dt = h * self.stepsize(steps, **kwargs)
+        T = self.time_steps(steps, B, forward=forward, **kwargs)
 
-    def reverse(self, xT: Tensor, N: int, **kwargs):
-        """Call this to solve the ODE backward in time from xT at time t_max to x0 at time t_min"""
-        return self._solve(xT, N, self.dx, False, **kwargs)
+        # log P(xt) if requested
+        logp = torch.zeros(B, device=x.device, dtype=x.dtype)
+        if self.score.hessian_trace_model is None:
+            ht = self.divergence_hutchinson_trick
+        else:
+            ht = (
+                lambda t, x, dt, *args, **kwargs: self.score.hessian_trace_model(
+                    t, x, *args, **kwargs
+                )
+                * dt
+            )
+
+        # Trace ODE path if requested
+        if trace:
+            path = [x]
+
+        # Progress bar
+        pbar = tqdm(T) if progress_bar else T
+        for t in pbar:
+            if progress_bar:
+                pbar.set_description(
+                    f"t={t[0].item():.1g} | sigma={self.sde.sigma(t)[0].item():.1g} | "
+                    f"x={x.mean().item():.1g}\u00B1{x.std().item():.1g}"
+                )
+
+            # Check for NaNs
+            if kill_on_nan and torch.any(torch.isnan(x)):
+                raise ValueError("NaN encountered in ODE solver")
+
+            # Update x
+            x = x + self._step(t, x, dt, self.dx, **kwargs)
+
+            # Update logP if requested
+            if get_logP:
+                logp = logp + self._step(t, x, dt, ht, **kwargs)
+
+            # Trace path if requested
+            if trace:
+                path.append(x)
+
+        # add boundary condition PDF probability
+        if get_logP and forward:
+            logp = self.sde.prior(D).log_prob(x) + logp
+
+        # Return path or final x
+        if trace:
+            if get_logP:
+                return torch.stack(path), logp
+            return torch.stack(path)
+        if get_logP:
+            return x, logp
+        return x
 
     def dx(self, t: Tensor, x: Tensor, dt: Tensor, **kwargs):
         """Discretization of the ODE, this is the update for x"""
@@ -63,66 +119,6 @@ class ODESolver(ABC):
         _, vjp_func = vjp(f, samples)
         divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
         return divergence
-
-    @torch.no_grad()
-    def _solve(
-        self,
-        x: Tensor,
-        N: int,
-        dx: Callable,
-        forward: bool,
-        progress_bar: bool = False,
-        get_logP: bool = False,
-        **kwargs,
-    ):
-        B, *D = x.shape
-        h = 1 if forward else -1
-        dt = h * self.stepsize(N, **kwargs)
-        logp = torch.zeros(B, device=x.device, dtype=x.dtype)
-        ht = kwargs.get("hessian_trace", self.divergence_hutchinson_trick)
-        trace = kwargs.pop("trace", False)
-        if trace:
-            path = [x]
-        T = self.time_steps(N, B, forward=forward, **kwargs)
-        pbar = tqdm(T) if progress_bar else T
-        for t in pbar:
-            if progress_bar:
-                pbar.set_description(
-                    f"t={t[0].item():.1g} | sigma={self.sde.sigma(t)[0].item():.1g} | "
-                    f"x={x.mean().item():.1g}\u00B1{x.std().item():.1g}"
-                )
-            if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
-                raise ValueError("NaN encountered in SDE solver")
-            x = x + self._step(t, x, dt, dx, **kwargs)
-            if get_logP:
-                logp = logp + self._step(t, x, dt, ht, **kwargs)
-            if trace:
-                path.append(x)
-        if get_logP and forward:
-            logp = self.sde.prior(D).log_prob(x) + logp
-        if trace:
-            return torch.stack(path)
-        if get_logP:
-            return x, logp
-        return x
-
-    @abstractmethod
-    def _step(self, t, x, dt, dx, **kwargs):
-        """base ODE step"""
-        ...
-
-    def time_steps(self, N, B=1, forward=True, device=DEVICE, **kwargs):
-        t_min = kwargs.get("t_min", self.sde.t_min)
-        t_max = kwargs.get("t_max", self.sde.t_max)
-        if forward:
-            return torch.linspace(t_min, t_max, N + 1, device=device)[:-1].repeat(B, 1).T
-        else:
-            return torch.linspace(t_max, t_min, N + 1, device=device)[:-1].repeat(B, 1).T
-
-    def stepsize(self, N, device=DEVICE, **kwargs):
-        t_min = kwargs.get("t_min", self.sde.t_min)
-        t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.as_tensor((t_max - t_min) / N, device=device)
 
 
 class Euler_ODE(ODESolver):

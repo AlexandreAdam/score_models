@@ -27,10 +27,7 @@ class ScoreModel(Base):
         **hyperparameters
     ):
         super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
-        if hessian_trace_model is not None:
-            self.hessian_trace_model = hessian_trace_model
-        else:
-            self.hessian_trace_model = self.divergence
+        self.hessian_trace_model = hessian_trace_model
 
     def loss(self, x, *args) -> Tensor:
         return dsm(self, x, *args)
@@ -55,28 +52,15 @@ class ScoreModel(Base):
         epsilon_theta = self.reparametrized_score(t, x, *args, **kwargs)
         return epsilon_theta / sigma_t
 
-    def ode_drift(self, t, x, *args, **kwargs) -> Tensor:
-        """
-        Compute the drift of the ODE defined by the score function.
-        """
-        f = self.sde.drift(t, x)
-        g = self.sde.diffusion(t, x)
-        f_tilde = f - 0.5 * g**2 * self.score(t, x, *args, **kwargs)
-        return f_tilde
-
-    def divergence(self, t, x, *args, **kwargs) -> Tensor:
-        """
-        Compute the divergence of the drift of the ODE defined by the score function.
-        """
-        return divergence_with_hutchinson_trick(self.ode_drift, t, x, *args, **kwargs)
-
-    def hessian_trace(self, t, x, *args, **kwargs) -> Tensor:
-        """
-        Compute the trace of the Hessian of the score function.
-        """
-        return self.hessian_trace_model(t, x, *args, **kwargs)
-
-    def log_likelihood(self, x, *args, steps, t=0.0, method="euler_ode", **kwargs) -> Tensor:
+    def log_likelihood(
+        self,
+        x,
+        *args,
+        steps,
+        t=0.0,
+        method: Literal["euler_ode", "rk2_ode", "rk4_ode"] = "euler_ode",
+        **kwargs
+    ) -> Tensor:
         """
         Compute the log likelihood of point x using the probability flow ODE,
         which makes use of the instantaneous change of variable formula
@@ -93,17 +77,9 @@ class ScoreModel(Base):
             raise ValueError(
                 "Method not supported, should be one of 'euler_ode', 'rk2_ode', 'rk4_ode'"
             )
-        hessian_trace = lambda t, x, dt, *args: self.hessian_trace(t, x, *args, **kwargs) * dt
         # Solve the probability flow ODE up in temperature to time t=1.
-        xT, delta_log_p = solver.forward(
-            x,
-            steps,
-            hessian_trace=hessian_trace,
-            t_min=t,
-            **kwargs,
-        )
-        # Add the log likelihood of the prior at time t=1.
-        log_p = self.sde.prior(x.shape).log_prob(xT) + delta_log_p
+        _, log_p = solver(x, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
+
         return log_p
 
     def tweedie(self, t: Tensor, x: Tensor, *args, **kwargs) -> Tensor:
@@ -154,7 +130,7 @@ class ScoreModel(Base):
 
         B, *D = shape
         xT = self.sde.prior(D).sample([B])
-        x0 = solver.reverse(xT, steps, progress_bar=progress_bar, **kwargs)
+        x0 = solver(xT, steps=steps, forward=False, progress_bar=progress_bar, **kwargs)
         if denoise_last_step:
             xfin = x0[-1] if kwargs.get("trace", False) else x0
             xfin = self.tweedie(

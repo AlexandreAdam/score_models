@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from score_models.sde import VESDE
 from score_models import EnergyModel, ScoreModel
-from score_models.simple_models import (
+from score_models.analytic_models import (
     GRFScoreModel,
     MVGScoreModel,
     JointScoreModel,
