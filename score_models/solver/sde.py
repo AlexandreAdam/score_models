@@ -35,8 +35,7 @@ class SDESolver(Solver):
         B, *D = x.shape
 
         # Step
-        h = 1 if forward else -1
-        dt = h * self.stepsize(steps, x.device, **kwargs)
+        dt = self.step_size(steps, forward=forward, **kwargs)
         T = self.time_steps(steps, B, forward=forward, **kwargs)
 
         # Trace if requested

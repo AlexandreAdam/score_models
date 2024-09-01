@@ -26,8 +26,7 @@ class ODESolver(Solver):
         B, *D = x.shape
 
         # Step
-        h = 1 if forward else -1
-        dt = h * self.stepsize(steps, **kwargs)
+        dt = self.step_size(steps, forward=forward, **kwargs)
         T = self.time_steps(steps, B, forward=forward, **kwargs)
 
         # log P(xt) if requested
@@ -35,12 +34,7 @@ class ODESolver(Solver):
         if self.score.hessian_trace_model is None:
             ht = self.divergence_hutchinson_trick
         else:
-            ht = (
-                lambda t, x, dt, *args, **kwargs: self.score.hessian_trace_model(
-                    t, x, *args, **kwargs
-                )
-                * dt
-            )
+            ht = lambda *args, **kwargs: self.score.hessian_trace_model(*args, **kwargs) * dt
 
         # Trace ODE path if requested
         if trace:

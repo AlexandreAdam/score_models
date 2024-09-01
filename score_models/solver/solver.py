@@ -38,7 +38,8 @@ class Solver(ABC):
         else:
             return torch.linspace(t_max, t_min, steps + 1, device=device)[:-1].repeat(B, 1).T
 
-    def stepsize(self, steps: int, device=DEVICE, **kwargs):
+    def step_size(self, steps: int, forward: bool, device=DEVICE, **kwargs):
+        h = 1 if forward else -1
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
-        return torch.as_tensor((t_max - t_min) / steps, device=device)
+        return torch.as_tensor(h * (t_max - t_min) / steps, device=device)
