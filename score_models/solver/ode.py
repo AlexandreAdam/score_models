@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 import torch
@@ -19,20 +19,50 @@ class ODE(ABC):
     def sde(self):
         return self.score.sde
 
-    def forward(self, x0, N, **kwargs):
+    def forward(self, x0: Tensor, N: int, **kwargs):
         """Call this to solve the ODE forward in time from x0 at time t_min to xT at time t_max"""
         return self._solve(x0, N, self.dx, True, **kwargs)
 
-    def reverse(self, xT, N, **kwargs):
+    def reverse(self, xT: Tensor, N: int, **kwargs):
         """Call this to solve the ODE backward in time from xT at time t_max to x0 at time t_min"""
         return self._solve(xT, N, self.dx, False, **kwargs)
 
-    def dx(self, t, x, dt, **kwargs):
+    def dx(self, t: Tensor, x: Tensor, dt: Tensor, **kwargs):
         """Discretization of the ODE, this is the update for x"""
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
         s = self.score(t, x, **kwargs)
         return (f - 0.5 * g**2 * s) * dt
+
+    def divergence_hutchinson_trick(
+        self,
+        t: Tensor,
+        x: Tensor,
+        dt: Tensor,
+        *args,
+        n_cot_vec: int = 1,
+        noise_type: Literal["rademacher", "gaussian"] = "rademacher",
+        **kwargs,
+    ):
+        B, *D = x.shape
+        # duplicate samples for for the Hutchinson trace estimator
+        samples = torch.tile(x, [n_cot_vec, *[1] * len(D)])
+        t = torch.tile(t, [n_cot_vec])
+        _args = []
+        for arg in args:
+            _, *DA = arg.shape
+            arg = torch.tile(arg, [n_cot_vec, *[1] * len(DA)])
+            _args.append(arg)
+
+        # sample cotangent vectors
+        vectors = torch.randn_like(samples)
+        if noise_type == "rademacher":
+            vectors = vectors.sign()
+
+        f = lambda x: self.dx(t, x, dt, *_args, **kwargs)
+        _, vjp_func = vjp(f, samples)
+        divergence = (vectors * vjp_func(vectors)[0]).flatten(1).sum(dim=1)
+        return divergence
 
     @torch.no_grad()
     def _solve(
@@ -42,13 +72,14 @@ class ODE(ABC):
         dx: Callable,
         forward: bool,
         progress_bar: bool = False,
+        get_logP: bool = False,
         **kwargs,
     ):
-        B, *_ = x.shape
+        B, *D = x.shape
         h = 1 if forward else -1
         dt = h * self.stepsize(N, **kwargs)
-        dlogp = torch.zeros(B, device=x.device, dtype=x.dtype)
-        ht = kwargs.get("hessian_trace", lambda *a, **k: 0.0)
+        logp = torch.zeros(B, device=x.device, dtype=x.dtype)
+        ht = kwargs.get("hessian_trace", self.divergence_hutchinson_trick)
         trace = kwargs.pop("trace", False)
         if trace:
             path = [x]
@@ -63,13 +94,16 @@ class ODE(ABC):
             if kwargs.get("kill_on_nan", False) and torch.any(torch.isnan(x)):
                 raise ValueError("NaN encountered in SDE solver")
             x = x + self._step(t, x, dt, dx, **kwargs)
-            dlogp = dlogp + self._step(t, x, dt, ht, **kwargs)
+            if get_logP:
+                logp = logp + self._step(t, x, dt, ht, **kwargs)
             if trace:
                 path.append(x)
+        if get_logP and forward:
+            logp = self.sde.prior(D).log_prob(x) + logp
         if trace:
             return torch.stack(path)
-        if "hessian_trace" in kwargs:
-            return x, dlogp
+        if get_logP:
+            return x, logp
         return x
 
     @abstractmethod
