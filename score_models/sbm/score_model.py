@@ -7,7 +7,7 @@ import torch
 from .base import Base
 from ..sde import SDE
 from ..losses import dsm
-from ..solver import EM_SDE, RK2_SDE, RK4_SDE, Euler_ODE, RK2_ODE, RK4_ODE
+from ..solver import Solver
 from ..utils import DEVICE
 
 
@@ -67,7 +67,8 @@ class ScoreModel(Base):
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
 
-        solver = self.get_solver(method, ["ode"], **kwargs)
+        assert "ode" in method.lower(), "Method must be an ODE solver."
+        solver = Solver(self, solver=method, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         _, log_p = solver(x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
 
@@ -95,7 +96,7 @@ class ScoreModel(Base):
         """
         B, *D = shape
 
-        solver = self.get_solver(method, **kwargs)
+        solver = Solver(self, solver=method, **kwargs)
         xT = self.sde.prior(D).sample([B])
         x0 = solver(
             xT,
@@ -108,30 +109,3 @@ class ScoreModel(Base):
         )
 
         return x0
-
-    def get_solver(self, method, category=["ode", "sde"], **kwargs):
-        msg = "Method not supported, should be one of"
-        if "sde" in category:
-            msg += " 'em_sde', 'rk2_sde', 'rk4_sde'"
-        if "ode" in category:
-            msg += " 'euler_ode', 'rk2_ode', 'rk4_ode'"
-        for cat in category:
-            if cat in method.lower():
-                break
-        else:
-            raise ValueError(msg)
-        if method.lower() == "em_sde":
-            solver = EM_SDE(self, **kwargs)
-        elif method.lower() == "rk2_sde":
-            solver = RK2_SDE(self, **kwargs)
-        elif method.lower() == "rk4_sde":
-            solver = RK4_SDE(self, **kwargs)
-        elif method.lower() == "euler_ode":
-            solver = Euler_ODE(self, **kwargs)
-        elif method.lower() == "rk2_ode":
-            solver = RK2_ODE(self, **kwargs)
-        elif method.lower() == "rk4_ode":
-            solver = RK4_ODE(self, **kwargs)
-        else:
-            raise ValueError(msg)
-        return solver

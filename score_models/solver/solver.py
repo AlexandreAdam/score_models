@@ -5,6 +5,16 @@ from torch import Tensor
 
 from ..utils import DEVICE
 
+__all__ = ["Solver"]
+
+
+def all_subclasses(cls):
+    subclasses = {}
+    for subcls in cls.__subclasses__():
+        subclasses[subcls.__name__.lower()] = subcls
+        subclasses.update(all_subclasses(subcls))
+    return subclasses
+
 
 class Solver(ABC):
     """
@@ -17,6 +27,17 @@ class Solver(ABC):
     The only requirement on init is a ScoreModel object, which is used to define
     the DE by providing the SDE object and the score.
     """
+
+    def __new__(cls, *args, solver=None, **kwargs):
+        """Create the correct Solver subclass given the solver name."""
+        if solver is not None:
+            SOLVERS = all_subclasses(Solver)
+            try:
+                return super(Solver, cls).__new__(SOLVERS[solver.lower()])
+            except KeyError:
+                raise ValueError(f"Unknown solver type: {solver}")
+
+        return super(Solver, cls).__new__(cls)
 
     def __init__(self, score, *args, **kwargs):
         self.score = score
@@ -41,7 +62,7 @@ class Solver(ABC):
         progress_bar=True,
         trace=False,
         kill_on_nan=False,
-        **kwargs
+        **kwargs,
     ):
         """Calls the solve method with the given arguments."""
         return self.solve(
@@ -52,7 +73,7 @@ class Solver(ABC):
             progress_bar=progress_bar,
             trace=trace,
             kill_on_nan=kill_on_nan,
-            **kwargs
+            **kwargs,
         )
 
     @property
