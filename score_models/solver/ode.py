@@ -1,4 +1,4 @@
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional
 
 import torch
 from torch import Tensor
@@ -21,6 +21,7 @@ class ODESolver(Solver):
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
         get_logP: bool = False,
+        hook: Optional[Callable] = None,
         **kwargs,
     ):
         """
@@ -92,6 +93,10 @@ class ODESolver(Solver):
 
             if trace:
                 path.append(x)
+
+            # Call hook
+            if hook is not None:
+                hook(t, x, self.sde, self.score, self)
 
         # Project to boundary if denoising
         if denoise_last_step and not forward:

@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import torch
 from torch import Tensor
@@ -22,6 +22,7 @@ class SDESolver(Solver):
         denoise_last_step: bool = False,
         corrector_steps: int = 0,
         corrector_snr: float = 0.1,
+        hook: Optional[Callable] = None,
         sk: float = 0,  # Set to -1 for Ito SDE, TODO: make sure this is right
         **kwargs,
     ):
@@ -52,6 +53,7 @@ class SDESolver(Solver):
             denoise_last_step: Whether to project to the boundary at the last step.
             corrector_steps: Number of corrector steps to add after each SDE step (0 for no corrector steps).
             corrector_snr: Signal-to-noise ratio for the corrector steps.
+            hook: Optional hook function to call after each step. Will be called with the signature ``hook(t, x, sde, score, solver)``.
             sk: Stratonovich correction term (set to -1 for Ito SDE).
         """
         B, *D = x.shape
@@ -86,6 +88,10 @@ class SDESolver(Solver):
 
             if trace:
                 path.append(x)
+
+            # Call hook
+            if hook is not None:
+                hook(t, x, self.sde, self.score, self)
 
         # Project to boundary if denoising
         if denoise_last_step and not forward:
