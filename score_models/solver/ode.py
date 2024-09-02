@@ -50,6 +50,7 @@ class ODESolver(Solver):
             kill_on_nan: Whether to raise an error if NaNs are encountered.
             denoise_last_step: Whether to project to the boundary at the last step.
             get_logP: Whether to return the log probability of the input x (should be used with forward=True).
+            hook: Optional hook function to call after each step. Will be called with the signature ``hook(t, x, sde, score, solver)``.
         """
         B, *D = x.shape
 
