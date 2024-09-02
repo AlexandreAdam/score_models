@@ -6,8 +6,6 @@ from torch.func import vjp
 from tqdm import tqdm
 from .solver import Solver
 
-# TODO: maybe merge ODE and Solver into single class?
-
 
 class ODESolver(Solver):
 
