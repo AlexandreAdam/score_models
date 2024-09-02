@@ -35,7 +35,7 @@ class ScoreModel(Base):
         else:
             self.hessian_trace_model = self.divergence
     
-    def loss(self, x, *args) -> Tensor:
+    def loss(self, x, *args, step: int) -> Tensor:
         return dsm(self, x, *args)
 
     def reparametrized_score(self, t, x, *args) -> Tensor:

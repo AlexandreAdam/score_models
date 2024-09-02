@@ -163,7 +163,7 @@ class Trainer:
             x = self.preprocessing(x)
             # Training step
             self.optimizer.zero_grad()
-            loss = self.model.loss(x, *args)
+            loss = self.model.loss(x, *args, step=self.global_step)
             loss.backward()
             if self.global_step < self.warmup:
                 for g in self.optimizer.param_groups:
