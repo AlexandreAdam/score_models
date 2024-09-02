@@ -28,9 +28,9 @@ def test_save_load_hessian_diagonal(loss, tmp_path):
         # Check that sbm is loaded correctly for the loss function
         assert torch.allclose(model.score_model(t, x), new_model.score_model(t, x), atol=1e-3)
         torch.manual_seed(42)
-        loss1 = model.loss(x)
+        loss1 = model.loss(x, step=1)
         
         torch.manual_seed(42)
-        loss2 = new_model.loss(x)
+        loss2 = new_model.loss(x, step=1)
         # Give it a loose tolerance, not sure why they are differen just yet
         assert torch.allclose(loss1, loss2, atol=4) 

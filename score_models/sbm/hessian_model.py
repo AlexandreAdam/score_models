@@ -47,7 +47,7 @@ class HessianDiagonal(Base):
     def forward(self, t: Tensor, x: Tensor, *args):
         return self.diagonal(t, x, *args)
     
-    def loss(self, x: Tensor, *args):
+    def loss(self, x: Tensor, *args, step: int) -> Tensor:
         return self._loss(self, x, *args)
     
     def reparametrized_diagonal(self, t: Tensor, x: Tensor, *args):
