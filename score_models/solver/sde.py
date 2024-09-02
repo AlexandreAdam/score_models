@@ -132,7 +132,7 @@ class EM_SDE(SDESolver):
 
 
 class RK2_SDE(SDESolver):
-    def step(self, t, x, dt, forward, sk, **kwargs):
+    def step(self, t, x, args, dt, forward, sk, **kwargs):
         """Base SDE solver using a 2nd order Runge-Kutta method. For more
         details see Equation 2.5 in chapter 7.2 of the book "Introduction to
         Stochastic Differential Equations" by Thomas C. Gard. The equations have
@@ -140,13 +140,13 @@ class RK2_SDE(SDESolver):
         Ito SDE or the Stratonovich SDE."""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
-        k1 = self.dx(t, x, dt, forward, dw - skdt, **kwargs)
-        k2 = self.dx(t + dt, x + k1, dt, forward, dw + skdt, **kwargs)
+        k1 = self.dx(t, x, args, dt, forward, dw - skdt, **kwargs)
+        k2 = self.dx(t + dt, x + k1, args, dt, forward, dw + skdt, **kwargs)
         return (k1 + k2) / 2
 
 
 class RK4_SDE(SDESolver):
-    def step(self, t, x, dt, forward, sk, **kwargs):
+    def step(self, t, x, args, dt, forward, sk, **kwargs):
         """Base SDE solver using a 4th order Runge-Kutta method. For more
         details see Equation 3.6 in chapter 7.3 of the book "Introduction to
         Stochastic Differential Equations" by Thomas C. Gard. The equations have
@@ -154,8 +154,8 @@ class RK4_SDE(SDESolver):
         Ito SDE or the Stratonovich SDE."""
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
-        k1 = self.dx(t, x, dt, forward, dw - skdt, **kwargs)
-        k2 = self.dx(t + dt / 2, x + k1 / 2, dt, forward, dw + skdt, **kwargs)
-        k3 = self.dx(t + dt / 2, x + k2 / 2, dt, forward, dw - skdt, **kwargs)
-        k4 = self.dx(t + dt, x + k3, dt, forward, dw + skdt, **kwargs)
+        k1 = self.dx(t, x, args, dt, forward, dw - skdt, **kwargs)
+        k2 = self.dx(t + dt / 2, x + k1 / 2, args, dt, forward, dw + skdt, **kwargs)
+        k3 = self.dx(t + dt / 2, x + k2 / 2, args, dt, forward, dw - skdt, **kwargs)
+        k4 = self.dx(t + dt, x + k3, args, dt, forward, dw + skdt, **kwargs)
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6

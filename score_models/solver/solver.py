@@ -31,11 +31,13 @@ class Solver(ABC):
     def __new__(cls, *args, solver=None, **kwargs):
         """Create the correct Solver subclass given the solver name."""
         if solver is not None:
-            SOLVERS = all_subclasses(Solver)
+            SOLVERS = all_subclasses(cls)
             try:
                 return super(Solver, cls).__new__(SOLVERS[solver.lower()])
             except KeyError:
-                raise ValueError(f"Unknown solver type: {solver}")
+                raise ValueError(
+                    f'Unknown solver type: "{solver}". Must be one of {list(filter(lambda s: "_" in s, SOLVERS.keys()))}'
+                )
 
         return super(Solver, cls).__new__(cls)
 

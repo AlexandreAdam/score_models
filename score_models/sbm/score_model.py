@@ -7,7 +7,7 @@ import torch
 from .base import Base
 from ..sde import SDE
 from ..losses import dsm
-from ..solver import Solver
+from ..solver import Solver, ODESolver
 from ..utils import DEVICE
 
 
@@ -57,7 +57,7 @@ class ScoreModel(Base):
         *args,
         steps,
         t=0.0,
-        method: Literal["euler_ode", "rk2_ode", "rk4_ode"] = "euler_ode",
+        solver: Literal["euler_ode", "rk2_ode", "rk4_ode"] = "euler_ode",
         **kwargs
     ) -> Tensor:
         """
@@ -67,8 +67,7 @@ class ScoreModel(Base):
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
 
-        assert "ode" in method.lower(), "Method must be an ODE solver."
-        solver = Solver(self, solver=method, **kwargs)
+        solver = ODESolver(self, solver=solver, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         _, log_p = solver(x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
 
@@ -80,7 +79,7 @@ class ScoreModel(Base):
         shape: tuple,  # TODO grab dimensions from model hyperparams if available
         steps: int,
         *args,
-        method: Literal[
+        solver: Literal[
             "em_sde", "rk2_sde", "rk4_sde", "euler_ode", "rk2_ode", "rk4_ode"
         ] = "em_sde",
         progress_bar: bool = True,
@@ -96,7 +95,7 @@ class ScoreModel(Base):
         """
         B, *D = shape
 
-        solver = Solver(self, solver=method, **kwargs)
+        solver = Solver(self, solver=solver, **kwargs)
         xT = self.sde.prior(D).sample([B])
         x0 = solver(
             xT,
