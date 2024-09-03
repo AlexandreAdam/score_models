@@ -96,9 +96,10 @@ class LoRAScoreModel(ScoreModel):
             if not os.path.exists(base_sbm_path):
                 super().save(base_sbm_path, create_path=True)
             
-            # Save the LoRA weights and the optimizer associated with them
+            # Save the optimizer associated with them
             if optimizer: # Save optimizer first since checkpoint number is inferred from number of checkpoint files 
                 save_checkpoint(model=optimizer, path=path, key="optimizer", create_path=create_path)
+            # Save the LoRA adapters only (takes less space than saving the whole merged model)
             save_checkpoint(model=self.lora_net, path=path, key="lora_checkpoint", create_path=create_path)
             self.save_hyperparameters(path)
         else:
