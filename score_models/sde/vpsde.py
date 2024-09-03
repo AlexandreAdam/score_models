@@ -39,7 +39,7 @@ class VPSDE(SDE):
             - Suggest making beta_max much larger for the cosine schedule to avoid sharp deviations in the mu function.
             After all, I am not using a manual clipping of beta, rather I make a patchwork between cosine and a linear schedule.
         """
-        super().__init__(T, epsilon)
+        super().__init__(T, epsilon, **kwargs)
         self.beta_min = beta_min
         self.beta_max = beta_max
         self.hyperparameters.update(

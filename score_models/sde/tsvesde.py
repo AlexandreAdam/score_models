@@ -33,7 +33,7 @@ class TSVESDE(SDE):
             T (float, optional): The time horizon for the VESDE. Defaults to 1.0.
             device (str, optional): The device to use for computation. Defaults to DEVICE.
         """
-        super().__init__(T, epsilon)
+        super().__init__(T, epsilon, **kwargs)
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.beta = beta
