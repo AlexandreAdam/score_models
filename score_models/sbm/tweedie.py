@@ -1,15 +1,15 @@
 from typing import Callable
 
 import torch
-import torch.nn as nn
 from torch.func import grad
 from torch import vmap, Tensor
 
 from ..sde import SDE
-from ..sbm import ScoreModel
+from . import ScoreModel
+from ..architectures import NullNet
 
 
-class TweedieScoreModel(nn.Module):
+class TweedieScoreModel(ScoreModel):
     """
     Convolved likelihood score model using Tweedie's Formula.
 
@@ -30,12 +30,12 @@ class TweedieScoreModel(nn.Module):
         sde: SDE,
         prior_model: ScoreModel,
         log_likelihood: Callable,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(net=NullNet(isenergy=False), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.prior_model = prior_model
         self.log_likelihood = log_likelihood
-        self.hyperparameters = {"nn_is_energy": True}
 
     def tweedie(self, t: Tensor, xt: Tensor, *args, **kwargs):
         sigma_t = self.sde.sigma(t)
@@ -49,13 +49,7 @@ class TweedieScoreModel(nn.Module):
         sigma_t = self.sde.sigma(t[0])
         return vmap(grad(lambda x: self.log_likelihood(sigma_t, x, *args, **kwargs).squeeze()))(x0)
 
-    def log_likelihood_score(self, t: Tensor, xt: Tensor, *args, **kwargs):
-        x0, vjp_func = torch.func.vjp(lambda x: self.tweedie(t, x, *args, **kwargs), xt)
+    def score(self, t: Tensor, x: Tensor, *args, **kwargs):
+        x0, vjp_func = torch.func.vjp(lambda xt: self.tweedie(t, xt, *args, **kwargs), x)
         score0 = self.log_likelihood_score0(t, x0, *args, **kwargs)
-        return vjp_func(score0)
-
-    def forward(self, t: Tensor, xt: Tensor, *args, **kwargs):
-
-        sigma_t = self.sde.sigma(t[0])
-        (scores,) = self.log_likelihood_score(t, xt, *args, **kwargs)
-        return scores * sigma_t
+        return vjp_func(score0)[0]

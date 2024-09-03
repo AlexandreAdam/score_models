@@ -1,13 +1,14 @@
 from typing import Optional
 
 import torch
-import torch.nn as nn
 from torch import Tensor
 
 from ..sde import SDE
+from .energy_model import EnergyModel
+from ..architectures import NullNet
 
 
-class MVGEnergyModel(nn.Module):
+class MVGEnergyModel(EnergyModel):
     """
     A multivariate gaussian score model.
 
@@ -22,17 +23,16 @@ class MVGEnergyModel(nn.Module):
         w: The weights of the mixture of gaussians (if a mixture). Default is equal weight.
     """
 
-    def __init__(self, sde: SDE, mean: Tensor, cov: Tensor, w: Optional[Tensor] = None):
-        super().__init__()
+    def __init__(self, sde: SDE, mean: Tensor, cov: Tensor, w: Optional[Tensor] = None, **kwargs):
+        super().__init__(net=NullNet(isenergy=True), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.mean = mean
         self.cov = cov
-        self.hyperparameters = {"nn_is_energy": True}
         if mean.dim() == 1:
-            self.forward = self.forward_single
+            self.energy = self.forward_single
             self.w = torch.tensor(1.0, dtype=self.mean.dtype, device=self.mean.device)
         elif mean.dim() == 2:
-            self.forward = self.forward_mixture
+            self.energy = self.forward_mixture
             if w is None:
                 self.w = (
                     torch.ones(self.mean.shape[0], dtype=self.mean.dtype, device=self.mean.device)
@@ -52,11 +52,17 @@ class MVGEnergyModel(nn.Module):
         icov = torch.linalg.inv(cov_t)
         logdet = torch.logdet(cov_t)
         ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
-        return ll.unsqueeze(0)
+        return ll
 
     def forward_single(self, t: Tensor, x: Tensor, *args, **kwargs):
-        return -self.ll(t, x, self.mean, self.cov, self.w) * self.sde.sigma(t)
+        return -self.ll(t, x, self.mean, self.cov, self.w)
 
     def forward_mixture(self, t: Tensor, x: Tensor, *args, **kwargs):
         ll = torch.vmap(self.ll, in_dims=(None, None, 0, 0, 0))(t, x, self.mean, self.cov, self.w)
-        return -torch.logsumexp(ll, dim=0) * self.sde.sigma(t)
+        return -torch.logsumexp(ll, dim=0)
+
+    def unnormalized_energy(self, t: Tensor, x: Tensor, *args, **kwargs):
+        raise RuntimeError("Unnormalized energy should not be called for MVG models.")
+
+    def reparametrized_score(self, t, x, *args, **kwargs):
+        raise RuntimeError("Reparametrized score should not be called for MVG models.")

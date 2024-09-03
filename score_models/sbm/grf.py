@@ -1,11 +1,12 @@
 import torch
-import torch.nn as nn
 from torch import Tensor
 
 from ..sde import SDE
+from .energy_model import EnergyModel
+from ..architectures import NullNet
 
 
-class GRFEnergyModel(nn.Module):
+class GRFEnergyModel(EnergyModel):
     """
     Gaussian random field score model.
 
@@ -16,8 +17,8 @@ class GRFEnergyModel(nn.Module):
         power_spectrum: The power spectrum of the Gaussian random field.
     """
 
-    def __init__(self, sde: SDE, power_spectrum: Tensor):
-        super().__init__()
+    def __init__(self, sde: SDE, power_spectrum: Tensor, **kwargs):
+        super().__init__(net=NullNet(isenergy=True), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         # Store the power spectrum
         self.power_spectrum = power_spectrum
@@ -28,9 +29,8 @@ class GRFEnergyModel(nn.Module):
             self.fft = torch.fft.fft2
         else:
             raise ValueError("Only 1D and 2D power spectra are supported")
-        self.hyperparameters = {"nn_is_energy": True}
 
-    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
+    def energy(self, t: Tensor, x: Tensor, *args, **kwargs):
         t_scale = self.sde.sigma(t)
         t_mu = self.sde.mu(t)
 
@@ -50,4 +50,10 @@ class GRFEnergyModel(nn.Module):
             (magnitude_squared / (t_mu**2 * self.power_spectrum + t_scale**2)).real,
             dim=tuple(range(-self.dims, 0)),
         )
-        return nll.unsqueeze(1) * t_scale
+        return nll
+
+    def unnormalized_energy(self, t: Tensor, x: Tensor, *args, **kwargs):
+        raise RuntimeError("Unnormalized energy should not be called for GRF models.")
+
+    def reparametrized_score(self, t, x, *args, **kwargs):
+        raise RuntimeError("Reparametrized score should not be called for GRF models.")

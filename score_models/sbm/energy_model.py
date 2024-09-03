@@ -15,22 +15,22 @@ __all__ = ["EnergyModel"]
 class EnergyModel(ScoreModel):
     def __init__(
         self,
-        model: Optional[Union[str, Module]] = None,
+        net: Optional[Union[str, Module]] = None,
         sde: Optional[Union[str, SDE]] = None,
         path: Optional[str] = None,
         checkpoint: Optional[int] = None,
         device=DEVICE,
         **hyperparameters
     ):
-        super().__init__(model, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
-        nn_is_energy = self.model.hyperparameters.get("nn_is_energy", False)
+        super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
+        nn_is_energy = self.net.hyperparameters.get("nn_is_energy", False)
         self.nn_is_energy = nn_is_energy
         if nn_is_energy:
             self._energy = self._nn_energy
         else:
             self._energy = self._unet_energy
 
-    def forward(self, t, x, *args, **kwargs):
+    def score(self, t, x, *args, **kwargs):
         """
         Overwrite the forward method to return the energy function instead of the model output.
         """
@@ -69,7 +69,7 @@ class EnergyModel(ScoreModel):
 
     def _unet_energy(self, t, x, *args, **kwargs):
         _, *D = x.shape
-        return 0.5 * torch.sum((x - self.model(t, x, *args, **kwargs)).flatten(1) ** 2, dim=1)
+        return 0.5 * torch.sum((x - self.net(t, x, *args, **kwargs)).flatten(1) ** 2, dim=1)
 
     def _nn_energy(self, t, x, *args, **kwargs):
-        return self.model(t, x, *args, **kwargs).squeeze(1)
+        return self.net(t, x, *args, **kwargs).squeeze(1)

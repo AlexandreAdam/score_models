@@ -1,14 +1,14 @@
 from typing import Union, Callable
 
 import torch
-import torch.nn as nn
 from torch import Tensor
 
 from ..sde import SDE
-from ..sbm import ScoreModel
+from . import ScoreModel
+from ..architectures import NullNet
 
 
-class AnnealedScoreModel(nn.Module):
+class InterpolatedScoreModel(ScoreModel):
     """
     Smoothly transitions between two score models as a function of t.
 
@@ -37,7 +37,7 @@ class AnnealedScoreModel(nn.Module):
         epsilon: float = 0.01,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(net=NullNet(isenergy=False), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.hight_model = hight_model
         self.lowt_model = lowt_model
@@ -64,13 +64,12 @@ class AnnealedScoreModel(nn.Module):
         else:
             raise NotImplementedError(f"Unknown beta_scheme {self.beta_scheme}")
 
-    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
-        B, *D = x.shape
+    def score(self, t: Tensor, x: Tensor, *args, **kwargs):
         # Compute the weighted score for each model
         beta = torch.clamp(self.beta(kwargs.get("t_a", t)[0]), 0.0, 1.0)
         score = torch.zeros_like(x)
         if beta.item() > self.epsilon:
-            score += self.hight_model(t, x, **kwargs) * beta
+            score += self.hight_model(t, x, *args, **kwargs) * beta
         if beta.item() < (1 - self.epsilon):
-            score += self.lowt_model(t, x, **kwargs) * (1.0 - beta)
-        return score * self.sde.sigma(t).view(-1, *[1] * len(D))
+            score += self.lowt_model(t, x, *args, **kwargs) * (1.0 - beta)
+        return score

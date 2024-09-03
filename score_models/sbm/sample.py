@@ -1,12 +1,12 @@
 import torch
-import torch.nn as nn
-from torch import vmap, Tensor
+from torch import Tensor
 
-from ..solver import RK4_ODE
 from ..sde import SDE
+from .score_model import ScoreModel
+from ..architectures import NullNet
 
 
-class SampleScoreModel(nn.Module):
+class SampleScoreModel(ScoreModel):
     """
     A score model based on individual samples.
 
@@ -32,22 +32,30 @@ class SampleScoreModel(nn.Module):
         sde: SDE,
         samples: Tensor,
         sigma_min: Tensor = 0.0,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(net=NullNet(isenergy=False), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.samples = samples
         self.sigma_min = sigma_min
 
-    def single_score(self, t: Tensor, x: Tensor):
-        t_scale = self.sde.sigma(t)
-        W = torch.sum(
-            -0.5 * (self.samples - x) ** 2 / (t_scale**2 + self.sigma_min**2), dim=-1, keepdim=True
-        )
-        W = torch.exp(W - W.max())
-        W = torch.nan_to_num(W)
-        W /= W.sum()
-        return t_scale * torch.sum(W * (self.samples - x) / (t_scale**2 + self.sigma_min**2), dim=0)
-
     @torch.no_grad()
-    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
-        return vmap(self.single_score)(t, x)
+    def score(self, t: Tensor, x: Tensor, *args, **kwargs):
+        B, *D = x.shape
+        K, *D = self.samples.shape
+        t_scale = self.sde.sigma(t[0])
+        W = torch.sum(
+            -0.5
+            * (self.samples.unsqueeze(0) - x.unsqueeze(1)) ** 2  # B, K, *D
+            / (t_scale**2 + self.sigma_min**2),
+            dim=tuple(range(2, 2 + len(D))),
+            keepdim=True,
+        )  # B, K, *[1]*len(D)
+        W = torch.exp(W - torch.max(W, dim=1, keepdim=True).values)
+        W = torch.nan_to_num(W)
+        W = W / torch.sum(W, dim=1, keepdim=True)
+        scores = torch.sum(
+            W * (self.samples.unsqueeze(0) - x.unsqueeze(1)) / (t_scale**2 + self.sigma_min**2),
+            dim=1,
+        )  # B, *D
+        return scores

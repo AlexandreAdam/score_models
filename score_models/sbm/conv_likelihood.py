@@ -1,14 +1,15 @@
-from typing import Callable, Union, Tuple, Optional
+from typing import Callable, Tuple, Optional
 import torch
 from torch import Tensor
-import torch.nn as nn
 from torch import vmap
 import numpy as np
 
 from ..sde import SDE
+from .energy_model import EnergyModel
+from ..architectures import NullNet
 
 
-class ConvolvedLikelihood(nn.Module):
+class ConvolvedLikelihood(EnergyModel):
     """
     Convolved likelihood approximation for the likelihood component of a
     posterior score model.
@@ -21,7 +22,7 @@ class ConvolvedLikelihood(nn.Module):
 
     .. math::
 
-        p_t(y|x_t) = N(y|Ax_t, \Sigma_y + \\sigma_t^2 AA^T)
+        p_t(y|x_t) = N(y|Ax_t, \\Sigma_y + \\sigma_t^2 AA^T)
 
     We implement this as an energy model, where the energy is the negative log
     likelihood in the observation space. Autodiff then propagates the score to
@@ -49,9 +50,10 @@ class ConvolvedLikelihood(nn.Module):
         f: Optional[Callable] = None,
         AAT: Optional[Tensor] = None,
         diag: bool = False,
+        **kwargs,
     ):
         assert (A is not None) != (f is not None), "Either A or f must be provided (not both)"
-        super().__init__()
+        super().__init__(net=NullNet(isenergy=True), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.y = y
         self.Sigma_y = Sigma_y
@@ -80,7 +82,6 @@ class ConvolvedLikelihood(nn.Module):
             self.AAT = AAT
 
         self.diag = diag
-        self.hyperparameters = {"nn_is_energy": True}
 
     @property
     def diag(self):
@@ -89,16 +90,16 @@ class ConvolvedLikelihood(nn.Module):
     @diag.setter
     def diag(self, value):
         self._diag = value
-        self.forward = self.diag_forward if value else self.full_forward
+        self.energy = self.diag_energy if value else self.full_energy
 
-    def diag_forward(self, t, xt, *args, **kwargs):
+    def diag_energy(self, t, xt, *args, sigma, **kwargs):
         if self.f is None:
             r = self.y - (self.A @ xt.reshape(-1)).reshape(*self.y_shape)
         else:
             r = self.y - self.f(xt)
-        sigma = 1 / (self.Sigma_y + self.sde.sigma(t) ** 2 * self.AAT)
-        ll = 0.5 * torch.sum(r**2 * sigma).unsqueeze(0)
-        return ll.unsqueeze(0) * self.sde.sigma(t)
+
+        ll = 0.5 * torch.sum(r**2 * sigma)
+        return ll
 
     def _full_forward(self, t, xt, sigma):
         if self.f is None:
@@ -106,10 +107,24 @@ class ConvolvedLikelihood(nn.Module):
         else:
             r = self.y.reshape(-1) - self.f(xt).reshape(-1)
         ll = 0.5 * (r @ sigma @ r.reshape(1, r.shape[0]).T)
-        return ll * self.sde.sigma(t)
+        return ll.squeeze(0)
 
-    def full_forward(self, t, xt, *args, **kwargs):
-        sigma = torch.linalg.inv(
-            self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
-        )
+    def full_energy(self, t, xt, *args, sigma, **kwargs):
+
         return vmap(self._full_forward, in_dims=(0, 0, None))(t, xt, sigma)
+
+    def score(self, t, x, *args, **kwargs):
+        # Compute sigma once per time step
+        if self.diag:
+            sigma = 1 / (self.Sigma_y + self.sde.sigma(t) ** 2 * self.AAT)
+        else:
+            sigma = torch.linalg.inv(
+                self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
+            )
+        return super().score(t, x, *args, sigma=sigma, **kwargs)
+
+    def unnormalized_energy(self, t: Tensor, x: Tensor, *args, **kwargs):
+        raise RuntimeError("Unnormalized energy should not be called for GRF models.")
+
+    def reparametrized_score(self, t, x, *args, **kwargs):
+        raise RuntimeError("Reparametrized score should not be called for GRF models.")

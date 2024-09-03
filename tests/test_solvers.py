@@ -2,9 +2,6 @@ import torch
 import numpy as np
 from score_models.sde import VESDE
 from score_models import (
-    EnergyModel,
-    ScoreModel,
-    GRFEnergyModel,
     MVGEnergyModel,
     Solver,
     ODESolver,
@@ -46,13 +43,10 @@ def test_solver_sample(solver, mean, cov):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
     mean = torch.tensor(mean, dtype=torch.float32)
     cov = torch.tensor(cov, dtype=torch.float32)
-    model = EnergyModel(
-        sde=sde,
-        model=MVGEnergyModel(
-            sde,
-            mean=mean,
-            cov=cov,
-        ),
+    model = MVGEnergyModel(
+        sde,
+        mean=mean,
+        cov=cov,
     )
 
     samples = model.sample(
@@ -84,13 +78,10 @@ def test_solver_forward(solver, mean, cov):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
     mean = torch.tensor(mean, dtype=torch.float32)
     cov = torch.tensor(cov, dtype=torch.float32)
-    model = EnergyModel(
-        sde=sde,
-        model=MVGEnergyModel(
-            sde,
-            mean=mean,
-            cov=cov,
-        ),
+    model = MVGEnergyModel(
+        sde,
+        mean=mean,
+        cov=cov,
     )
     slvr = Solver(model, solver=solver)
 
