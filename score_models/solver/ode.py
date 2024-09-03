@@ -17,7 +17,7 @@ class ODESolver(Solver):
         forward: bool,
         *args: tuple,
         progress_bar: bool = True,
-        trace=False,
+        trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
         get_logP: bool = False,
@@ -64,11 +64,7 @@ class ODESolver(Solver):
             ht = self.divergence_hutchinson_trick
         else:
             ht = lambda *args, **kwargs: self.score.hessian_trace_model(*args, **kwargs) * dt
-
-        if get_logP:
-            dp = ht
-        else:
-            dp = lambda *args, **kwargs: 0.0
+        dp = ht if get_logP else lambda *args, **kwargs: 0.0
 
         # Trace ODE path if requested
         if trace:
@@ -123,14 +119,13 @@ class ODESolver(Solver):
         f = self.sde.drift(t, x)
         g = self.sde.diffusion(t, x)
         s = self.score(t, x, *args, **kwargs)
-        ret = (f - 0.5 * g**2 * s) * dt
-        return ret
+        return (f - 0.5 * g**2 * s) * dt
 
     def divergence_hutchinson_trick(
         self,
         t: Tensor,
         x: Tensor,
-        args,
+        args: tuple,
         dt: Tensor,
         n_cot_vec: int = 1,
         noise_type: Literal["rademacher", "gaussian"] = "rademacher",
@@ -147,7 +142,7 @@ class ODESolver(Solver):
             n_cot_vec: Number of cotangent vectors to sample for the Hutchinson trace estimator.
             noise_type: Type of noise to sample, either 'rademacher' or 'gaussian'.
         """
-        B, *D = x.shape
+        _, *D = x.shape
         # duplicate samples for for the Hutchinson trace estimator
         samples = torch.tile(x, [n_cot_vec, *[1] * len(D)])
         t = torch.tile(t, [n_cot_vec])

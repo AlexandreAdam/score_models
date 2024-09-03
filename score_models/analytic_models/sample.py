@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
-from torch import vmap
+from torch import vmap, Tensor
 
 from ..solver import RK4_ODE
+from ..sde import SDE
 
 
 class SampleScoreModel(nn.Module):
@@ -28,16 +29,16 @@ class SampleScoreModel(nn.Module):
 
     def __init__(
         self,
-        sde,
-        samples,
-        sigma_min=0.0,
+        sde: SDE,
+        samples: Tensor,
+        sigma_min: Tensor = 0.0,
     ):
         super().__init__()
         self.sde = sde
         self.samples = samples
         self.sigma_min = sigma_min
 
-    def single_score(self, t, x):
+    def single_score(self, t: Tensor, x: Tensor):
         t_scale = self.sde.sigma(t)
         W = torch.sum(
             -0.5 * (self.samples - x) ** 2 / (t_scale**2 + self.sigma_min**2), dim=-1, keepdim=True
@@ -48,5 +49,5 @@ class SampleScoreModel(nn.Module):
         return t_scale * torch.sum(W * (self.samples - x) / (t_scale**2 + self.sigma_min**2), dim=0)
 
     @torch.no_grad()
-    def forward(self, t, x, *args, **kwargs):
+    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
         return vmap(self.single_score)(t, x)

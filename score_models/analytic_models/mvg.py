@@ -1,5 +1,10 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
+from torch import Tensor
+
+from ..sde import SDE
 
 
 class MVGEnergyModel(nn.Module):
@@ -14,10 +19,10 @@ class MVGEnergyModel(nn.Module):
         sde: The SDE that the score model is associated with.
         mean: The mean of the gaussian(s).
         cov: The covariance of the gaussian(s).
-        w: The weights of the mixture of gaussians. Default is equal weight.
+        w: The weights of the mixture of gaussians (if a mixture). Default is equal weight.
     """
 
-    def __init__(self, sde, mean, cov, w=None):
+    def __init__(self, sde: SDE, mean: Tensor, cov: Tensor, w: Optional[Tensor] = None):
         super().__init__()
         self.sde = sde
         self.mean = mean
@@ -39,7 +44,7 @@ class MVGEnergyModel(nn.Module):
         else:
             raise ValueError("mean must be 1D (single Gaussian) or 2D (mixture of Gaussians)")
 
-    def ll(self, t, x, mu, cov, w):
+    def ll(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):
         r = (x.squeeze() - self.sde.mu(t) * mu).flatten()
         cov_t = self.sde.mu(t) ** 2 * cov + self.sde.sigma(t) ** 2 * torch.eye(
             cov.shape[-1], dtype=cov.dtype, device=cov.device
@@ -49,9 +54,9 @@ class MVGEnergyModel(nn.Module):
         ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
         return ll.unsqueeze(0)
 
-    def forward_single(self, t, x, *args, **kwargs):
+    def forward_single(self, t: Tensor, x: Tensor, *args, **kwargs):
         return -self.ll(t, x, self.mean, self.cov, self.w) * self.sde.sigma(t)
 
-    def forward_mixture(self, t, x, *args, **kwargs):
+    def forward_mixture(self, t: Tensor, x: Tensor, *args, **kwargs):
         ll = torch.vmap(self.ll, in_dims=(None, None, 0, 0, 0))(t, x, self.mean, self.cov, self.w)
         return -torch.logsumexp(ll, dim=0) * self.sde.sigma(t)

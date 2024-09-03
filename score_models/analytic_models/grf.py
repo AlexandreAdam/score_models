@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
+
+from ..sde import SDE
 
 
 class GRFEnergyModel(nn.Module):
@@ -13,7 +16,7 @@ class GRFEnergyModel(nn.Module):
         power_spectrum: The power spectrum of the Gaussian random field.
     """
 
-    def __init__(self, sde, power_spectrum):
+    def __init__(self, sde: SDE, power_spectrum: Tensor):
         super().__init__()
         self.sde = sde
         # Store the power spectrum
@@ -27,7 +30,7 @@ class GRFEnergyModel(nn.Module):
             raise ValueError("Only 1D and 2D power spectra are supported")
         self.hyperparameters = {"nn_is_energy": True}
 
-    def forward(self, t, x, *args, **kwargs):
+    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
         t_scale = self.sde.sigma(t)
         t_mu = self.sde.mu(t)
 

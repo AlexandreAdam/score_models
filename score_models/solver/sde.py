@@ -17,7 +17,7 @@ class SDESolver(Solver):
         forward: bool,
         *args: tuple,
         progress_bar: bool = True,
-        trace=False,
+        trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
         corrector_steps: int = 0,

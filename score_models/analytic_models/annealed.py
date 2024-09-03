@@ -1,6 +1,11 @@
+from typing import Union, Callable
+
 import torch
 import torch.nn as nn
-import numpy as np
+from torch import Tensor
+
+from ..sde import SDE
+from ..sbm import ScoreModel
 
 
 class AnnealedScoreModel(nn.Module):
@@ -23,7 +28,15 @@ class AnnealedScoreModel(nn.Module):
 
     """
 
-    def __init__(self, sde, hight_model, lowt_model, beta_scheme="linear", epsilon=0.01, **kwargs):
+    def __init__(
+        self,
+        sde: SDE,
+        hight_model: ScoreModel,
+        lowt_model: ScoreModel,
+        beta_scheme: Union[Callable, str] = "linear",
+        epsilon: float = 0.01,
+        **kwargs,
+    ):
         super().__init__()
         self.sde = sde
         self.hight_model = hight_model
@@ -31,9 +44,11 @@ class AnnealedScoreModel(nn.Module):
         self.beta_scheme = beta_scheme
         self.epsilon = epsilon
 
-    def beta(self, t):
+    def beta(self, t: Tensor) -> Tensor:
         T = (t - self.sde.t_min) / (self.sde.t_max - self.sde.t_min)
-        if self.beta_scheme == "linear":
+        if callable(self.beta_scheme):
+            return self.beta_scheme(T)
+        elif self.beta_scheme == "linear":
             return T
         elif self.beta_scheme == "square":
             return T**2
@@ -49,7 +64,7 @@ class AnnealedScoreModel(nn.Module):
         else:
             raise NotImplementedError(f"Unknown beta_scheme {self.beta_scheme}")
 
-    def forward(self, t, x, *args, **kwargs):
+    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
         B, *D = x.shape
         # Compute the weighted score for each model
         beta = torch.clamp(self.beta(kwargs.get("t_a", t)[0]), 0.0, 1.0)

@@ -28,7 +28,7 @@ class ScoreModel(Base):
         super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         self.hessian_trace_model = hessian_trace_model
 
-    def loss(self, x, *args) -> Tensor:
+    def loss(self, x, *args, step: int) -> Tensor:
         return dsm(self, x, *args)
 
     def reparametrized_score(self, t, x, *args, **kwargs) -> Tensor:

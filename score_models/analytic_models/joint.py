@@ -1,6 +1,12 @@
+from typing import List, Tuple, Union
+
 import torch
 import torch.nn as nn
+from torch import Tensor
 import numpy as np
+
+from ..sde import SDE
+from ..sbm import ScoreModel
 
 
 class JointScoreModel(nn.Module):
@@ -38,14 +44,21 @@ class JointScoreModel(nn.Module):
             If None, the model will be passed the full ``x`` vector.
     """
 
-    def __init__(self, sde, models, x_shapes, model_uses, **kwargs):
+    def __init__(
+        self,
+        sde: SDE,
+        models: List[ScoreModel],
+        x_shapes: Tuple[Tuple[int]],
+        model_uses: Tuple[Union[None, Tuple[int]]],
+        **kwargs
+    ):
         super().__init__()
         self.sde = sde
         self.models = models
         self.x_shapes = x_shapes
         self.model_uses = model_uses
 
-    def split_x(self, x):
+    def split_x(self, x: Tensor):
         B, D = x.shape
 
         # Split x into segments
@@ -57,7 +70,7 @@ class JointScoreModel(nn.Module):
         assert place == D
         return sub_x
 
-    def join_x(self, sub_x):
+    def join_x(self, sub_x: List[Tensor]):
         B = sub_x[0].shape[0]
         return torch.cat(tuple(S.reshape(B, -1) for S in sub_x), dim=-1)
 
@@ -65,7 +78,7 @@ class JointScoreModel(nn.Module):
     def xsize(self):
         return sum(np.prod(shapex) for shapex in self.x_shapes)
 
-    def forward(self, t, x, *args, **kwargs):
+    def forward(self, t: Tensor, x: Tensor, *args, **kwargs):
         # Split x into segments
         sub_x = self.split_x(x)
 

@@ -279,7 +279,7 @@ def test_tweedie():
         sde=sde,
         model=TweedieScoreModel(
             sde,
-            model=priormodel,
+            prior_model=priormodel,
             log_likelihood=log_likelihood,
         ),
     )

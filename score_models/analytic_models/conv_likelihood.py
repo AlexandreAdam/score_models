@@ -3,9 +3,9 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from torch import vmap
-from torch.func import grad
 import numpy as np
-import matplotlib.pyplot as plt
+
+from ..sde import SDE
 
 
 class ConvolvedLikelihood(nn.Module):
@@ -41,7 +41,7 @@ class ConvolvedLikelihood(nn.Module):
     @torch.no_grad()
     def __init__(
         self,
-        sde,
+        sde: SDE,
         y: Tensor,
         Sigma_y: Tensor,
         x_shape: Tuple[int],
@@ -51,7 +51,6 @@ class ConvolvedLikelihood(nn.Module):
         diag: bool = False,
     ):
         assert (A is not None) != (f is not None), "Either A or f must be provided (not both)"
-        assert (A is not None) | (AAT is not None), "Either A or AAT must be provided"
         super().__init__()
         self.sde = sde
         self.y = y
@@ -64,7 +63,19 @@ class ConvolvedLikelihood(nn.Module):
             self.A = A
         self.f = f
         if AAT is None:
-            self.AAT = self.A @ self.A.T
+            if A is None:
+                A = torch.func.jacrev(f)(
+                    torch.zeros(x_shape, dtype=y.dtype, device=y.device)
+                ).reshape(np.prod(self.y_shape), np.prod(x_shape))
+                if diag:
+                    self.AAT = torch.sum(A**2, dim=1).reshape(*self.Sigma_y.shape)
+                else:
+                    self.AAT = A @ A.T
+            else:
+                if diag:
+                    self.AAT = torch.sum(self.A**2, dim=1).reshape(*self.Sigma_y.shape)
+                else:
+                    self.AAT = self.A @ self.A.T
         else:
             self.AAT = AAT
 
@@ -81,13 +92,19 @@ class ConvolvedLikelihood(nn.Module):
         self.forward = self.diag_forward if value else self.full_forward
 
     def diag_forward(self, t, xt, *args, **kwargs):
-        r = self.y - self.f(xt.squeeze())
+        if self.f is None:
+            r = self.y - (self.A @ xt.reshape(-1)).reshape(*self.y_shape)
+        else:
+            r = self.y - self.f(xt)
         sigma = 1 / (self.Sigma_y + self.sde.sigma(t) ** 2 * self.AAT)
         ll = 0.5 * torch.sum(r**2 * sigma).unsqueeze(0)
         return ll.unsqueeze(0) * self.sde.sigma(t)
 
     def _full_forward(self, t, xt, sigma):
-        r = self.y.reshape(-1) - self.A @ xt.reshape(-1)
+        if self.f is None:
+            r = self.y.reshape(-1) - self.A @ xt.reshape(-1)
+        else:
+            r = self.y.reshape(-1) - self.f(xt).reshape(-1)
         ll = 0.5 * (r @ sigma @ r.reshape(1, r.shape[0]).T)
         return ll * self.sde.sigma(t)
 
@@ -95,4 +112,4 @@ class ConvolvedLikelihood(nn.Module):
         sigma = torch.linalg.inv(
             self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
         )
-        return torch.vmap(self._full_forward, in_dims=(0, 0, None))(t, xt, sigma)
+        return vmap(self._full_forward, in_dims=(0, 0, None))(t, xt, sigma)
