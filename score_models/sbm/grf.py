@@ -31,8 +31,8 @@ class GRFEnergyModel(EnergyModel):
             raise ValueError("Only 1D and 2D power spectra are supported")
 
     def energy(self, t: Tensor, x: Tensor, *args, **kwargs):
-        t_scale = self.sde.sigma(t)
-        t_mu = self.sde.mu(t)
+        sigma_t = self.sde.sigma(t)
+        mu_t = self.sde.mu(t)
 
         # Fourier Transform of the image
         fftkwargs = {"norm": "ortho"}
@@ -47,7 +47,7 @@ class GRFEnergyModel(EnergyModel):
 
         # Calculate negative log likelihood
         nll = 0.5 * torch.sum(
-            (magnitude_squared / (t_mu**2 * self.power_spectrum + t_scale**2)).real,
+            (magnitude_squared / (mu_t**2 * self.power_spectrum + sigma_t**2)).real,
             dim=tuple(range(-self.dims, 0)),
         )
         return nll
