@@ -127,3 +127,9 @@ class LoRAScoreModel(ScoreModel):
         self.loaded_checkpoint = load_checkpoint(model=self, checkpoint=checkpoint, path=self.path, key="lora_checkpoint", raise_error=raise_error)
         print(f"Loaded LoRA weights with rank {self.hyperparameters['lora_rank']}")
         self.lora_net.print_trainable_parameters()
+    
+    def merge_and_unload(self):
+        """
+        Merge the LoRA weights with the base SBM and unload the LoRA weights.
+        """
+        return ScoreModel(net=self.lora_net.merge_and_unload(), **self.hyperparameters)
