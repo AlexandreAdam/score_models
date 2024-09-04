@@ -11,9 +11,6 @@ class Combine(torch.nn.Module):
         self.Conv_0 = conv1x1(in_ch, out_ch, dimensions=dimensions)
         if method not in ["cat", "sum"]:
             raise ValueError(f'Method {method} not recognized for the Combine layer.')
-        if method == 'sum':
-            if in_ch != out_ch:
-                raise ValueError('Method sum requires in_ch == out')
         self.method = method
 
     def forward(self, x, y):

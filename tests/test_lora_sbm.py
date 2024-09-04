@@ -61,4 +61,3 @@ def test_merge_and_unload(tmp_path):
     # Check that the LoRA weights are no longer present
     for name, p in base_model.named_parameters():
         assert "lora" not in name
-
