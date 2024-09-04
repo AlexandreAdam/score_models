@@ -113,7 +113,9 @@ class ConvolvedLikelihood(EnergyModel):
     def score(self, t, x, *args, **kwargs):
         # Compute sigma once per time step
         if self.diag:
-            sigma = 1 / (self.Sigma_y + self.sde.sigma(t[0]) ** 2 * self.AAT)
+            sigma = 1 / (
+                self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
+            )
         else:
             sigma = torch.linalg.inv(
                 self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT

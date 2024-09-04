@@ -39,10 +39,10 @@ class TweedieScoreModel(ScoreModel):
 
     def tweedie(self, t: Tensor, xt: Tensor, *args, **kwargs):
         sigma_t = self.sde.sigma(t)
-        t_mu = self.sde.mu(t)
+        mu_t = self.sde.mu(t)
         x0 = (
             xt + sigma_t.unsqueeze(-1) ** 2 * self.prior_model.score(t, xt, *args, **kwargs)
-        ) / t_mu.unsqueeze(-1)
+        ) / mu_t.unsqueeze(-1)
         return x0
 
     def log_likelihood_score0(self, t: Tensor, x0: Tensor, *args, **kwargs):

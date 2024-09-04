@@ -43,11 +43,12 @@ class SampleScoreModel(ScoreModel):
     def score(self, t: Tensor, x: Tensor, *args, **kwargs):
         B, *D = x.shape
         K, *D = self.samples.shape
-        t_scale = self.sde.sigma(t[0])
+        sigma_t = self.sde.sigma(t[0])
+        mu_t = self.sde.mu(t[0])
         W = torch.sum(
             -0.5
-            * (self.samples.unsqueeze(0) - x.unsqueeze(1)) ** 2  # B, K, *D
-            / (t_scale**2 + self.sigma_min**2),
+            * (self.samples.unsqueeze(0) * mu_t - x.unsqueeze(1)) ** 2  # B, K, *D
+            / (sigma_t**2 + self.sigma_min**2),
             dim=tuple(range(2, 2 + len(D))),
             keepdim=True,
         )  # B, K, *[1]*len(D)
@@ -55,7 +56,9 @@ class SampleScoreModel(ScoreModel):
         W = torch.nan_to_num(W)
         W = W / torch.sum(W, dim=1, keepdim=True)
         scores = torch.sum(
-            W * (self.samples.unsqueeze(0) - x.unsqueeze(1)) / (t_scale**2 + self.sigma_min**2),
+            W
+            * (self.samples.unsqueeze(0) * mu_t - x.unsqueeze(1))
+            / (sigma_t**2 + self.sigma_min**2),
             dim=1,
         )  # B, *D
         return scores
