@@ -161,16 +161,19 @@ def test_interpolated(Nsamp, Ndim, beta):
     assert torch.all(torch.isfinite(samples))
 
 
-def test_convolved_likelihood():
+@pytest.mark.parametrize("diag", (True, False))
+@pytest.mark.parametrize("Amatrix", (True, False))
+def test_convolved_likelihood(diag, Amatrix):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
+    torch.manual_seed(42)
     x_true = torch.randn(3)
 
     def fwd(x):
-        return torch.arange(1, 4) * x + 2
+        return torch.arange(1, 4) * x
 
     y = fwd(x_true) + torch.randn(3) * 0.1
     Sigma_y = torch.eye(3) * 0.1**2
-    A = torch.func.jacrev(fwd)(x_true)
+    A = torch.func.jacrev(fwd)(x_true) if Amatrix else fwd
 
     priormodel = MVGEnergyModel(
         sde,
@@ -178,13 +181,23 @@ def test_convolved_likelihood():
         cov=torch.eye(3),
     )
 
-    likelihoodmodel = ConvolvedLikelihood(
-        sde,
-        y=y,
-        Sigma_y=Sigma_y,
-        x_shape=(3,),
-        A=A,
-    )
+    if diag:
+        likelihoodmodel = ConvolvedLikelihood(
+            sde,
+            y=y,
+            Sigma_y=torch.diag(Sigma_y),
+            x_shape=(3,),
+            A=A,
+            diag=True,
+        )
+    else:
+        likelihoodmodel = ConvolvedLikelihood(
+            sde,
+            y=y,
+            Sigma_y=Sigma_y,
+            x_shape=(3,),
+            A=A,
+        )
 
     model = JointScoreModel(
         sde,
@@ -195,9 +208,10 @@ def test_convolved_likelihood():
         model_uses=[None, None],
     )
 
-    samples = model.sample(shape=(2, 3), steps=25)
+    samples = model.sample(shape=(2, *x_true.shape), steps=25)
 
     assert torch.all(torch.isfinite(samples))
+    assert torch.allclose(samples, x_true, atol=1.0)
 
 
 def test_tweedie():
