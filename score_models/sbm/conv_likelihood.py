@@ -121,7 +121,7 @@ class ConvolvedLikelihood(EnergyModel):
         return super().score(t, x, *args, sigma=sigma, **kwargs)
 
     def unnormalized_energy(self, t: Tensor, x: Tensor, *args, **kwargs):
-        raise RuntimeError("Unnormalized energy should not be called for GRF models.")
+        raise RuntimeError("Unnormalized energy should not be called for analytic models.")
 
     def reparametrized_score(self, t, x, *args, **kwargs):
-        raise RuntimeError("Reparametrized score should not be called for GRF models.")
+        raise RuntimeError("Reparametrized score should not be called for analytic models.")

@@ -108,3 +108,12 @@ class ScoreModel(Base):
         )
 
         return x0
+
+    def tweedie(self, t: Tensor, x: Tensor, *args, **kwargs) -> Tensor:
+        """
+        Compute the Tweedie formula for the expectation E[x0 | xt]
+        """
+        B, *D = x.shape
+        mu = self.sde.mu(t).view(-1, *[1] * len(D))
+        sigma = self.sde.sigma(t).view(-1, *[1] * len(D))
+        return (x + sigma**2 * self.score(t, x, *args, **kwargs)) / mu
