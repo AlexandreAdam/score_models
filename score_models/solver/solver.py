@@ -92,11 +92,13 @@ class Solver(ABC):
         """
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
+        delta_t = torch.as_tensor(t_max - t_min, device=device)
+        assert torch.allclose(delta_t, delta_t.reshape(-1)[0]), "All time steps must be the same"
         if forward:
             T = torch.linspace(0, 1, steps + 1, device=device)[:-1].repeat(B, 1).T
         else:
             T = torch.linspace(1, 0, steps + 1, device=device)[:-1].repeat(B, 1).T
-        ret = (t_max - t_min) * T + t_min
+        ret = delta_t * T + t_min
         return ret
 
     def step_size(self, steps: int, forward: bool, device=DEVICE, **kwargs):
