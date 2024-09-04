@@ -31,6 +31,7 @@ class GRFEnergyModel(EnergyModel):
             raise ValueError("Only 1D and 2D power spectra are supported")
 
     def energy(self, t: Tensor, x: Tensor, *args, **kwargs):
+        """GRF energy"""
         sigma_t = self.sde.sigma(t)
         mu_t = self.sde.mu(t)
 

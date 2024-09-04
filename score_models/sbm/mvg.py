@@ -29,10 +29,10 @@ class MVGEnergyModel(EnergyModel):
         self.mean = mean
         self.cov = cov
         if mean.dim() == 1:
-            self.energy = self.forward_single
+            self.energy = self.energy_single
             self.w = torch.tensor(1.0, dtype=self.mean.dtype, device=self.mean.device)
         elif mean.dim() == 2:
-            self.energy = self.forward_mixture
+            self.energy = self.energy_mixture
             if w is None:
                 self.w = (
                     torch.ones(self.mean.shape[0], dtype=self.mean.dtype, device=self.mean.device)
@@ -54,10 +54,12 @@ class MVGEnergyModel(EnergyModel):
         ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
         return ll
 
-    def forward_single(self, t: Tensor, x: Tensor, *args, **kwargs):
+    def energy_single(self, t: Tensor, x: Tensor, *args, **kwargs):
+        """MVG energy for a single gaussian"""
         return -self.ll(t, x, self.mean, self.cov, self.w)
 
-    def forward_mixture(self, t: Tensor, x: Tensor, *args, **kwargs):
+    def energy_mixture(self, t: Tensor, x: Tensor, *args, **kwargs):
+        """MVG energy for a mixture of gaussians"""
         ll = torch.vmap(self.ll, in_dims=(None, None, 0, 0, 0))(t, x, self.mean, self.cov, self.w)
         return -torch.logsumexp(ll, dim=0)
 
