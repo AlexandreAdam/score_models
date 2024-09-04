@@ -109,6 +109,39 @@ class ScoreModel(Base):
 
         return x0
 
+    @torch.no_grad()
+    def denoise(
+        self,
+        t: Tensor,
+        xt: Tensor,
+        steps: int,
+        *args,
+        solver: Literal[
+            "em_sde", "rk2_sde", "rk4_sde", "euler_ode", "rk2_ode", "rk4_ode"
+        ] = "em_sde",
+        progress_bar: bool = True,
+        denoise_last_step: bool = True,
+        **kwargs
+    ) -> Tensor:
+        """
+        Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
+
+        The initial condition is provided as xt at time t.
+
+        """
+        x0 = Solver(self, solver=solver, **kwargs)(
+            xt,
+            *args,
+            t_max=t,
+            steps=steps,
+            forward=False,
+            progress_bar=progress_bar,
+            denoise_last_step=denoise_last_step,
+            **kwargs
+        )
+
+        return x0
+
     def tweedie(self, t: Tensor, x: Tensor, *args, **kwargs) -> Tensor:
         """
         Compute the Tweedie formula for the expectation E[x0 | xt]

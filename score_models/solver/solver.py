@@ -93,9 +93,11 @@ class Solver(ABC):
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
-            return torch.linspace(t_min, t_max, steps + 1, device=device)[:-1].repeat(B, 1).T
+            T = torch.linspace(0, 1, steps + 1, device=device)[:-1].repeat(B, 1).T
         else:
-            return torch.linspace(t_max, t_min, steps + 1, device=device)[:-1].repeat(B, 1).T
+            T = torch.linspace(1, 0, steps + 1, device=device)[:-1].repeat(B, 1).T
+        ret = (t_max - t_min) * T + t_min
+        return ret
 
     def step_size(self, steps: int, forward: bool, device=DEVICE, **kwargs):
         """Returns the step size for the integration. This is simply the time

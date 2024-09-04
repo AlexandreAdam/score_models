@@ -59,7 +59,10 @@ class SDESolver(Solver):
         B, *D = x.shape
 
         # Step
-        dt = self.step_size(steps, forward=forward, **kwargs)
+        dt = (
+            self.step_size(steps, forward=forward, **kwargs)
+            * torch.ones(B, device=x.device, dtype=x.dtype)
+        ).reshape(B, *[1] * len(D))
         T = self.time_steps(steps, B, forward=forward, **kwargs)
 
         # Trace if requested
@@ -147,7 +150,7 @@ class RK2_SDE(SDESolver):
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
         k1 = self.dx(t, x, args, dt, forward, dw - skdt, **kwargs)
-        k2 = self.dx(t + dt, x + k1, args, dt, forward, dw + skdt, **kwargs)
+        k2 = self.dx(t + dt.squeeze(), x + k1, args, dt, forward, dw + skdt, **kwargs)
         return (k1 + k2) / 2
 
 
@@ -161,7 +164,7 @@ class RK4_SDE(SDESolver):
         dw = torch.randn_like(x) * torch.sqrt(dt.abs())
         skdt = sk * np.random.choice([-1, 1]) * torch.sqrt(dt.abs())
         k1 = self.dx(t, x, args, dt, forward, dw - skdt, **kwargs)
-        k2 = self.dx(t + dt / 2, x + k1 / 2, args, dt, forward, dw + skdt, **kwargs)
-        k3 = self.dx(t + dt / 2, x + k2 / 2, args, dt, forward, dw - skdt, **kwargs)
-        k4 = self.dx(t + dt, x + k3, args, dt, forward, dw + skdt, **kwargs)
+        k2 = self.dx(t + dt.squeeze() / 2, x + k1 / 2, args, dt, forward, dw + skdt, **kwargs)
+        k3 = self.dx(t + dt.squeeze() / 2, x + k2 / 2, args, dt, forward, dw - skdt, **kwargs)
+        k4 = self.dx(t + dt.squeeze(), x + k3, args, dt, forward, dw + skdt, **kwargs)
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6

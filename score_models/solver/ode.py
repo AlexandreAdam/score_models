@@ -55,7 +55,10 @@ class ODESolver(Solver):
         B, *D = x.shape
 
         # Step
-        dt = self.step_size(steps, forward=forward, **kwargs)
+        dt = (
+            self.step_size(steps, forward=forward, **kwargs)
+            * torch.ones(B, device=x.device, dtype=x.dtype)
+        ).reshape(B, *[1] * len(D))
         T = self.time_steps(steps, B, forward=forward, **kwargs)
 
         # log P(xt) if requested
@@ -180,8 +183,8 @@ class RK2_ODE(ODESolver):
     def step(self, t, x, args, dt, dx, dp, **kwargs):
         k1 = dx(t, x, args, dt, **kwargs)
         l1 = dp(t, x, args, dt, **kwargs)
-        k2 = dx(t + dt, x + k1, args, dt, **kwargs)
-        l2 = dp(t + dt, x + k1, args, dt, **kwargs)
+        k2 = dx(t + dt.squeeze(), x + k1, args, dt, **kwargs)
+        l2 = dp(t + dt.squeeze(), x + k1, args, dt, **kwargs)
         return (k1 + k2) / 2, (l1 + l2) / 2
 
 
@@ -193,10 +196,10 @@ class RK4_ODE(ODESolver):
     def step(self, t, x, args, dt, dx, dp, **kwargs):
         k1 = dx(t, x, args, dt, **kwargs)
         l1 = dp(t, x, args, dt, **kwargs)
-        k2 = dx(t + dt / 2, x + k1 / 2, args, dt, **kwargs)
-        l2 = dp(t + dt / 2, x + k1 / 2, args, dt, **kwargs)
-        k3 = dx(t + dt / 2, x + k2 / 2, args, dt, **kwargs)
-        l3 = dp(t + dt / 2, x + k2 / 2, args, dt, **kwargs)
-        k4 = dx(t + dt, x + k3, args, dt, **kwargs)
-        l4 = dp(t + dt, x + k3, args, dt, **kwargs)
+        k2 = dx(t + dt.squeeze() / 2, x + k1 / 2, args, dt, **kwargs)
+        l2 = dp(t + dt.squeeze() / 2, x + k1 / 2, args, dt, **kwargs)
+        k3 = dx(t + dt.squeeze() / 2, x + k2 / 2, args, dt, **kwargs)
+        l3 = dp(t + dt.squeeze() / 2, x + k2 / 2, args, dt, **kwargs)
+        k4 = dx(t + dt.squeeze(), x + k3, args, dt, **kwargs)
+        l4 = dp(t + dt.squeeze(), x + k3, args, dt, **kwargs)
         return (k1 + 2 * k2 + 2 * k3 + k4) / 6, (l1 + 2 * l2 + 2 * l3 + l4) / 6
