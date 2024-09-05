@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import torch
 from torch.func import grad
@@ -29,13 +29,20 @@ class TweedieScoreModel(ScoreModel):
         self,
         sde: SDE,
         prior_model: ScoreModel,
-        log_likelihood: Callable,
+        log_likelihood: Optional[Callable] = None,
+        log_likelihood_score0: Optional[Callable] = None,
         **kwargs,
     ):
+        assert (log_likelihood is None) != (
+            log_likelihood_score0 is None
+        ), "Either log_likelihood or log_likelihood_score0 must be provided, not both."
         super().__init__(net=NullNet(isenergy=False), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.prior_model = prior_model
-        self.log_likelihood = log_likelihood
+        if log_likelihood is not None:
+            self.log_likelihood = log_likelihood
+        else:
+            self.log_likelihood_score0 = log_likelihood_score0
 
     def tweedie(self, t: Tensor, xt: Tensor, *args, **kwargs):
         sigma_t = self.sde.sigma(t)

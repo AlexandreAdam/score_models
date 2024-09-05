@@ -20,7 +20,7 @@ class ODESolver(Solver):
         trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
-        get_logP: bool = False,
+        get_delta_logp: bool = False,
         hook: Optional[Callable] = None,
         **kwargs,
     ):
@@ -49,7 +49,7 @@ class ODESolver(Solver):
             trace: Whether to return the full path or just the last point.
             kill_on_nan: Whether to raise an error if NaNs are encountered.
             denoise_last_step: Whether to project to the boundary at the last step.
-            get_logP: Whether to return the log probability of the input x (should be used with forward=True).
+            get_delta_logp: Whether to return the log probability of the input x (should be used with forward=True).
             hook: Optional hook function to call after each step. Will be called with the signature ``hook(t, x, sde, score, solver)``.
         """
         B, *D = x.shape
@@ -62,12 +62,12 @@ class ODESolver(Solver):
         T = self.time_steps(steps, B, forward=forward, **kwargs)
 
         # log P(xt) if requested
-        logp = torch.zeros(B, device=x.device, dtype=x.dtype)
+        dlogp = torch.zeros(B, device=x.device, dtype=x.dtype)
         if self.score.hessian_trace_model is None:
             ht = self.divergence_hutchinson_trick
         else:
             ht = lambda *args, **kwargs: self.score.hessian_trace_model(*args, **kwargs) * dt
-        dp = ht if get_logP else lambda *args, **kwargs: 0.0
+        dp = ht if get_delta_logp else lambda *args, **kwargs: 0.0
 
         # Trace ODE path if requested
         if trace:
@@ -89,7 +89,7 @@ class ODESolver(Solver):
             # Update x
             step = self.step(t, x, args, dt, self.dx, dp, **kwargs)
             x = x + step[0]
-            logp = logp + step[1]
+            dlogp = dlogp + step[1]
 
             if trace:
                 path.append(x)
@@ -104,17 +104,13 @@ class ODESolver(Solver):
             if trace:
                 path[-1] = x
 
-        # add boundary condition PDF probability
-        if get_logP and forward:
-            logp = self.sde.prior(D).log_prob(x) + logp
-
         # Return path or final x
         if trace:
-            if get_logP:
-                return torch.stack(path), logp
+            if get_delta_logp:
+                return torch.stack(path), dlogp
             return torch.stack(path)
-        if get_logP:
-            return x, logp
+        if get_delta_logp:
+            return x, dlogp
         return x
 
     def dx(self, t: Tensor, x: Tensor, args: tuple, dt: Tensor, **kwargs):

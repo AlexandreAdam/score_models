@@ -86,10 +86,11 @@ def test_solver_forward(solver, mean, cov):
     slvr = Solver(model, solver=solver)
 
     x0 = torch.tensor(np.random.multivariate_normal(mean, cov, 100), dtype=torch.float32)
-    xT = slvr(x0, steps=50, forward=True, get_logP="ode" in solver, progress_bar=False)
+    xT = slvr(x0, steps=50, forward=True, get_delta_logp="ode" in solver, progress_bar=False)
 
-    if "ode" in solver:  # check logP calculation for ODE solvers
-        xT, logp = xT
-        assert torch.all(torch.isfinite(logp))
+    if "ode" in solver:  # check delta_logp calculation for ODE solvers
+        print(xT)
+        xT, dlogp = xT
+        assert torch.all(torch.isfinite(dlogp))
 
     assert torch.all(torch.isfinite(xT))

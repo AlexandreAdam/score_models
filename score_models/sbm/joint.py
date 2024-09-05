@@ -4,7 +4,6 @@ import torch
 from torch import Tensor
 import numpy as np
 
-from ..sde import SDE
 from . import ScoreModel
 from ..architectures import NullNet
 
@@ -46,14 +45,17 @@ class JointScoreModel(ScoreModel):
 
     def __init__(
         self,
-        sde: SDE,
         models: Tuple[ScoreModel],
         x_shapes: Tuple[Tuple[int]],
         model_uses: Tuple[Union[None, Tuple[int]]],
         **kwargs
     ):
-        super().__init__(net=NullNet(isenergy=False), sde=sde, path=None, checkpoint=None, **kwargs)
-        self.sde = sde
+        assert all(
+            isinstance(m.sde, models[0].sde.__class__) for m in models
+        ), "All models must share the same SDE."
+        super().__init__(
+            net=NullNet(isenergy=False), sde=models[0].sde, path=None, checkpoint=None, **kwargs
+        )
         self.models = models
         self.x_shapes = x_shapes
         self.model_uses = model_uses

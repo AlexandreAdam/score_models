@@ -66,10 +66,16 @@ class ScoreModel(Base):
         developed by Chen et al. 2018 (arxiv.org/abs/1806.07366).
         See Song et al. 2020 (arxiv.org/abs/2011.13456) for usage with SDE formalism of SBM.
         """
+        B, *D = x.shape
 
         solver = ODESolver(self, solver=solver, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
-        _, log_p = solver(x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_logP=True)
+        xT, dlog_p = solver(
+            x, *args, steps=steps, forward=True, t_min=t, **kwargs, get_delta_logp=True
+        )
+
+        # add boundary condition PDF probability
+        log_p = self.sde.prior(D).log_prob(xT) + dlog_p
 
         return log_p
 

@@ -84,7 +84,6 @@ def test_joint_shared(Nsamp, Ndim):
     )
 
     model = JointScoreModel(
-        sde,
         models=(model1, model2),
         x_shapes=[(Ndim,)],
         model_uses=[None, None],
@@ -109,7 +108,6 @@ def test_joint_paired(Nsamp, Ndim1, Ndim2):
     )
 
     model = JointScoreModel(
-        sde,
         models=(model1, model2),
         x_shapes=[(Ndim1,), (Ndim2,)],
         model_uses=[(0,), (1,)],
@@ -200,7 +198,6 @@ def test_convolved_likelihood(diag, Amatrix):
         )
 
     model = JointScoreModel(
-        sde,
         models=(priormodel, likelihoodmodel),
         x_shapes=[
             (3,),
@@ -251,7 +248,6 @@ def test_tweedie():
     )
 
     model = JointScoreModel(
-        sde,
         models=(priormodel, likelihoodmodel),
         x_shapes=[
             (3,),
