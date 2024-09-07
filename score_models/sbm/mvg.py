@@ -76,8 +76,8 @@ class MVGEnergyModel(EnergyModel):
         r = (x.squeeze() - self.sde.mu(t) * mu).flatten()
         cov_t = self.sde.mu(t) ** 2 * cov + self.sde.sigma(t) ** 2
         icov = 1 / cov_t
-        logdet = torch.log(cov_t)
-        ll = -0.5 * (r**2 * icov) - 0.5 * logdet + torch.log(w)
+        logdet = torch.sum(torch.log(cov_t))
+        ll = -0.5 * torch.sum(r**2 * icov) - 0.5 * logdet + torch.log(w)
         return ll
 
     def ll_full(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):

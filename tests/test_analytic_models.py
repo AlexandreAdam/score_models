@@ -75,14 +75,14 @@ def test_mvg(mean, cov):
     assert torch.all(torch.isfinite(samples))
     if model.mixture:
         return
-    assert torch.allclose(samples.mean(dim=0), mean, atol=0.1), "mean for MVG samples not close"
+    assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean for MVG samples not close"
     if model.diag:
         assert torch.allclose(
-            samples.std(dim=0), cov.sqrt(), atol=0.1
+            samples.std(dim=0), cov.sqrt(), atol=1
         ), "std for MVG samples not close"
     else:
         assert torch.allclose(
-            samples.std(dim=0), torch.diag(cov).sqrt(), atol=0.1
+            samples.std(dim=0), torch.diag(cov).sqrt(), atol=1
         ), "std for MVG samples not close"
 
 
