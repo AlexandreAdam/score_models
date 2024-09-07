@@ -31,11 +31,10 @@ class ConvolvedLikelihood(EnergyModel):
     Args:
         sde: The SDE that the score model is associated with.
         y: The observation.
-        Sigma_y: The observation covariance matrix. If 1D this is assumed to be the diagonal of the covariance matrix (and you should have diag=True).
-        x_shape: The shape of the model space.
+        Sigma_y: The observation covariance matrix. If ``Sigma_y.shape == y.shape`` this is assumed to be the diagonal of the covariance matrix.
         A: The linear operator relating the model space to the observation space. May be a tensor or a function.
         AAT: The covariance of the linear operator. With A as a matrix then this is A @ A.T and should have the same shape as Sigma_y.
-        diag: Whether to use the diagonal approximation.
+        x_shape: The shape of the model space. This must be provided if A is a function and AAT is not provided.
     """
 
     @torch.no_grad()
@@ -44,41 +43,41 @@ class ConvolvedLikelihood(EnergyModel):
         sde: SDE,
         y: Tensor,
         Sigma_y: Tensor,
-        x_shape: Tuple[int],
-        A: Union[Tensor, Callable] = None,
+        A: Union[Tensor, Callable],
         AAT: Optional[Tensor] = None,
-        diag: bool = False,
+        x_shape: Optional[Tuple[int]] = None,
         **kwargs,
     ):
         super().__init__(net=NullNet(isenergy=True), sde=sde, path=None, checkpoint=None, **kwargs)
         self.sde = sde
         self.y = y
         self.Sigma_y = Sigma_y
-        self.x_shape = x_shape
         self.y_shape = y.shape
-
-        if isinstance(A, Tensor):
-            self.A = A.reshape(np.prod(self.y_shape), np.prod(x_shape))
-        else:
-            self.A = A
+        self.A = A
+        self.x_shape = x_shape
+        self.diag = self.y.shape == self.Sigma_y.shape
 
         if AAT is None:
             if callable(A):
+                assert (
+                    x_shape is not None
+                ), "x_shape must be provided if A is a function and AAT is not provided."
                 Amatrix = torch.func.jacrev(A)(
                     torch.zeros(x_shape, dtype=y.dtype, device=y.device)
                 ).reshape(np.prod(self.y_shape), np.prod(x_shape))
-                if diag:
+                if self.diag:
                     self.AAT = torch.sum(Amatrix**2, dim=1).reshape(*self.Sigma_y.shape)
                 else:
                     self.AAT = Amatrix @ Amatrix.T
             else:
-                if diag:
+                if self.diag:
                     self.AAT = torch.sum(self.A**2, dim=1).reshape(*self.Sigma_y.shape)
                 else:
                     self.AAT = self.A @ self.A.T
         else:
             self.AAT = AAT
-        self.diag = diag
+
+        assert self.AAT.shape == self.Sigma_y.shape, "AAT must have the same shape as Sigma_y"
 
     @property
     def diag(self):
@@ -93,18 +92,18 @@ class ConvolvedLikelihood(EnergyModel):
         if callable(self.A):
             r = self.y - self.A(xt)
         else:
-            r = self.y - (self.A @ xt.reshape(-1)).reshape(*self.y_shape)
+            r = self.y - (self.A @ xt.reshape(-1, 1)).reshape(*self.y_shape)
 
-        ll = 0.5 * torch.sum(r**2 * sigma)
-        return ll
+        nll = 0.5 * torch.sum(r**2 * sigma)
+        return nll
 
     def _full_forward(self, t, xt, sigma):
         if callable(self.A):
-            r = self.y.reshape(-1) - self.A(xt).reshape(-1)
+            r = self.y.reshape(-1, 1) - self.A(xt).reshape(-1, 1)
         else:
-            r = self.y.reshape(-1) - self.A @ xt.reshape(-1)
-        ll = 0.5 * (r @ sigma @ r.reshape(1, -1).T)
-        return ll.squeeze(0)
+            r = self.y.reshape(-1, 1) - self.A @ xt.reshape(-1, 1)
+        nll = 0.5 * (r.T @ sigma @ r)
+        return nll.squeeze()
 
     def full_energy(self, t, xt, *args, sigma, **kwargs):
 
@@ -112,14 +111,9 @@ class ConvolvedLikelihood(EnergyModel):
 
     def score(self, t, x, *args, **kwargs):
         # Compute sigma once per time step
-        if self.diag:
-            sigma = 1 / (
-                self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
-            )
-        else:
-            sigma = torch.linalg.inv(
-                self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
-            )
+        sigma = self.Sigma_y * self.sde.mu(t[0]) ** 2 + self.sde.sigma(t[0]) ** 2 * self.AAT
+        sigma = 1 / sigma if self.diag else torch.linalg.inv(sigma)
+
         return super().score(t, x, *args, sigma=sigma, **kwargs)
 
     def unnormalized_energy(self, t: Tensor, x: Tensor, *args, **kwargs):
