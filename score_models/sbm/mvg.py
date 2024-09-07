@@ -17,10 +17,19 @@ class MVGEnergyModel(EnergyModel):
     is a single gaussian, if it is 2D, then it is a mixture of gaussians.
 
     Args:
+
         sde: The SDE that the score model is associated with.
+
         mean: The mean of the gaussian(s).
-        cov: The covariance of the gaussian(s).
-        w: The weights of the mixture of gaussians (if a mixture). Default is equal weight.
+
+        cov: The covariance of the gaussian(s). If cov.shape == mean.shape, this
+            is a diagonal covariance. Otherwise, it is a full covariance matrix
+            where if mean has shape (M, *D) (or just (*D,) for single MVG) then
+            the covariance matrix should have shape (M, prod(D), prod(D)) (or
+            just (prod(D), prod(D)) for single MVG).
+
+        w: The weights of the mixture of gaussians (if a mixture). Default is
+            equal weight.
     """
 
     def __init__(self, sde: SDE, mean: Tensor, cov: Tensor, w: Optional[Tensor] = None, **kwargs):
@@ -28,11 +37,12 @@ class MVGEnergyModel(EnergyModel):
         self.sde = sde
         self.mean = mean
         self.cov = cov
+        self.diag = mean.shape == cov.shape
         if mean.dim() == 1:
-            self.energy = self.energy_single
+            self.mixture = False
             self.w = torch.tensor(1.0, dtype=self.mean.dtype, device=self.mean.device)
         elif mean.dim() == 2:
-            self.energy = self.energy_mixture
+            self.mixture = True
             if w is None:
                 self.w = (
                     torch.ones(self.mean.shape[0], dtype=self.mean.dtype, device=self.mean.device)
@@ -44,7 +54,33 @@ class MVGEnergyModel(EnergyModel):
         else:
             raise ValueError("mean must be 1D (single Gaussian) or 2D (mixture of Gaussians)")
 
-    def ll(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):
+    @property
+    def diag(self):
+        return self._diag
+
+    @diag.setter
+    def diag(self, value):
+        self._diag = value
+        self.ll = self.ll_diag if value else self.ll_full
+
+    @property
+    def mixture(self):
+        return self._mixture
+
+    @mixture.setter
+    def mixture(self, value):
+        self._mixture = value
+        self.energy = self.energy_mixture if value else self.energy_single
+
+    def ll_diag(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):
+        r = (x.squeeze() - self.sde.mu(t) * mu).flatten()
+        cov_t = self.sde.mu(t) ** 2 * cov + self.sde.sigma(t) ** 2
+        icov = 1 / cov_t
+        logdet = torch.log(cov_t)
+        ll = -0.5 * (r**2 * icov) - 0.5 * logdet + torch.log(w)
+        return ll
+
+    def ll_full(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):
         r = (x.squeeze() - self.sde.mu(t) * mu).flatten()
         cov_t = self.sde.mu(t) ** 2 * cov + self.sde.sigma(t) ** 2 * torch.eye(
             cov.shape[-1], dtype=cov.dtype, device=cov.device
@@ -53,6 +89,16 @@ class MVGEnergyModel(EnergyModel):
         logdet = torch.logdet(cov_t)
         ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
         return ll
+
+    # def ll(self, t: Tensor, x: Tensor, mu: Tensor, cov: Tensor, w: Tensor):
+    #     r = (x.squeeze() - self.sde.mu(t) * mu).flatten()
+    #     cov_t = self.sde.mu(t) ** 2 * cov + self.sde.sigma(t) ** 2 * torch.eye(
+    #         cov.shape[-1], dtype=cov.dtype, device=cov.device
+    #     )
+    #     icov = torch.linalg.inv(cov_t)
+    #     logdet = torch.logdet(cov_t)
+    #     ll = -0.5 * (r @ icov @ r.reshape(1, -1).T) - 0.5 * logdet + torch.log(w)
+    #     return ll
 
     def energy_single(self, t: Tensor, x: Tensor, *args, **kwargs):
         """MVG energy for a single gaussian"""

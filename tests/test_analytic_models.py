@@ -52,7 +52,12 @@ def test_grf(psd_shape):
     (
         ([0.0], [[1.0]]),  # 1D Gaussian
         ([0.0, 0.0], [[1.0, 0.1], [0.1, 1.0]]),  # 2D Gaussian
+        ([1.0, 2.0], [2.0, 2.0]),  # 2D Gaussian with diagonal covariance
         (np.random.randn(5, 3), np.stack([np.eye(3)] * 5)),  # mixture of 5 3D Gaussians
+        (
+            np.random.randn(5, 3),
+            np.ones((5, 3)),
+        ),  # mixture of 5 3D Gaussians with diagonal covariance
     ),
 )
 def test_mvg(mean, cov):
@@ -65,9 +70,20 @@ def test_mvg(mean, cov):
         cov=cov,
     )
 
-    samples = model.sample(shape=(2, mean.shape[-1]), steps=25)
+    samples = model.sample(shape=(100, mean.shape[-1]), steps=50)
 
     assert torch.all(torch.isfinite(samples))
+    if model.mixture:
+        return
+    assert torch.allclose(samples.mean(dim=0), mean, atol=0.1), "mean for MVG samples not close"
+    if model.diag:
+        assert torch.allclose(
+            samples.std(dim=0), cov.sqrt(), atol=0.1
+        ), "std for MVG samples not close"
+    else:
+        assert torch.allclose(
+            samples.std(dim=0), torch.diag(cov).sqrt(), atol=0.1
+        ), "std for MVG samples not close"
 
 
 @pytest.mark.parametrize("Nsamp,Ndim", ((10, 1), (1, 2), (5, 100)))
