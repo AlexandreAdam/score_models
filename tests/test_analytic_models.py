@@ -179,23 +179,13 @@ def test_convolved_likelihood(diag, Amatrix):
         cov=torch.eye(3),
     )
 
-    if diag:
-        likelihoodmodel = ConvolvedLikelihood(
-            sde,
-            y=y,
-            Sigma_y=torch.diag(Sigma_y),
-            x_shape=(3,),
-            A=A,
-            diag=True,
-        )
-    else:
-        likelihoodmodel = ConvolvedLikelihood(
-            sde,
-            y=y,
-            Sigma_y=Sigma_y,
-            x_shape=(3,),
-            A=A,
-        )
+    likelihoodmodel = ConvolvedLikelihood(
+        sde,
+        y=y,
+        Sigma_y=torch.diag(Sigma_y) if diag else Sigma_y,
+        A=A,
+        x_shape=None if Amatrix else (3,),
+    )
 
     model = JointScoreModel(
         models=(priormodel, likelihoodmodel),
