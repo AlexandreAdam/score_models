@@ -4,6 +4,7 @@ from score_models.sde import VESDE
 from score_models import (
     GRFEnergyModel,
     MVGEnergyModel,
+    MVGScoreModel,
     JointScoreModel,
     SampleScoreModel,
     InterpolatedScoreModel,
@@ -60,7 +61,7 @@ def test_grf(psd_shape):
         ),  # mixture of 5 3D Gaussians with diagonal covariance
     ),
 )
-def test_mvg(mean, cov):
+def test_mvg_energy(mean, cov):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
     mean = torch.tensor(mean, dtype=torch.float32)
     cov = torch.tensor(cov, dtype=torch.float32)
@@ -74,7 +75,54 @@ def test_mvg(mean, cov):
 
     assert torch.all(torch.isfinite(samples))
     if model.mixture:
+        assert torch.allclose(
+            samples.mean(dim=0), mean.mean(dim=0), atol=1
+        ), "mean for MVG samples not close"
         return
+    assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean for MVG samples not close"
+    if model.diag:
+        assert torch.allclose(
+            samples.std(dim=0), cov.sqrt(), atol=1
+        ), "std for MVG samples not close"
+    else:
+        assert torch.allclose(
+            samples.std(dim=0), torch.diag(cov).sqrt(), atol=1
+        ), "std for MVG samples not close"
+
+
+@pytest.mark.parametrize(
+    "mean,cov",
+    (
+        ([0.0], [[1.0]]),  # 1D Gaussian
+        ([0.0, 0.0], [[1.0, 0.1], [0.1, 1.0]]),  # 2D Gaussian
+        ([1.0, 2.0], [2.0, 2.0]),  # 2D Gaussian with diagonal covariance
+        (np.random.randn(5, 3), np.stack([np.eye(3)] * 5)),  # mixture of 5 3D Gaussians
+        (
+            np.random.randn(5, 3),
+            np.ones((5, 3)),
+        ),  # mixture of 5 3D Gaussians with diagonal covariance
+    ),
+)
+def test_mvg_score(mean, cov):
+    sde = VESDE(sigma_min=1e-2, sigma_max=10)
+    mean = torch.tensor(mean, dtype=torch.float32)
+    cov = torch.tensor(cov, dtype=torch.float32)
+    model = MVGScoreModel(
+        sde,
+        mean=mean,
+        cov=cov,
+        mixture=mean.ndim >= 2,
+    )
+
+    samples = model.sample(shape=(100, mean.shape[-1]), steps=50)
+
+    assert torch.all(torch.isfinite(samples))
+    if model.mixture:
+        assert torch.allclose(
+            samples.mean(dim=0), mean.mean(dim=0), atol=1
+        ), "mean for MVG samples not close"
+        return
+    print(samples.mean(dim=0), mean)
     assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean for MVG samples not close"
     if model.diag:
         assert torch.allclose(
