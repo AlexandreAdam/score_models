@@ -78,7 +78,7 @@ class ODESolver(Solver):
             path = [x]
 
         # Progress bar
-        pbar = tqdm(zip(T, dT)) if progress_bar else zip(T, dT)
+        pbar = tqdm(tuple(zip(T, dT))) if progress_bar else zip(T, dT)
         for t, dt in pbar:
             if progress_bar:
                 pbar.set_description(
