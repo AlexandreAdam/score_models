@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -20,6 +20,7 @@ class ODESolver(Solver):
         trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
+        time_steps: Optional[Tuple[Tensor, Tensor]] = None,
         get_delta_logp: bool = False,
         hook: Optional[Callable] = None,
         **kwargs,
@@ -55,18 +56,19 @@ class ODESolver(Solver):
         B, *D = x.shape
 
         # Step
-        dt = (
-            self.step_size(steps, forward=forward, **kwargs)
-            * torch.ones(B, device=x.device, dtype=x.dtype)
-        ).reshape(B, *[1] * len(D))
-        T = self.time_steps(steps, B, forward=forward, **kwargs)
+        T, dT = self.time_steps(steps, B, D, time_steps=time_steps, forward=forward, **kwargs)
 
         # log P(xt) if requested
         dlogp = torch.zeros(B, device=x.device, dtype=x.dtype)
         if self.score.hessian_trace_model is None:
             ht = self.divergence_hutchinson_trick
         else:
-            ht = lambda *args, **kwargs: self.score.hessian_trace_model(*args, **kwargs) * dt
+            ht = (
+                lambda t, x, args, dt, **kwargs: self.score.hessian_trace_model(
+                    t, x, *args, **kwargs
+                )
+                * dt
+            )
         dp = ht if get_delta_logp else lambda *args, **kwargs: 0.0
 
         # Trace ODE path if requested
@@ -74,8 +76,8 @@ class ODESolver(Solver):
             path = [x]
 
         # Progress bar
-        pbar = tqdm(T) if progress_bar else T
-        for t in pbar:
+        pbar = tqdm(zip(T, dT)) if progress_bar else zip(T, dT)
+        for t, dt in pbar:
             if progress_bar:
                 pbar.set_description(
                     f"t={t[0].item():.1g} | sigma={self.sde.sigma(t)[0].item():.1g} | "

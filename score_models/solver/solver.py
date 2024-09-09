@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -82,7 +83,16 @@ class Solver(ABC):
     def sde(self):
         return self.score.sde
 
-    def time_steps(self, steps: int, B: int = 1, forward: bool = True, device=DEVICE, **kwargs):
+    def time_steps(
+        self,
+        steps: int,
+        B: int,
+        D: tuple,
+        time_steps: Optional[Tensor] = None,
+        forward: bool = True,
+        device=DEVICE,
+        **kwargs,
+    ):
         """
         Generate a tensor of time steps for integration. Note that the last
         entry is removed because it is the endpoint and not a step. For example
@@ -90,16 +100,27 @@ class Solver(ABC):
         0.9], thus the returned tensor has the time value for the beginning of
         each block of time.
         """
-        t_min = kwargs.get("t_min", self.sde.t_min)
-        t_max = kwargs.get("t_max", self.sde.t_max)
-        delta_t = torch.as_tensor(t_max - t_min, device=device)
-        assert torch.allclose(delta_t, delta_t.reshape(-1)[0]), "All time steps must be the same"
-        if forward:
-            T = torch.linspace(0, 1, steps + 1, device=device)[:-1].repeat(B, 1).T
+        if time_steps is None:
+            t_min = torch.as_tensor(kwargs.get("t_min", self.sde.t_min), device=device)
+            t_max = torch.as_tensor(kwargs.get("t_max", self.sde.t_max), device=device)
+            delta_t = t_max - t_min
+            assert torch.allclose(
+                delta_t, delta_t.reshape(-1)[0]
+            ), "All time steps must be the same"
+            delta_t = delta_t.reshape(-1)[0]  # Get the scalar value
+            t_min = t_min.reshape(-1)[0]
+            if forward:
+                T = torch.linspace(0, 1, steps + 1, device=device)
+            else:
+                T = torch.linspace(1, 0, steps + 1, device=device)
+            T = delta_t * T + t_min
         else:
-            T = torch.linspace(1, 0, steps + 1, device=device)[:-1].repeat(B, 1).T
-        ret = delta_t * T + t_min
-        return ret
+            T = time_steps
+        dT = T[1:] - T[:-1]
+        T = T[:-1]
+        T = T.reshape(-1, 1).repeat(1, B)
+        dT = dT.reshape(T.shape[0], 1, *[1] * len(D)).repeat(1, B, *[1] * len(D))
+        return T, dT
 
     def step_size(self, steps: int, forward: bool, device=DEVICE, **kwargs):
         """Returns the step size for the integration. This is simply the time

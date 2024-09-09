@@ -7,6 +7,7 @@ from score_models import (
     ODESolver,
     EM_SDE,
     RK2_ODE,
+    MVGScoreModel,
 )
 import pytest
 
@@ -89,8 +90,32 @@ def test_solver_forward(solver, mean, cov):
     xT = slvr(x0, steps=50, forward=True, get_delta_logp="ode" in solver, progress_bar=False)
 
     if "ode" in solver:  # check delta_logp calculation for ODE solvers
-        print(xT)
         xT, dlogp = xT
         assert torch.all(torch.isfinite(dlogp))
 
     assert torch.all(torch.isfinite(xT))
+
+
+@pytest.mark.parametrize(
+    "steps,time_steps",
+    (
+        (50, None),  # 50 steps normally
+        (None, torch.linspace(1, 0, 50)),  # 50 steps set by user
+        (None, torch.cat((torch.logspace(0, -2, 49), torch.zeros(1)))),  # 50 steps with log spacing
+    ),
+)
+def test_solver_step(steps, time_steps):
+    sde = VESDE(sigma_min=1e-2, sigma_max=10)
+    mean = torch.zeros(2, dtype=torch.float32)
+    cov = torch.ones(2, dtype=torch.float32)
+    model = MVGScoreModel(
+        sde,
+        mean=mean,
+        cov=cov,
+    )
+
+    samples = model.sample(shape=(100, mean.shape[-1]), steps=steps, time_steps=time_steps)
+
+    assert torch.all(torch.isfinite(samples))
+    assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean for MVG samples not close"
+    assert torch.allclose(samples.std(dim=0), cov.sqrt(), atol=1), "std for MVG samples not close"

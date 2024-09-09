@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -20,6 +20,7 @@ class SDESolver(Solver):
         trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
+        time_steps: Optional[Tuple[Tensor, Tensor]] = None,
         corrector_steps: int = 0,
         corrector_snr: float = 0.1,
         hook: Optional[Callable] = None,
@@ -59,19 +60,15 @@ class SDESolver(Solver):
         B, *D = x.shape
 
         # Step
-        dt = (
-            self.step_size(steps, forward=forward, **kwargs)
-            * torch.ones(B, device=x.device, dtype=x.dtype)
-        ).reshape(B, *[1] * len(D))
-        T = self.time_steps(steps, B, forward=forward, **kwargs)
+        T, dT = self.time_steps(steps, B, D, time_steps=time_steps, forward=forward, **kwargs)
 
         # Trace if requested
         if trace:
             path = [x]
 
         # Progress bar
-        pbar = tqdm(T) if progress_bar else T
-        for t in pbar:
+        pbar = tqdm(zip(T, dT)) if progress_bar else zip(T, dT)
+        for t, dt in pbar:
             if progress_bar:
                 pbar.set_description(
                     f"t={t[0].item():.1g} | sigma={self.sde.sigma(t)[0].item():.1g} | "
