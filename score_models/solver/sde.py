@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 import torch
 from torch import Tensor
@@ -20,7 +20,7 @@ class SDESolver(Solver):
         trace: bool = False,
         kill_on_nan: bool = False,
         denoise_last_step: bool = False,
-        time_steps: Optional[Tuple[Tensor, Tensor]] = None,
+        time_steps: Optional[Tensor] = None,
         corrector_steps: int = 0,
         corrector_snr: float = 0.1,
         hook: Optional[Callable] = None,
@@ -52,6 +52,8 @@ class SDESolver(Solver):
             trace: Whether to return the full path or just the last point.
             kill_on_nan: Whether to raise an error if NaNs are encountered.
             denoise_last_step: Whether to project to the boundary at the last step.
+            time_steps: Optional time steps to use for integration. Should be a 1D tensor containing the bin edges of the
+                time steps. For example, if one wanted 50 steps from 0 to 1, the time steps would be ``torch.linspace(0, 1, 51)``.
             corrector_steps: Number of corrector steps to add after each SDE step (0 for no corrector steps).
             corrector_snr: Signal-to-noise ratio for the corrector steps.
             hook: Optional hook function to call after each step. Will be called with the signature ``hook(t, x, sde, score, solver)``.
