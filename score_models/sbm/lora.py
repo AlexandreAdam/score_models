@@ -13,6 +13,7 @@ from ..sde import SDE
 from ..utils import DEVICE
 from ..save_load_utils import save_checkpoint, load_checkpoint
 
+
 __all__ = ["LoRAScoreModel"]
 
 
@@ -48,29 +49,33 @@ class LoRAScoreModel(ScoreModel):
             for param in self.net.parameters():
                 param.requires_grad = False
 
-            # Construct the LoRA model around the base net
-            if target_modules is None:
-                if isinstance(self.net, NCSNpp):
-                    target_modules = ["Dense_0", "conv"]
-                else:
-                    target_modules = list(set(get_specific_layer_names(self.net)))
-                    print(f"Automatically detecting target modules {' '.join(target_modules)}")
-            if lora_rank is None:
-                raise ValueError("LoRA rank must be provided when initializing from a base SBM.")
-            lora_config = LoraConfig(
-                r=lora_rank,
-                lora_alpha=lora_rank,
-                init_lora_weights="gaussian",
-                target_modules=target_modules
-            )
-            self.lora_net = get_peft_model(copy.deepcopy(self.net), lora_config)
+            # # Construct the LoRA model around the base net
+            self.lora_net = self._make_lora_adapter(lora_rank, target_modules)
+            print(f"Initialized LoRA weights with rank {lora_rank}")
             self.lora_net.print_trainable_parameters()
             self.hyperparameters["lora_rank"] = lora_rank
             self.hyperparameters["target_modules"] = target_modules
-            print(f"Initialized LoRA weights with rank {lora_rank}")
         else:
             # Base model and LoRA initialized with the self.load method 
             super().__init__(path=path, checkpoint=checkpoint, device=device, **hyperparameters)
+
+    def _make_lora_adapter(self, lora_rank: int, target_modules: Optional[str] = None):
+        """
+        Create a LoRA adapter to be injected into the model.
+        """
+        if target_modules is None:
+            if isinstance(self.net, NCSNpp):
+                target_modules = ["Dense_0", "conv"]
+            else:
+                target_modules = list(set(get_specific_layer_names(self.net)))
+                print(f"Automatically detecting target modules {' '.join(target_modules)}")
+        lora_config = LoraConfig(
+            r=lora_rank,
+            lora_alpha=lora_rank,
+            init_lora_weights="gaussian",
+            target_modules=target_modules
+        )
+        return get_peft_model(copy.deepcopy(self.net), lora_config)
         
     def reparametrized_score(self, t, x, *args) -> Tensor:
         """
@@ -96,17 +101,18 @@ class LoRAScoreModel(ScoreModel):
             if not os.path.exists(base_sbm_path):
                 super().save(base_sbm_path, create_path=True)
             
-            # Save the LoRA weights and the optimizer associated with them
+            # Save the optimizer associated with them
             if optimizer: # Save optimizer first since checkpoint number is inferred from number of checkpoint files 
                 save_checkpoint(model=optimizer, path=path, key="optimizer", create_path=create_path)
+            # Save the LoRA adapters only (takes less space than saving the whole merged model)
             save_checkpoint(model=self.lora_net, path=path, key="lora_checkpoint", create_path=create_path)
             self.save_hyperparameters(path)
         else:
             raise ValueError("No path provided to save the model. Please provide a valid path or initialize the model with a path.")
 
     def load(
-            self, 
-            checkpoint: Optional[int] = None, 
+            self,
+            checkpoint: Optional[int] = None,
             raise_error: bool = True
             ):
         if self.path is None:
@@ -121,3 +127,9 @@ class LoRAScoreModel(ScoreModel):
         self.loaded_checkpoint = load_checkpoint(model=self, checkpoint=checkpoint, path=self.path, key="lora_checkpoint", raise_error=raise_error)
         print(f"Loaded LoRA weights with rank {self.hyperparameters['lora_rank']}")
         self.lora_net.print_trainable_parameters()
+    
+    def merge_and_unload(self):
+        """
+        Merge the LoRA weights with the base SBM and unload the LoRA weights.
+        """
+        return ScoreModel(net=self.lora_net.merge_and_unload(), **self.hyperparameters)

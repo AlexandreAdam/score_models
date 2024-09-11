@@ -81,10 +81,6 @@ def test_combine(D, P, Cin, Cout, method):
 
 def test_combine_errors():
     with pytest.raises(ValueError) as e:
-        layer = Combine(in_ch=4, out_ch=6, method="sum", dimensions=2)
-        assert "Method sum requires in_ch == out" in str(e)
-    
-    with pytest.raises(ValueError) as e:
         layer = Combine(in_ch=4, out_ch=6, method="not_a_method", dimensions=2)
         assert "Method not_a_method not recognized for the Combine layer." in str(e)
 

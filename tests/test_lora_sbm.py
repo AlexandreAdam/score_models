@@ -39,3 +39,25 @@ def test_lora_sbm(net, sde, lora_rank, tmp_path):
         assert torch.allclose(sbm.lora_net(t, x), new_sbm.lora_net(t, x))
         assert torch.allclose(sbm.lora_net(t, x), sbm.reparametrized_score(t, x))
         assert torch.allclose(new_sbm.lora_net(t, x), new_sbm.reparametrized_score(t, x))
+
+
+def test_merge_and_unload(tmp_path):
+    # Base SBM
+    model = ScoreModel(MLP(10), sde="vp")
+    
+    # LoRA SBM
+    lora_rank = 10
+    lora_model = LoRAScoreModel(model, lora_rank=lora_rank)
+    
+    # Check that merged model is a ScoreModel
+    base_model = lora_model.merge_and_unload()
+    assert isinstance(base_model, ScoreModel)
+    
+    # Should also be equivalent to the original model per LoRA initialization strategy
+    t = torch.rand(2) 
+    x = torch.randn(2, 10)
+    assert torch.allclose(base_model(t, x), model(t, x))
+    
+    # Check that the LoRA weights are no longer present
+    for name, p in base_model.named_parameters():
+        assert "lora" not in name
