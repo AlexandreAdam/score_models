@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 import torch
 from torch.nn import Module
 from torch import Tensor
-from torch_ema import ExponentialMovingAverage
 
 from ..save_load_utils import (
     save_checkpoint,
