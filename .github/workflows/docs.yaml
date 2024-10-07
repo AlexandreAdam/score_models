@@ -1,0 +1,51 @@
+name: Build and Deploy Docs
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-book:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install Jupyter Book
+        run: pip install jupyter-book
+
+      - name: Install dependencies
+        run: pip install -r docs_requirements.txt
+
+      - name: Build Jupyter Book
+        run: jupyter-book build docs
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jupyter-book-html
+          path: docs/_build/html
+
+  deploy-pages:
+    runs-on: ubuntu-latest
+    needs: build-book
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jupyter-book-html
+          path: docs/_build/html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
