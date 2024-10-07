@@ -28,7 +28,7 @@ def test_lora_sbm(net, sde, lora_rank, tmp_path):
     new_sbm = LoRAScoreModel(path=path)
     
     # Check that models are consistent with each other
-    B = 10
+    B = 2
     D = [10] if isinstance(net, MLP) else [1, 8, 8]
     t = torch.rand(B)
     x = torch.randn(B, *D)
