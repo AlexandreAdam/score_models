@@ -162,8 +162,6 @@ models/
 data/
 __pycache__/*
 .vim
-/docs/
-/doc/
 /*.html
 /*.pdf
 Makefile
