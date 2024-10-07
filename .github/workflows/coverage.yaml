@@ -55,23 +55,11 @@ jobs:
         # Generate coverage report
         continue-on-error: true  # Allow tests to fail without breaking the workflow
       
-      - name: Set Flag
-        id: set_flag
-        run: echo "python_is_3_11=${{ matrix.python-version == '3.11' }}" >> $GITHUB_ENV
-
-  upload-coverage:
-    runs-on: ubuntu-latest
-    needs: build
-    if: success() && env.python_is_3_11 == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Upload coverage reports to Codecov
+        if: matrix.python-version == '3.10'  # Change this to upload coverage only for a specific version
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: true
