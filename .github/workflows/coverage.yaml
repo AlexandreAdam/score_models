@@ -54,11 +54,15 @@ jobs:
           pytest --cov=${{ env.PROJECT_NAME }} --cov-report=xml --cov-report=term tests/
         # Generate coverage report
         continue-on-error: true  # Allow tests to fail without breaking the workflow
+      
+      - name: Set Flag
+        id: set_flag
+        run: echo "python_is_3_11=${{ matrix.python-version == '3.11' }}" >> $GITHUB_ENV
 
   upload-coverage:
     runs-on: ubuntu-latest
     needs: build
-    if: success() && matrix.python-version == '3.10'  # Only run for Python 3.10
+    if: success() && env.python_is_3_11 == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
