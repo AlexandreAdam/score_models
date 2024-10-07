@@ -28,11 +28,11 @@ pip install score_models
 The `ScoreModel` class is the main interface for training and using score models, defined as
 
 ```math
-\mathbf{s}_\theta(t, \mathbf{x}) \equiv \nabla_\mathbf{x} \log p_t(\mathbf{x}) = \frac{1}{\sigma(t)} f_\theta (t, \mathbf{x})$$
+\mathbf{s}_\theta(t, \mathbf{x}) \equiv \nabla_\mathbf{x} \log p_t(\mathbf{x}) = \frac{1}{\sigma(t)} f_\theta (t, \mathbf{x})
 ```
 
 where $\sigma(t)$ is the standard deviation of the perturbation kernel $`p_t(\mathbf{x} \mid \mathbf{x}_0)`$
-of an SDE and $f_\theta : [0, 1] \times\mathbb{R}^d \to \mathbb{R}^d$ is a neural network for $\mathbf{x} \in \mathbb{R}^d$. 
+of an SDE and $f_\theta : [0, 1] \times\mathbb{R}^d \to \mathbb{R}^d$ is a neural network for $`\mathbf{x} \in \mathbb{R}^d`$. 
 
 The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
 
