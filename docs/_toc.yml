@@ -2,8 +2,16 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: front-page
-chapters:
-- file: intro
-- file: notebooks
-- file: markdown-notebooks
+root: front_page
+parts:
+  - caption: Introduction
+    chapters:
+      - file: intro
+#- file: getting_started
+#- file: advanced_topics
+  - caption: Examples
+    chapters:
+      - file: dummy
+#- file: best_practices
+#- file: notebooks/01_introduction
+#- file: notebooks/02_training

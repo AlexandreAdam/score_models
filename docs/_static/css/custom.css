@@ -1,0 +1,58 @@
+/* -- .bd-container and .bd-container__inner both need to adjust ---------- */
+/* -- this so 'outer container' grows with browser (no L/R 'dead space') -- */
+.bd-container {
+    max-width: 99%;
+    min-width: 1200px;
+}
+
+/* -- this so the 'inner container' fills the outer container -------------- */
+.bd-container .bd-container__inner {
+    max-width: 99%;
+    min-width: 1200px;
+}
+
+/* -- .bd-article-container holds the "text in the middle" (notebook / md) ------ */
+/* -- width is as high as as 100 "ems" (characters) wide, scales with font size -*/
+.bd-main .bd-content .bd-article-container {
+    max-width: 100em;
+    min-width: 40em;
+}
+
+/* Apply Times New Roman to the whole page */
+body {
+    font-family: 'Times New Roman', Times, serif;
+}
+
+body, p, span, a, li, dt, dd {
+    font-size: 1.1em;
+    text-align: justify; /* Justify all text */
+}
+
+/* Update header styles with the specified colors */
+h1 {
+    /* Set the base underline style */
+    border-bottom: 2px solid transparent;
+
+    /* Define the base gradient for light mode using red */
+    background-image: linear-gradient(to right, transparent 0, #A7210D 100%, transparent 100%); /* Red (rufous) */
+}
+
+h2 {
+    /* Create a linear gradient with transparency fading to the right using burnt orange */
+    background-image: linear-gradient(to right, transparent 0, transparent 0, #B1541A 100%, transparent 100%); /* Burnt Orange */
+    background-position: bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 4px;
+    /* Make the transition smooth */
+    transition: background-position 0.5s ease-in-out;
+}
+
+h3 {
+    /* Optional: You can still use a color for h3 */
+    background-image: linear-gradient(to right, transparent 0, transparent 0, #C27673ff 100%, transparent 100%); /* old rose */
+    background-position: bottom left;
+    background-repeat: no-repeat;
+    background-size: 25% 4px;
+    /* Make the transition smooth */
+    transition: background-position 0.5s ease-in-out;
+}
