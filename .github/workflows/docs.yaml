@@ -2,7 +2,9 @@ name: Build and Deploy Docs
 on:
   push:
     branches:
-      - main
+      - master
+      - dev
+      - docs
 
 jobs:
   build-book:
