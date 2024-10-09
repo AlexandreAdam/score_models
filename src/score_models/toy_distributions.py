@@ -3,6 +3,8 @@ import numpy as np
 from torch.distributions import constraints
 from torch import distributions as tfd
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def swiss_roll(modes=128, size=0.1, width=0.1, spread=0.7, device=DEVICE) -> tfd.Distribution:
     """
     Returns a swiss roll distribution from of a mixture of <modes> gaussian distributions
@@ -85,7 +87,12 @@ def checkerboard(squares: int = 4, size: float = None) -> tfd.Distribution:
     return tfd.MixtureSameFamily(mixture, component, validate_args=False)
 
 
-def egg_box(modes: int = 16, mode_width: float = 0.5, box_size: float = None, device=DEVICE) -> tfd.Distribution:
+def egg_box(
+        modes: int = 16, 
+        mode_width: float = 0.5, 
+        box_size: float = None, 
+        weights: tuple[float] = None, 
+        device=DEVICE) -> tfd.Distribution:
     """
     Returns gaussian mixture equally spaces on the 2d plane.
         :param modes: Number of modes in the mixture
@@ -94,11 +101,18 @@ def egg_box(modes: int = 16, mode_width: float = 0.5, box_size: float = None, de
     """
     assert int(np.sqrt(modes))**2 == modes, f"modes = {modes} is not a square number"
     if box_size is None:
-        box_size = modes
+        box_size = modes**(1/2)
     x = torch.linspace(-1, 1, int(np.sqrt(modes))).to(device)
     x, y = torch.meshgrid(x, x, indexing="xy")
     coords = box_size * torch.stack([x.ravel(), y.ravel()], dim=1)
-    mixture = tfd.Categorical(probs=torch.ones(modes).to(device), validate_args=False)
+    if weights is None:
+        weights = torch.ones(modes).to(device)
+        weights /= weights.sum()
+    else:
+        weights = torch.tensor(weights).to(device)
+        weights /= weights.sum()
+    mixture = tfd.Categorical(probs=weights, validate_args=False)
     component = tfd.Independent(tfd.Normal(loc=coords, scale=mode_width, validate_args=False), 1)
     return tfd.MixtureSameFamily(mixture, component, validate_args=False)
+
 

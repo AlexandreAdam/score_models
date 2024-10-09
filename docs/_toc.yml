@@ -6,7 +6,7 @@ root: front_page
 parts:
   - caption: Score-Based Modeling
     chapters:
-      - file: notebooks/01-intro
+      - file: notebooks/01-intro.ipynb
       - file: notebooks/02-score_matching
       - file: notebooks/03-diffusion
   - caption: Examples

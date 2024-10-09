@@ -44,10 +44,4 @@ repository:
   branch: master # Which branch of the repository should be used when creating links
 
 #######################################################################################
-#
 
-# Jupyter Book settings
-sphinx:
-  config:
-    bibtex_reference_style: author_year
-    bibtex_bibfiles: "references.bib"

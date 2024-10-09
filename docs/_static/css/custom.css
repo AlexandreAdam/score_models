@@ -24,7 +24,7 @@ body {
 }
 
 body, p, span, a, li, dt, dd {
-    font-size: 1.1em;
+    font-size: 1em;
     text-align: justify; /* Justify all text */
 }
 

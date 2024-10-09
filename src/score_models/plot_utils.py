@@ -12,9 +12,12 @@ from scipy.interpolate import interpn
 from scipy.special import logsumexp
 from matplotlib.colors import Normalize
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 plt.style.use('dark_background')
 plt.style.use('science')
 params = {
+         'figure.figsize': (4, 4),
          'axes.labelsize': 18,
          'axes.titlesize': 30,
          'ytick.labelsize' :20,
@@ -57,8 +60,8 @@ def plot_density(
     norm = Normalize(vmin=p.min() if vmin is None else vmin, vmax=p.max() if vmax is None else vmax)
     if ax is None:
         fig, ax = plt.subplots()
-    im = ax.imshow(p, extent=extent, cmap=cmap, norm=norm, **kwargs)
-    if colorbar:
+    im = ax.imshow(p, extent=extent, cmap=cmap, norm=norm, aspect="auto", **kwargs)
+    if colorbar and fig is not None:
         cax = fig.colorbar(im, ax=ax, fraction=0.038, pad=0.02)
         cax.set_ylabel(r'$p(\mathbf{x})$')
     return ax
@@ -104,7 +107,7 @@ def plot_scatter(
     return ax
 
 
-def plot_score_field(
+def plot_score(
         score_fn: Callable,
         fig=None,
         ax=None,
@@ -130,7 +133,7 @@ def plot_score_field(
         fig, ax = plt.subplots()
     norm = Normalize()
     ax.quiver(x, y, g[..., 0], g[..., 1], color=cmap(norm(colors)), scale=scale, width=width)
-    if fig is not None:
+    if fig is not None and colorbar:
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
         box = ax.get_position()
@@ -139,7 +142,7 @@ def plot_score_field(
         cax.set_ylabel(r"$\lVert \nabla \log p(\mathbf{x}) \rVert$")
     return ax
 
-def plot_density_contours(
+def plot_contours(
         logp_fn: Callable,
         fig=None,
         ax=None,

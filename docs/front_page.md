@@ -16,8 +16,8 @@ You can use the Github Button at the top of the page to access the repository or
 ## Scope of the package
 
 This package is intended to
-1. Store neural network architectures useful for score-based models (SBM);
-2. Provide methods to train SBM and sample from them;
+1. Store neural network architectures for score-based models (SBM);
+2. Provide methods to train and sample from SBM;
 3. Provide utilities for SBM.
 
 This package is not intended to be a general-purpose machine learning library nor a general-purpose sampler package.
