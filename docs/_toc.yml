@@ -4,14 +4,11 @@
 format: jb-book
 root: front_page
 parts:
-  - caption: Introduction
+  - caption: Score-Based Modeling
     chapters:
-      - file: intro
-#- file: getting_started
-#- file: advanced_topics
+      - file: notebooks/01-intro
+      - file: notebooks/02-score_matching
+      - file: notebooks/03-diffusion
   - caption: Examples
     chapters:
       - file: dummy
-#- file: best_practices
-#- file: notebooks/01_introduction
-#- file: notebooks/02_training
