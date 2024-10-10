@@ -22,6 +22,10 @@ To install the package, you can use pip:
 pip install score_models
 ```
 
+## Documentation
+
+The documentation is available at [https://score-models.readthedocs.io/en/latest/](https://score-models.readthedocs.io/en/latest/).
+
 ## Usage
 
 
