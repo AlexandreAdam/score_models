@@ -60,7 +60,7 @@ def plot_density(
     norm = Normalize(vmin=p.min() if vmin is None else vmin, vmax=p.max() if vmax is None else vmax)
     if ax is None:
         fig, ax = plt.subplots()
-    im = ax.imshow(p, extent=extent, cmap=cmap, norm=norm, aspect="auto", **kwargs)
+    im = ax.imshow(p, extent=extent, cmap=cmap, norm=norm, aspect="auto", origin="lower", **kwargs)
     if colorbar and fig is not None:
         cax = fig.colorbar(im, ax=ax, fraction=0.038, pad=0.02)
         cax.set_ylabel(r'$p(\mathbf{x})$')
