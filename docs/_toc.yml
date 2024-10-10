@@ -1,9 +1,9 @@
-# Table of contents
-# Learn more at https://jupyterbook.org/customize/toc.html
-
 format: jb-book
 root: front_page
 parts:
+  - caption: Introduction
+    chapters:
+      - file: notebooks/00-Overview
   - caption: Score-Based Modeling
     chapters:
       - file: notebooks/01-the_score
