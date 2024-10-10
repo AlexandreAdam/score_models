@@ -6,6 +6,9 @@ on:
       - dev
       - docs
 
+permissions:
+  contents: write  # This allows the action to push to the repository
+
 jobs:
   build-book:
     runs-on: ubuntu-latest
