@@ -2,6 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/score_models.svg)](https://badge.fury.io/py/score_models)
 [![codecov](https://codecov.io/gh/AlexandreAdam/torch_score_models/branch/master/graph/badge.svg)](https://codecov.io/gh/AlexandreAdam/score_models)
+[![Documentation Status](https://readthedocs.org/projects/score-models/badge/?version=latest)](https://score-models.readthedocs.io/en/latest/?badge=latest)
+
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
 - Simple initialisation of MLP, NCSN++ and DDPM neural network architectures
