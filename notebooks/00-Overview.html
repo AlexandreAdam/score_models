@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Score Matching &#8212; Score Models</title>
+    <title>Getting Started &#8212; Score Models</title>
   
   
   
@@ -58,11 +58,11 @@
     <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'notebooks/02-score_matching';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'notebooks/00-Overview';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Diffusion" href="03-diffusion.html" />
-    <link rel="prev" title="The score" href="01-the_score.html" />
+    <link rel="next" title="The score" href="01-the_score.html" />
+    <link rel="prev" title="Score-Models" href="../front_page.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -175,13 +175,13 @@
             </li>
         </ul>
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Introduction</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="00-Overview.html">Getting Started</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Getting Started</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Score-Based Modeling</span></p>
-<ul class="current nav bd-sidenav">
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="01-the_score.html">The score</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Score Matching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02-score_matching.html">Score Matching</a></li>
 <li class="toctree-l1"><a class="reference internal" href="03-diffusion.html">Diffusion</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
@@ -258,7 +258,7 @@
       
       
       
-      <li><a href="https://github.com/AlexandreAdam/score_models/issues/new?title=Issue%20on%20page%20%2Fnotebooks/02-score_matching.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/AlexandreAdam/score_models/issues/new?title=Issue%20on%20page%20%2Fnotebooks/00-Overview.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -288,7 +288,7 @@
       
       
       
-      <li><a href="../_sources/notebooks/02-score_matching.ipynb" target="_blank"
+      <li><a href="../_sources/notebooks/00-Overview.ipynb" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -372,7 +372,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Score Matching</h1>
+    <h1>Getting Started</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -382,10 +382,14 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naive-score-matching">Naive Score Matching</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-different-levels-of-noise-ddpm">Adding different levels of noise (DDPM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling-with-diffusion">Sampling with Diffusion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-based-models-ebm">Energy-Based Models (EBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hessian-diagonal-models-hdm">Hessian Diagonal Models (HDM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditional-sbm">Conditional SBM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#guided-diffusion">Guided Diffusion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-efficient-fine-tuning-of-sbm-s-with-lora">Parameter efficient fine-tuning of SBM’s with LoRA</a></li>
 </ul>
             </nav>
         </div>
@@ -397,19 +401,31 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="score-matching">
-<h1>Score Matching<a class="headerlink" href="#score-matching" title="Link to this heading">#</a></h1>
-<section id="naive-score-matching">
-<h2>Naive Score Matching<a class="headerlink" href="#naive-score-matching" title="Link to this heading">#</a></h2>
+  <section class="tex2jax_ignore mathjax_ignore" id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h1>
+<section id="neural-network-architectures">
+<h2>Neural network architectures<a class="headerlink" href="#neural-network-architectures" title="Link to this heading">#</a></h2>
 </section>
-<section id="denoising-score-matching-dsm">
-<h2>Denoising Score-Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
+<section id="score-based-model-sbm">
+<h2>Score-Based Model (SBM)<a class="headerlink" href="#score-based-model-sbm" title="Link to this heading">#</a></h2>
 </section>
-<section id="adding-different-levels-of-noise-ddpm">
-<h2>Adding different levels of noise (DDPM)<a class="headerlink" href="#adding-different-levels-of-noise-ddpm" title="Link to this heading">#</a></h2>
+<section id="sampling-with-diffusion">
+<h2>Sampling with Diffusion<a class="headerlink" href="#sampling-with-diffusion" title="Link to this heading">#</a></h2>
 </section>
-<section id="continuous-time-dsm-diffusion">
-<h2>Continuous-time DSM (Diffusion)<a class="headerlink" href="#continuous-time-dsm-diffusion" title="Link to this heading">#</a></h2>
+<section id="energy-based-models-ebm">
+<h2>Energy-Based Models (EBM)<a class="headerlink" href="#energy-based-models-ebm" title="Link to this heading">#</a></h2>
+</section>
+<section id="hessian-diagonal-models-hdm">
+<h2>Hessian Diagonal Models (HDM)<a class="headerlink" href="#hessian-diagonal-models-hdm" title="Link to this heading">#</a></h2>
+</section>
+<section id="conditional-sbm">
+<h2>Conditional SBM<a class="headerlink" href="#conditional-sbm" title="Link to this heading">#</a></h2>
+</section>
+<section id="guided-diffusion">
+<h2>Guided Diffusion<a class="headerlink" href="#guided-diffusion" title="Link to this heading">#</a></h2>
+</section>
+<section id="parameter-efficient-fine-tuning-of-sbm-s-with-lora">
+<h2>Parameter efficient fine-tuning of SBM’s with LoRA<a class="headerlink" href="#parameter-efficient-fine-tuning-of-sbm-s-with-lora" title="Link to this heading">#</a></h2>
 </section>
 </section>
 
@@ -444,20 +460,20 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="01-the_score.html"
+       href="../front_page.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">The score</p>
+        <p class="prev-next-title">Score-Models</p>
       </div>
     </a>
     <a class="right-next"
-       href="03-diffusion.html"
+       href="01-the_score.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Diffusion</p>
+        <p class="prev-next-title">The score</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -477,10 +493,14 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naive-score-matching">Naive Score Matching</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-different-levels-of-noise-ddpm">Adding different levels of noise (DDPM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling-with-diffusion">Sampling with Diffusion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-based-models-ebm">Energy-Based Models (EBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hessian-diagonal-models-hdm">Hessian Diagonal Models (HDM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditional-sbm">Conditional SBM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#guided-diffusion">Guided Diffusion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-efficient-fine-tuning-of-sbm-s-with-lora">Parameter efficient fine-tuning of SBM’s with LoRA</a></li>
 </ul>
   </nav></div>
 
