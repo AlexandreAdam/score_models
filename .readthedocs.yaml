@@ -4,13 +4,12 @@ build:
   os: "ubuntu-20.04"
   tools:
     python: "3.9"
+  jobs:
+    pre_build:
+      - "jupyter-book config sphinx docs/"
 
 python:
   install:
     - requirements: docs_requirements.txt
     - method: pip
       path: .
-
-commands:
-  build:
-    - jupyter-book build docs
