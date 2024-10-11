@@ -391,6 +391,7 @@ document.write(`
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-the-distribution">Annealing the distribution</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
 </ul>
@@ -424,7 +425,7 @@ can be trained to match a score function by minimizing the mean squared error lo
 function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. (2019)</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function.</p>
 <p>Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls (which the SSM also inherited).
 As it turns out, score matching is not straightforward even when given perfect information about the ground truth score.</p>
-<p>We will build score-matching from scratch to showcase the internals of the score models package. All that we do here is abstracted away in the package. You can find the relevant routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
+<p>We will build score-matching from scratch to showcase the internals of the score models package. The relevant stuff to score-matching that we do in this notebook is abstracted away in the package. You can find the routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
 <div class="cell tag_hide-cell docutils container">
 <details class="hide above-input">
 <summary aria-label="Toggle hidden content">
@@ -443,8 +444,8 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/alexandre/anaconda3/envs/caustic/lib/python3.9/pty.py:85: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
-  pid, fd = os.forkpty()
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/alexandre/anaconda3/envs/caustic/lib/python3.9/site-packages/transformers/utils/generic.py:311: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  torch.utils._pytree._register_pytree_node(
 </pre></div>
 </div>
 </div>
@@ -519,7 +520,7 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "dfabc5e415f14a6085c3daede321b9bf", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "d1264ea6c4f94b0e91f8f11b71c55ab3", "version_major": 2, "version_minor": 0}</script></div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -538,7 +539,7 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/45285263e2d1793e8eb31f878879ae8ff9981c97c1e0e1a31ad7222603bdac01.png" src="../_images/45285263e2d1793e8eb31f878879ae8ff9981c97c1e0e1a31ad7222603bdac01.png" />
+<img alt="../_images/c84343afc8b779a39d8238770be4e7bfe653e4b225f4c2caaf06329a60a464a0.png" src="../_images/c84343afc8b779a39d8238770be4e7bfe653e4b225f4c2caaf06329a60a464a0.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -571,15 +572,21 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/bb91d7b7470a1c40cbf3e93ef6830433afb1d42eb1ece4cc41aad04aa4bf1b35.png" src="../_images/bb91d7b7470a1c40cbf3e93ef6830433afb1d42eb1ece4cc41aad04aa4bf1b35.png" />
+<img alt="../_images/16d699887ad73996533c62c7085f9015694f3ffb01a2e4670b5c373d5bb0794d.png" src="../_images/16d699887ad73996533c62c7085f9015694f3ffb01a2e4670b5c373d5bb0794d.png" />
 </div>
 </div>
-<p>Close to each mode, the score is very well approximated. But, in between the modes, the model is a
-rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero (see loss curve above).</p>
-<p>When we train the neural network, we do not uniformly sample the ambiant space <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span>. Rather, we sample from the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>. It is almost impossible to sample a point in between the modes — which we chose to be well-separated. The loss function is blind there.</p>
-<p>One might suggest to change the sampling distribution to something more uniform. Although this might work for our toy example, this approach is bound to fail for high-dimensional spaces (like images). The volume of the space scales exponentially with the dimensionality of the space, <span class="math notranslate nohighlight">\(\mathcal{V} \propto C^n\)</span>. And there is this thing called the manifold hypothesis, which claims (rightly) that data typically belongs to a manifold of dimensionality far smaller than the ambiant space in which we observe it. In other words, the probability of randomly choosing a valid sample from <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> in <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span> is
-vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> increases — at least for interesting <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>. If we want to approximate the score of <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, we better make sure our score is good near points of high-density.</p>
-<p>Furthermore, there are good theoretical reasons to have <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> as our sampling distribution. In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence. We will come back to this point later.</p>
+<p>Close to each mode, the score is very well approximated.
+But, in between the modes, the model is a rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero (see loss curve above).</p>
+<p>When we train the neural network, we do not uniformly sample the ambiant space <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span>. Rather, we sample from the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
+It is almost impossible to sample a point in between the modes — which we chose to be well-separated. The loss function is blind there.</p>
+<p>One might suggest to change the sampling distribution to something more uniform. Although it might work for our toy example, this approach is bound to fail for high-dimensional spaces (like images).
+The volume of a vector space scales exponentially with the dimensionality.
+And there is this thing called the manifold hypothesis, which claims (rightly) that data typically belongs to a manifold of dimensionality far smaller than the ambiant space in which we observe it.
+In other words, the probability of randomly choosing a valid sample from <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> in <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span> is
+vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> increases — at least for interesting <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
+If we want to approximate the score of <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, we better make sure our score is good near points of high-density.</p>
+<p>Furthermore, there are good theoretical reasons to have <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> as our sampling distribution.
+In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence. We will come back to this point later.</p>
 <p>So what do we do? Before giving the answer, let’s just put to rest one worry. Yes, I have cherry-picked the example. In fact, if the modes are closer together, the naive score-matching approach works a little bit better.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -612,7 +619,7 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "ae291ca848134c49bd792250459b4bb2", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "0193def2d7bb4d0299e6d0f262efd405", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -632,7 +639,7 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/81032174f073f8d0b72a1d497071b5961f46ef5e68f1c2b6645fc12b98d83953.png" src="../_images/81032174f073f8d0b72a1d497071b5961f46ef5e68f1c2b6645fc12b98d83953.png" />
+<img alt="../_images/c900255bae3f88acda08778e917e8bf50ea8f14c3ecc51a13ff7e2cb94b169c8.png" src="../_images/c900255bae3f88acda08778e917e8bf50ea8f14c3ecc51a13ff7e2cb94b169c8.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -665,20 +672,20 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/6a0ac02d6df1bf208c3585d78c164b4b46265e3cb8073244b4134cb1f35841e1.png" src="../_images/6a0ac02d6df1bf208c3585d78c164b4b46265e3cb8073244b4134cb1f35841e1.png" />
+<img alt="../_images/56561642f49b49e44d72c7dfb2bc01e2c320f7d00224e97bd857b0787c978025.png" src="../_images/56561642f49b49e44d72c7dfb2bc01e2c320f7d00224e97bd857b0787c978025.png" />
 </div>
 </div>
 </section>
 </section>
 <section id="annealing-the-distribution">
 <h2>Annealing the distribution<a class="headerlink" href="#annealing-the-distribution" title="Link to this heading">#</a></h2>
-<p>So, to solve the problem, we will anneal the distribution to remove those low density regions. Meaning we will anneal right up until the sampling distribution looks uniform and covers the ambiant space. Yes we just said that was probably a foolish idea. But it works.</p>
-<p>The clever idea is to realize that we can make the neural network learn more than one distribution. In fact, let’s recall the Gibbs measure and use the (inverse) temperature parameter <span class="math notranslate nohighlight">\(\beta\)</span> to describe a family of distribution related by the same energy function</p>
+<p>To solve the problem, we can try annealling the distribution to remove those low density regions. Meaning we will anneal right up until the sampling distribution looks uniform and covers the ambiant space. Yes, we just said that was probably a foolish idea. But it works. <strong>Technically, this implementation of annealing assumes we have access to the ground truth score. But bear with me, we’ll eventually define a procedure that works with data. Diffusion models implement an idea quite similar.</strong></p>
+<p>The clever idea is to realize that we can make the neural network learn more than one distribution. In fact, let’s recall the Gibbs measure and use the (inverse) temperature parameter <span class="math notranslate nohighlight">\(\beta\)</span> to describe a family of distributions related by the same energy function</p>
 <div class="math notranslate nohighlight">
 \[
     p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}e^{- \beta E(\mathbf{x})}\, .
 \]</div>
-<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>, the exponential tends to one. <span class="math notranslate nohighlight">\(p_0(\mathbf{x})\)</span> will describe a Uniform distribution</p>
+<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>, the exponential tend to one. Loosely speaking, <span class="math notranslate nohighlight">\(p_0(\mathbf{x})\)</span> will describe a Uniform distribution</p>
 <div class="math notranslate nohighlight">
 \[
     p_0(\mathbf{x}) = \mathcal{U}(\mathbb{R}^n)\, .
@@ -687,9 +694,168 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
 <div class="math notranslate nohighlight">
 \[
-p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \mathbf{x}_j)\, .
+p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
 \]</div>
-<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\mathbf{x}_j) = 0\)</span>.</p>
+<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_j) = 0\)</span>. For our exercice, we only need to consider the family
+<span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution.</p>
+</section>
+<section id="annealed-score-matching">
+<h2>Annealed score matching<a class="headerlink" href="#annealed-score-matching" title="Link to this heading">#</a></h2>
+<p>Learning a family of distribution might seem like a more difficult task than what we set out to do initially. The point, of course, is that we’ll be changing the sampling distribution accordingly so that the neural network can train on points from the ambiant space (in between the modes)</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{L}_\theta = \mathbb{E}_{p(\beta)} \mathbb{E}_{p_\beta(\mathbf{x})}
+        \bigg[ \big\lVert 
+            \mathbf{s}_\theta(\beta, \mathbf{x}) - \beta \nabla_{\mathbf{x}} \log p(\mathbf{x}) 
+         \big\rVert^2_2 \bigg]\, .
+\]</div>
+<p>We used the fact that <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}} \log p_\beta(\mathbf{x}) = \beta \nabla_{\mathbf{x}} \log p(\mathbf{x})\)</span> from our definition of the Gibbs measure. To make the task easier for the neural network, we redefine the score to incorporate the temperature parameter</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbf{s}_\theta \equiv \beta \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x})\, .
+\]</div>
+<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network, though now it must take as input the temperature parameter. In this way, the neural network is still learning about our target distribution even though we are sampling points from an annealed version of it.</p>
+<p>Our loss becomes</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{L}_\theta = \mathbb{E}_{p(\beta)} \mathbb{E}_{p_\beta(\mathbf{x})}
+        \bigg[ \beta^2 \big\lVert 
+            \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x}) - \nabla_{\mathbf{x}} \log p(\mathbf{x}) 
+         \big\rVert^2_2 \bigg]\, .
+\]</div>
+<p>Now we make two arbitrary choices. First, we change the weight of the loss to be <span class="math notranslate nohighlight">\(\beta\)</span> instead of <span class="math notranslate nohighlight">\(\beta^2\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{L}_\theta = \mathbb{E}_{p(\beta)} \mathbb{E}_{p_\beta(\mathbf{x})}
+        \bigg[ \beta \big\lVert 
+            \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x}) - \nabla_{\mathbf{x}} \log p(\mathbf{x}) 
+         \big\rVert^2_2 \bigg]\, .
+\]</div>
+<p>Second, we choose <span class="math notranslate nohighlight">\(p(\beta)\)</span> to be a log uniform distribution over the range <span class="math notranslate nohighlight">\([10^{-3}, 1]\)</span>. The lower bound is to avoid the singularity as <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>. I will not explain these choices here. I will simply say that they anticipate the formal derivation of the loss function.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">):</span> <span class="c1"># p_{\beta}(\mathbf{x})</span>
+    <span class="n">mode_width</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">/</span> <span class="n">beta</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">egg_box</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">mode_width</span><span class="o">=</span><span class="n">mode_width</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">sample_annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">beta</span><span class="p">:</span> <span class="n">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">randomness</span><span class="o">=</span><span class="s2">&quot;different&quot;</span><span class="p">)(</span><span class="n">beta</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">distribution</span> <span class="o">=</span> <span class="n">egg_box</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">mode_width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># Original distribution</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell tag_hide-cell docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell content</span>
+<span class="expanded">Hide code cell content</span>
+</summary>
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">left_matmul</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">,</span> <span class="n">in_dims</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+<span class="k">class</span> <span class="nc">PositionalEncoding</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">width</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">width</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">left_matmul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">beta</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">beta</span><span class="p">)],</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">AnnealedSBM</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pe</span> <span class="o">=</span> <span class="n">PositionalEncoding</span><span class="p">(</span><span class="n">width</span><span class="p">)</span> <span class="c1"># Encode beta into a positional encoding 1 -&gt; width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_layer</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span> <span class="c1"># Input layer n -&gt; width</span>
+        <span class="n">module_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">depth</span><span class="p">):</span>
+            <span class="n">module_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_layer</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">width</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="c1"># Output layer width -&gt; n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">module_list</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pe</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">silu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_layer</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">beta</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">silu</span><span class="p">(</span><span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">beta</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Output layer has no activation function</span>
+        <span class="k">return</span> <span class="n">x</span>
+</pre></div>
+</div>
+</div>
+</details>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">annealed_score_matching_loss</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">sbm</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">beta</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">score</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">sbm</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">2e3</span><span class="p">)</span>  <span class="c1"># Number of iterations</span>
+<span class="n">B</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Batch size</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">AnnealedSBM</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">optim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+
+<span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)):</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">B</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">sample_annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">annealed_score_matching_loss</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">net</span><span class="p">)</span>
+    <span class="n">optim</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">optim</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "1d97346008b546f896c9e84bd364871c", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="cell tag_hide-input docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell source</span>
+<span class="expanded">Hide code cell source</span>
+</summary>
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">extent</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1.</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+    <span class="n">plot_density</span><span class="p">(</span><span class="n">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span><span class="o">.</span><span class="n">log_prob</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">extent</span><span class="o">=</span><span class="n">extent</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\beta = 10^{</span><span class="si">%d</span><span class="s2">}$&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">beta</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+    <span class="n">plot_score</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">extent</span><span class="o">=</span><span class="n">extent</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+    <span class="n">plot_score</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">net</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">beta</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">x</span><span class="p">),</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">extent</span><span class="o">=</span><span class="n">extent</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">);</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$p_{\beta}(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span><span class="n">xycoords</span><span class="o">=</span><span class="s2">&quot;axes fraction&quot;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\beta^{-1}\nabla_{\mathbf</span><span class="si">{x}</span><span class="s2">} \log p_{\beta}(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span><span class="n">xycoords</span><span class="o">=</span><span class="s2">&quot;axes fraction&quot;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\beta^{-1}\mathbf</span><span class="si">{s}</span><span class="s2">_\theta(\beta, \mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span><span class="n">xycoords</span><span class="o">=</span><span class="s2">&quot;axes fraction&quot;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">24</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</details>
+<div class="cell_output docutils container">
+<img alt="../_images/0b01484fb6b04c09cbf7c21abe82f629f615817eae77cfeacdeabde35ffced93.png" src="../_images/0b01484fb6b04c09cbf7c21abe82f629f615817eae77cfeacdeabde35ffced93.png" />
+</div>
+</div>
 </section>
 <section id="denoising-score-matching-dsm">
 <h2>Denoising Score-Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
@@ -770,6 +936,7 @@ p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \mathbf{x}_j)\, .
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-the-distribution">Annealing the distribution</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
 </ul>

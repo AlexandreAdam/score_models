@@ -512,19 +512,19 @@ Let’s consider a mixture of 4 well-separated Gaussian modes with equal weights
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">plot_density</span><span class="p">(</span><span class="n">logp</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_2$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_2$&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 <span class="n">plot_score</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\nabla_{\mathbf</span><span class="si">{x}</span><span class="s2">} \log p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/eda0cf2f1297a69364655078d95fedbf75c24d6f1f134e426a909f28cad219d3.png" src="../_images/eda0cf2f1297a69364655078d95fedbf75c24d6f1f134e426a909f28cad219d3.png" />
+<img alt="../_images/a23e17896b75609757b4d79128c54fd41f2b2e37c7a6ec54979dc19930d5a24e.png" src="../_images/a23e17896b75609757b4d79128c54fd41f2b2e37c7a6ec54979dc19930d5a24e.png" />
 </div>
 </div>
 <p>The score is a vector field pointing toward regions of higher density. The farther from these regions, the larger the magnitude of the score. But, since the score is local, the magnitude does not depend on the relative magnitude of the mode.</p>
@@ -549,19 +549,19 @@ But, the magnitude and orientation of the score field picture on the right does 
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">plot_density</span><span class="p">(</span><span class="n">logp</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_2$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_2$&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 <span class="n">plot_score</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\nabla_{\mathbf</span><span class="si">{x}</span><span class="s2">} \log p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/74143fb257249efa72736f146bb52af15e26e904505ace05d568b1402c61c8ae.png" src="../_images/74143fb257249efa72736f146bb52af15e26e904505ace05d568b1402c61c8ae.png" />
+<img alt="../_images/4221b0a167b788ae158e47d413af3340d74b0fb7bd737742c703ab732c6a9488.png" src="../_images/4221b0a167b788ae158e47d413af3340d74b0fb7bd737742c703ab732c6a9488.png" />
 </div>
 </div>
 <p>Of course, there is nothing magical about this.
@@ -611,19 +611,19 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="n">plot_density</span><span class="p">(</span><span class="n">logp</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_2$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_2$&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 
 <span class="n">ax</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 <span class="n">plot_score</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\nabla_{\mathbf</span><span class="si">{x}</span><span class="s2">} \log p(\mathbf</span><span class="si">{x}</span><span class="s2">)$&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathbf</span><span class="si">{x}</span><span class="s2">_1$&quot;</span><span class="p">);</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x_1$&quot;</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/5da1ef1b53c40b66106cef53d074de9837acd7d29302d7520ddec45c3bb70164.png" src="../_images/5da1ef1b53c40b66106cef53d074de9837acd7d29302d7520ddec45c3bb70164.png" />
+<img alt="../_images/6faf9342e15bad86e7d599e25b7993f75e86c1077eeed0624a4bfc1863c52d8e.png" src="../_images/6faf9342e15bad86e7d599e25b7993f75e86c1077eeed0624a4bfc1863c52d8e.png" />
 </div>
 </div>
 </section>
