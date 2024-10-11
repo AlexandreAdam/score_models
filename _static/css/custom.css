@@ -52,7 +52,7 @@ h3 {
     background-image: linear-gradient(to right, transparent 0, transparent 0, #C27673ff 100%, transparent 100%); /* old rose */
     background-position: bottom left;
     background-repeat: no-repeat;
-    background-size: 25% 4px;
+    background-size: 50% 4px;
     /* Make the transition smooth */
     transition: background-position 0.5s ease-in-out;
 }
