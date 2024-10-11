@@ -45,5 +45,5 @@ repository:
 
 sphinx:
   config:
-    nb_execution_mode: auto
+    nb_execution_mode: 'off'
 #######################################################################################
