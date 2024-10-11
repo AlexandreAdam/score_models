@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=6b62941f" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=fc1459ca" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
@@ -390,8 +390,8 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-the-sbm">Training the SBM</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-the-distribution">Annealing the distribution</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-different-levels-of-noise-ddpm">Adding different levels of noise (DDPM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
 </ul>
             </nav>
@@ -670,11 +670,29 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 </div>
 </section>
 </section>
+<section id="annealing-the-distribution">
+<h2>Annealing the distribution<a class="headerlink" href="#annealing-the-distribution" title="Link to this heading">#</a></h2>
+<p>So, to solve the problem, we will anneal the distribution to remove those low density regions. Meaning we will anneal right up until the sampling distribution looks uniform and covers the ambiant space. Yes we just said that was probably a foolish idea. But it works.</p>
+<p>The clever idea is to realize that we can make the neural network learn more than one distribution. In fact, let’s recall the Gibbs measure and use the (inverse) temperature parameter <span class="math notranslate nohighlight">\(\beta\)</span> to describe a family of distribution related by the same energy function</p>
+<div class="math notranslate nohighlight">
+\[
+    p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}e^{- \beta E(\mathbf{x})}\, .
+\]</div>
+<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>, the exponential tends to one. <span class="math notranslate nohighlight">\(p_0(\mathbf{x})\)</span> will describe a Uniform distribution</p>
+<div class="math notranslate nohighlight">
+\[
+    p_0(\mathbf{x}) = \mathcal{U}(\mathbb{R}^n)\, .
+\]</div>
+<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>, the exponential becomes extremely sensitive to any non-zero energy values.
+In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
+<div class="math notranslate nohighlight">
+\[
+p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \mathbf{x}_j)\, .
+\]</div>
+<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\mathbf{x}_j) = 0\)</span>.</p>
+</section>
 <section id="denoising-score-matching-dsm">
 <h2>Denoising Score-Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
-</section>
-<section id="adding-different-levels-of-noise-ddpm">
-<h2>Adding different levels of noise (DDPM)<a class="headerlink" href="#adding-different-levels-of-noise-ddpm" title="Link to this heading">#</a></h2>
 </section>
 <section id="continuous-time-dsm-diffusion">
 <h2>Continuous-time DSM (Diffusion)<a class="headerlink" href="#continuous-time-dsm-diffusion" title="Link to this heading">#</a></h2>
@@ -751,8 +769,8 @@ vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> inc
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-the-sbm">Training the SBM</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-the-distribution">Annealing the distribution</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-different-levels-of-noise-ddpm">Adding different levels of noise (DDPM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
 </ul>
   </nav></div>
