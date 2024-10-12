@@ -19,7 +19,7 @@ plt.style.use('science')
 params = {
          'figure.figsize': (4, 4),
          'axes.labelsize': 18,
-         'axes.titlesize': 30,
+         'axes.titlesize': 24,
          'ytick.labelsize' :20,
          'xtick.labelsize' :20,
          'legend.fontsize': 16,
