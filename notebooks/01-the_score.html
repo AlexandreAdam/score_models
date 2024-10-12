@@ -423,7 +423,7 @@ typically a Gaussian, and use a sequence of diffeomorphisms defined by neural ne
 with a tractable Jacobian to increase the expressivity of the model.
 In this way, the normalization condition is guaranteed to be respected,
 but the structure imposed on the neural network ultimately limits
-the expressivity and scalability of the framework.</p>
+the expressivity and scalability of the framework to higher dimensional spaces.</p>
 <p>Imposing the normalization condition as a soft-constraint (adding it to a loss function) is an obvious no-go.
 The integral is intractable in most cases of interest.
 In general,</p>
@@ -524,7 +524,7 @@ Let’s consider a mixture of 4 well-separated Gaussian modes with equal weights
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/a23e17896b75609757b4d79128c54fd41f2b2e37c7a6ec54979dc19930d5a24e.png" src="../_images/a23e17896b75609757b4d79128c54fd41f2b2e37c7a6ec54979dc19930d5a24e.png" />
+<img alt="../_images/3a0b60101935344631d777fd33773d72c5c1eb86392a8d9ee795811758aa9884.png" src="../_images/3a0b60101935344631d777fd33773d72c5c1eb86392a8d9ee795811758aa9884.png" />
 </div>
 </div>
 <p>The score is a vector field pointing toward regions of higher density. The farther from these regions, the larger the magnitude of the score. But, since the score is local, the magnitude does not depend on the relative magnitude of the mode.</p>
@@ -561,33 +561,33 @@ But, the magnitude and orientation of the score field picture on the right does 
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/4221b0a167b788ae158e47d413af3340d74b0fb7bd737742c703ab732c6a9488.png" src="../_images/4221b0a167b788ae158e47d413af3340d74b0fb7bd737742c703ab732c6a9488.png" />
+<img alt="../_images/62f95b04e083002c6fbb72cc042ef535b15ea9d01c6f50b6bcd568a741a8ca8c.png" src="../_images/62f95b04e083002c6fbb72cc042ef535b15ea9d01c6f50b6bcd568a741a8ca8c.png" />
 </div>
 </div>
 <p>Of course, there is nothing magical about this.
 Using <span class="math notranslate nohighlight">\(w_i\)</span> as weights, we can write the Gaussian mixture as</p>
 <div class="math notranslate nohighlight">
 \[
-    p(\mathbf{x}) = \frac{1}{\mathcal{Z}}\sum_{i}w_i e^{-\frac{1}{2\sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_i \rVert^2 }\, ,
+    p(\mathbf{x}) = \frac{1}{\mathcal{Z}}\sum_{i}w_i e^{-E_i(\mathbf{x}) }\, ,
 \]</div>
-<p>where <span class="math notranslate nohighlight">\(\boldsymbol{\mu}_i\)</span> is the mean of mode <span class="math notranslate nohighlight">\(i\)</span>. The score becomes,</p>
+<p>where <span class="math notranslate nohighlight">\(E_i(\mathbf{x}) = \frac{1}{2\sigma^2} \big\lVert \mathbf{x} - \boldsymbol{\mu}_i \big\rVert^2_2\)</span> for a Gaussian distribution. The score becomes,</p>
 <div class="math notranslate nohighlight">
 \[
-    \nabla_{\mathbf{x}} \log p(\mathbf{x}) = \nabla_{\mathbf{x}} \log \left(\sum_{i}w_i e^{-\frac{1}{2\sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_i \rVert^2 } \right)\, .
+    \nabla_{\mathbf{x}} \log p(\mathbf{x}) = \nabla_{\mathbf{x}} \log \left(\sum_{i}w_i e^{-E_i(\mathbf{x}) } \right)\, .
 \]</div>
-<p>If the modes are <em>well separated</em>, then only a single mode will contribute to the sum inside the <span class="math notranslate nohighlight">\(\log\)</span>.
+<p>If the modes are <em>well separated</em>, only a single mode will contribute to the sum inside the <span class="math notranslate nohighlight">\(\log\)</span>.
 The contribution from other modes vanishes eponentially fast.
 Thus, we are left with only the dominant mode in the sum (say mode <span class="math notranslate nohighlight">\(j\)</span>)</p>
 <div class="math notranslate nohighlight">
 \[
-    \sum_{i}w_i e^{-\frac{1}{2\sigma^2} \lVert \mathbf{x} - \mu_i \rVert^2 } \approx w_j e^{-\frac{1}{2\sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_j \rVert^2 }\, .
+    \sum_{i}w_i e^{-E_i(\mathbf{x}) } \approx w_j e^{-E_j(\mathbf{x}) }\, .
 \]</div>
-<p>The score then becomes</p>
+<p>The score becomes</p>
 <div class="math notranslate nohighlight">
 \[
-    \nabla_{\mathbf{x}} \log p(\mathbf{x}) \approx -\frac{\mathbf{x} - \boldsymbol{\mu}_j}{\sigma^2}\, .
+    \nabla_{\mathbf{x}} \log p(\mathbf{x}) \approx -\nabla_\mathbf{x} E_j (\mathbf{x})\, .
 \]</div>
-<p>The score around the dominant mode does not depend on the weight of this mode nor the global normalization of the distribution.</p>
+<p>Crucially, we find that the score around the dominant mode does not depend on the weight of this mode nor the global normalization of the distribution.</p>
 </section>
 <section id="score-of-an-annealed-mixture-of-gaussian">
 <h2>Score of an annealed mixture of Gaussian<a class="headerlink" href="#score-of-an-annealed-mixture-of-gaussian" title="Link to this heading">#</a></h2>
@@ -623,7 +623,7 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/6faf9342e15bad86e7d599e25b7993f75e86c1077eeed0624a4bfc1863c52d8e.png" src="../_images/6faf9342e15bad86e7d599e25b7993f75e86c1077eeed0624a4bfc1863c52d8e.png" />
+<img alt="../_images/da84a27740f9c13d485c1feb0a3087cdc0cad16815e446bd7393d06592cd2120.png" src="../_images/da84a27740f9c13d485c1feb0a3087cdc0cad16815e446bd7393d06592cd2120.png" />
 </div>
 </div>
 </section>
@@ -631,13 +631,13 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 <h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading">#</a></h2>
 <p>We have seen that</p>
 <ul class="simple">
-<li><p>For well-separated modes, the score is local</p></li>
-<li><p>The weights of each mode can be recovered using annealing</p></li>
+<li><p>For well-separated modes, the score is local;</p></li>
+<li><p>We can recover the weight of each mode using annealing.</p></li>
 </ul>
 <p>These two facts alone should give enough intuition for the next sections:</p>
 <ol class="arabic simple">
-<li><p>Training an SBM on data with <a class="reference internal" href="02-score_matching.html"><span class="std std-doc">denoising score matching</span></a></p></li>
-<li><p>Sampling with <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a></p></li>
+<li><p>Training an SBM with <a class="reference internal" href="02-score_matching.html"><span class="std std-doc">score matching</span></a>;</p></li>
+<li><p>Sampling with <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p></li>
 </ol>
 <p>The score models package also offer some more utilities to</p>
 <ul class="simple">
