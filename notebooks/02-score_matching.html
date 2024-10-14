@@ -392,8 +392,11 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-distributions">Empirical distributions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-with-a-heat-kernel">Annealing with a heat kernel</a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -423,7 +426,7 @@ can be trained to match a score function by minimizing the mean squared error lo
 \]</div>
 <p>This construction is naive because it assumes we have access to the ground truth score, <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}} \log p(\mathbf{x})\)</span>. Naturally, there would be no need to train a neural network if we did. This is why <a class="reference external" href="https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf">Hyvärinen (2005)</a> derived an equivalent loss
 function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. (2019)</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function.</p>
-<p>Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls (which the SSM also inherited).
+<p>Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls — which the SSM also inherited.
 As it turns out, score matching is not straightforward even when given perfect information about the ground truth score.</p>
 <p>We will build score-matching from scratch to showcase the internals of the score models package. The relevant stuff to score-matching that we do in this notebook is abstracted away in the package. You can find the routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
 <div class="cell tag_hide-cell docutils container">
@@ -578,13 +581,13 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
-But, in between the modes, the model is a rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero (see loss curve above).</p>
+But, in between the modes, the model is a rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero — see the loss curve above.</p>
 <p>When we train the neural network, we do not uniformly sample the ambiant space <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span>. Rather, we sample from the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
 It is almost impossible to sample a point in between the modes — which we chose to be well-separated. The loss function is blind there.</p>
 <p>To alleviate this problem, we can change the sampling distribution to something more uniform.
-Although it might work for our toy example, we might worry about what happens in high-dimensional spaces (like images).
+Although it might work for our toy example, we might worry about what happens in high-dimensional spaces — like images.
 The volume of a vector space scales exponentially with the dimensionality.
-And there is this thing called the manifold hypothesis, which claims (rightly) that data typically belongs to a manifold of dimensionality far smaller than the ambiant space in which we observe it.
+And there is this thing called the manifold hypothesis, which claims — rightly — that data typically belongs to a manifold of dimensionality far smaller than the ambiant space in which we observe it.
 In other words, the probability of randomly choosing a valid sample from <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> in <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span> is
 vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> increases — at least for interesting <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
 If we want to approximate the score of <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, we better make sure our score is good near points of high-density.</p>
@@ -610,11 +613,10 @@ In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)
 p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
 \]</div>
 <p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_j) = 0\)</span>. For our exercice, we only need to consider the family
-<span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution.</p>
-<p>For our Gaussian mixture, the distribution has the form</p>
+<span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution. For our Gaussian mixture, the distribution has the form</p>
 <div class="math notranslate nohighlight">
 \[
-    p_\beta(\mathbf{x}) = \sum_{i} w_i e^{-\beta E_i(\mathbf{x})}\, .
+    p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}\sum_{i} w_i e^{-\beta E_i(\mathbf{x})}\, ,
 \]</div>
 <p>with the energy function</p>
 <div class="math notranslate nohighlight">
@@ -629,7 +631,7 @@ p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
 </section>
 <section id="annealed-score-matching">
 <h3>Annealed score matching<a class="headerlink" href="#annealed-score-matching" title="Link to this heading">#</a></h3>
-<p>Learning a family of distribution might seem like a more difficult task than what we set out to do initially. The point is that we’ll be changing the sampling distribution accordingly so that the neural network can train on points from the ambiant space (in between the modes). We’ll use the following loss function</p>
+<p>Learning a family of distribution might seem like a more difficult task than what we set out to do initially. The point is that we’ll be changing the sampling distribution accordingly so that the neural network can train on points from the ambiant space — in between the modes. We’ll use the following loss function</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}_\theta = \mathbb{E}_{p(\beta)} \mathbb{E}_{p_\beta(\mathbf{x})}
@@ -646,9 +648,9 @@ p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
 Also, to make the task easier for the neural network, we redefine the score to incorporate the temperature parameter</p>
 <div class="math notranslate nohighlight">
 \[
-    \mathbf{s}_\theta \equiv \sqrt{\beta} \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x})\, .
+    \mathbf{s}_\theta(\beta, \mathbf{x}) \equiv \sqrt{\beta} \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x})\, .
 \]</div>
-<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate temperature parameter as input. We modify the architecture of the nuerla network accordingly in the implementation below.</p>
+<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate temperature parameter as input. We modify the architecture of the neural network accordingly in the implementation below.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">):</span> <span class="c1"># p_{\beta}(\mathbf{x})</span>
@@ -790,15 +792,82 @@ Also, to make the task easier for the neural network, we redefine the score to i
 <img alt="../_images/3aa23289d1afbc1a7bab9be1ea6ccae1987511d447d9b5baf542e7da92ff01a1.png" src="../_images/3aa23289d1afbc1a7bab9be1ea6ccae1987511d447d9b5baf542e7da92ff01a1.png" />
 </div>
 </div>
-<p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to the previous attempts failed to capture.</p>
-<p>Unfortunately, the score at <span class="math notranslate nohighlight">\(\beta = 1\)</span> is still not quite correct regions of low density. As it turns, we don’t need to worry about this. But it’s a good thing to keep in mind. In general, it’s rather tricky to get the score to be globally accurate at <span class="math notranslate nohighlight">\(\beta = 1\)</span>. In practice, there might be specific choices for the sampling distribution or the weight <span class="math notranslate nohighlight">\(\lambda(\beta)\)</span> that alleviate this problem. But, for the scope of this introduction, we will not explore them.</p>
+<p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
+<p>Unfortunately, the score at <span class="math notranslate nohighlight">\(\beta = 1\)</span> is still not quite correct in regions of low density. As it turns out, we don’t need to worry about this. But it’s a good thing to keep in mind. It’s rather tricky to get the score to be globally accurate at <span class="math notranslate nohighlight">\(\beta = 1\)</span>. In practice, there might be specific choices for the sampling distribution or the weight <span class="math notranslate nohighlight">\(\lambda(\beta)\)</span> that alleviate this problem. We will not explore this here.</p>
 </section>
 </section>
 <section id="denoising-score-matching-dsm">
 <h2>Denoising Score-Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
+<p>Now, the interesting question is: how do we make this work when we don’t have access to the target score function? To make this work, we need to construct a score matching procedure that do not make use of any knowledge about the actual distribution. This procedure was discovered by <a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">Pascal Vincent in 2011</a>.</p>
+<p>We will treat in detail P. Vincent’s derivation at then end of this section. I find it more intuitive to realize that the task of denoising is intimately connected to learning a distribution using Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
+Tweedie’s formula works as follows. Suppose we have <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim p(\mathbf{x}_0)\)</span>, a noise free sample from the target distribution.
+Suppose further that we perturb this sample using a Gaussian kernel <span class="math notranslate nohighlight">\(\mathbf{x}_t \sim p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, where</p>
+<div class="math notranslate nohighlight">
+\[
+    p(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0, \sigma^2(t))\, .
+\]</div>
+<p>Another way to parametrize this perturbation is to introduce a normal random variable <span class="math notranslate nohighlight">\(\mathbf{z} \sim \mathcal{N}(\mathbf{z} \mid 0, 1)\)</span>, s.t.</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}\, .
+\]</div>
+<p>Hopefully, it is clear that <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> is now a noisy version of <span class="math notranslate nohighlight">\(\mathbf{x}_0\)</span>.
+Tweedie’s formula gives an expression for the optimal denoiser at first order, which is given by the follwing expectation</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t] = \mathbf{x}_t + \sigma^2(t) \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\, .
+\]</div>
+<p>In other words, the score function is the optimal denoiser at first order. More importantly, this connection between denoising and the score function will allow us to move back and forth between the two pictures to construct a scalable framework for learning distributions from samples in high-dimensional spaces.</p>
+<p>I have used <span class="math notranslate nohighlight">\(t\)</span>, a time-index, to label the noise level of the perturbation. In fact, <span class="math notranslate nohighlight">\(t\)</span> is equivalent to <span class="math notranslate nohighlight">\(\beta\)</span>. Though we will prefer <span class="math notranslate nohighlight">\(t\)</span> from now on because we will be using stochastic differential equations (SDE) to formally describe the noising and denoising processes in the next section on <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p>
+<section id="empirical-distributions">
+<h3>Empirical distributions<a class="headerlink" href="#empirical-distributions" title="Link to this heading">#</a></h3>
+<p>In practice, we are given access to a dataset with <span class="math notranslate nohighlight">\(N\)</span> samples</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{D} = \{\mathbf{x}^{(i)}\}_{i=1}^N
+\]</div>
+<p>We make the assumption that the samples are independently and identically distributed (iid) according to a law <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>. Empirically, the law described by the samples is a sum of Dirac deltas</p>
+<div class="math notranslate nohighlight">
+\[
+    p(\mathbf{x}) = \sum_{i=1}^N \delta^{(n)}(\mathbf{x} - \mathbf{x}^{(i)})
+\]</div>
+<p>Naturally, this description gets better as <span class="math notranslate nohighlight">\(N \rightarrow \infty\)</span>. Also, notice the similarity between this empirical description and the annealed distribution as <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>. Working with samples instead of a distribution is simply a shift in perspective, starting at <span class="math notranslate nohighlight">\(\beta = \infty\)</span> instead <span class="math notranslate nohighlight">\(\beta = 1\)</span>. Actually, <span class="math notranslate nohighlight">\(\beta = \infty\)</span> will coresponds to <span class="math notranslate nohighlight">\(t = 0\)</span> in our new indexing scheme because we want the sequence of noise levels to be monotically increasing</p>
+<div class="math notranslate nohighlight">
+\[
+    t_1 &lt; t_2 \implies \sigma(t_1) &lt; \sigma(t_2)\, .
+\]</div>
+<p>This is much more convenient for the purpose of indexing annealed empirical distributions in SDEs.</p>
 </section>
-<section id="continuous-time-dsm-diffusion">
-<h2>Continuous-time DSM (Diffusion)<a class="headerlink" href="#continuous-time-dsm-diffusion" title="Link to this heading">#</a></h2>
+<section id="annealing-with-a-heat-kernel">
+<h3>Annealing with a heat kernel<a class="headerlink" href="#annealing-with-a-heat-kernel" title="Link to this heading">#</a></h3>
+<p>To anneal this distribution, we will be adding noise to the samples in our dataset. This is perhaps the easiest thing to understand about denoising score matching. In other words, we will always start by doing the following two steps:</p>
+<ol class="arabic simple">
+<li><p>Pick a time-index <span class="math notranslate nohighlight">\(t \in [0, T]\)</span> — equivalent to a noise-level <span class="math notranslate nohighlight">\(\sigma(t)\)</span>;</p></li>
+<li><p>Add noise to a sample from the dataset <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}\)</span>, with <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim \mathcal{D}\)</span>.</p></li>
+</ol>
+<p>At the distribution level, adding noise corresponds to applying a heat kernel to the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>. To see this, let’s first consider the distribution of the perturbed sample, which we label <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>. First, express <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> in terms of known quantities, namely the empirical distribution <span class="math notranslate nohighlight">\(p(\mathbf{x}_0)\)</span> and the Gaussian perturbation kernel <span class="math notranslate nohighlight">\(p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span></p>
+<div class="math notranslate nohighlight">
+\[\begin{split}
+\begin{align*}
+    p_t(\mathbf{x}_t) &amp;= \int_\mathcal{X} p(\mathbf{x}_0) p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
+                    &amp;= \sum_{i=1}^N \int_\mathcal{X} \delta^{(n)}(\mathbf{x}_0 - \mathbf{x}^{(i)})p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
+                    &amp;= \sum_{i=1}^N p(\mathbf{x}_t \mid \mathbf{x}^{(i)})
+\end{align*}
+\end{split}\]</div>
+<p>Annealing our empirical distribution gives us a mixture of Gaussian modes as our target distribution. Since the width
+of these modes increases monotically as <span class="math notranslate nohighlight">\(t\)</span> increases, we can also think of this as a heating process for the distribution.
+To see this, let’s study for a moment the time derivative of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>. Remember that a Gaussian kernel has the form</p>
+<div class="math notranslate nohighlight">
+\[
+    p(\mathbf{x}_t \mid \mathbf{x}_0) = \frac{e^{- \frac{1}{2 \sigma^2(t)} \lVert \mathbf{x} - \mathbf{x}_0 \rVert^2 }}{\sqrt{(2 \pi)^n \sigma^{2n}(t)}} 
+        
+\]</div>
+<p>It is a simple matter of algebra to show that</p>
+<div class="math notranslate nohighlight">
+\[
+    \partial_t p(\mathbf{x}_t \mid \mathbf{x}_0) = \partial_t \sigma^2(t)
+\]</div>
+</section>
 </section>
 </section>
 
@@ -874,8 +943,11 @@ Also, to make the task easier for the neural network, we redefine the score to i
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-time-dsm-diffusion">Continuous-time DSM (Diffusion)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-distributions">Empirical distributions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-with-a-heat-kernel">Annealing with a heat kernel</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

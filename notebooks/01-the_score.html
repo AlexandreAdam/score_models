@@ -415,7 +415,7 @@ This introduction is my own take on the subject.</p>
 For a probability density function to be valid, it must be normalized over its domain <span class="math notranslate nohighlight">\(\mathcal{X}\)</span></p>
 <div class="math notranslate nohighlight">
 \[
-    \int_{\mathcal{X}} p(\mathbf{x}) d \mathbf{x} = 1\, .
+    \int_{\mathcal{X}} p(\mathbf{x}) \mathrm{d}^n \mathbf{x} = 1\, .
 \]</div>
 <p>This, it turns out, is a very stringent condition. Not many functions have this property.
 Normalizing flows attempt to model probability densities by starting from a valid distribution,
@@ -444,7 +444,7 @@ which now describes the distribution, so to speak.
 The normalization condition is encoded in the partition function</p>
 <div class="math notranslate nohighlight">
 \[
-    \mathcal{Z} = \int_\mathcal{X} e^{-E(\mathbf{x})} d \mathbf{x}\, .
+    \mathcal{Z} = \int_\mathcal{X} e^{-E(\mathbf{x})} \mathrm{d}^n \mathbf{x}\, .
 \]</div>
 <p>Crucially, the score of a Gibbs measure is a purely local description of the distribution,
 independent of the partition function</p>
@@ -576,7 +576,7 @@ Using <span class="math notranslate nohighlight">\(w_i\)</span> as weights, we c
     \nabla_{\mathbf{x}} \log p(\mathbf{x}) = \nabla_{\mathbf{x}} \log \left(\sum_{i}w_i e^{-E_i(\mathbf{x}) } \right)\, .
 \]</div>
 <p>If the modes are <em>well separated</em>, only a single mode will contribute to the sum inside the <span class="math notranslate nohighlight">\(\log\)</span>.
-The contribution from other modes vanishes eponentially fast.
+The contribution from other modes vanishes exponentially fast.
 Thus, we are left with only the dominant mode in the sum (say mode <span class="math notranslate nohighlight">\(j\)</span>)</p>
 <div class="math notranslate nohighlight">
 \[
