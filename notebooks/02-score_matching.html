@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=fc1459ca" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=bfb469f2" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
@@ -392,9 +392,11 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-distributions">Empirical distributions</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-with-a-heat-kernel">Annealing with a heat kernel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score Matching (DSM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-by-adding-noise">Annealing by adding noise</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-equivalence-with-sm">DSM equivalence with SM</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
 </li>
 </ul>
@@ -415,7 +417,7 @@ We will not yet address the notion of sampling from the SBM,
 which is covered in the next section on <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p>
 <section id="naive-score-matching">
 <h2>Naive Score Matching<a class="headerlink" href="#naive-score-matching" title="Link to this heading">#</a></h2>
-<p>Constructing a loss function for score-matching is rather straight forward. The procedure was first described
+<p>Constructing a loss function for score matching is rather straight forward. The procedure was first described
 by <a class="reference external" href="https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf">Aapo Hyvärinen in 2005</a>.
 Suppose <span class="math notranslate nohighlight">\(\mathbf{s}_\theta: \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> is a neural network with parameters <span class="math notranslate nohighlight">\(\theta\)</span>. This network
 can be trained to match a score function by minimizing the mean squared error loss function</p>
@@ -425,10 +427,10 @@ can be trained to match a score function by minimizing the mean squared error lo
     \bigg[\big\lVert \mathbf{s}_\theta(\mathbf{x}) - \nabla_{\mathbf{x}} \log p(\mathbf{x}) \big\rVert^2_2 \bigg] \, .
 \]</div>
 <p>This construction is naive because it assumes we have access to the ground truth score, <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}} \log p(\mathbf{x})\)</span>. Naturally, there would be no need to train a neural network if we did. This is why <a class="reference external" href="https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf">Hyvärinen (2005)</a> derived an equivalent loss
-function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. (2019)</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function.</p>
-<p>Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls — which the SSM also inherited.
+function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. (2019)</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function. Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls — which the SSM also inherited.
 As it turns out, score matching is not straightforward even when given perfect information about the ground truth score.</p>
-<p>We will build score-matching from scratch to showcase the internals of the score models package. The relevant stuff to score-matching that we do in this notebook is abstracted away in the package. You can find the routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
+<p>We will build score matching from scratch to showcase the internals of the score models package. The stuff relevant to score matching done in this notebook are abstracted in the package.
+You can find these routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
 <div class="cell tag_hide-cell docutils container">
 <details class="hide above-input">
 <summary aria-label="Toggle hidden content">
@@ -525,7 +527,7 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "3558e600e035418b9b01c0c4d3a31536", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "4779ec4a34764fb0a094f74155b72396", "version_major": 2, "version_minor": 0}</script></div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -536,7 +538,7 @@ As it turns out, score matching is not straightforward even when given perfect i
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Egg Box&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Score Matching Loss&quot;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathcal</span><span class="si">{L}</span><span class="s2">_\theta$&quot;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">);</span>
 </pre></div>
@@ -544,7 +546,7 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/9f8ea6a029c2474b29464a06f96e46d011f1ccfeb744fea07b917a3a426120d1.png" src="../_images/9f8ea6a029c2474b29464a06f96e46d011f1ccfeb744fea07b917a3a426120d1.png" />
+<img alt="../_images/9e46cdb15225a66a8c38e11417fb8f10bc1a516a13192d17c07edf151d6b2bf9.png" src="../_images/9e46cdb15225a66a8c38e11417fb8f10bc1a516a13192d17c07edf151d6b2bf9.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -577,12 +579,11 @@ As it turns out, score matching is not straightforward even when given perfect i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/aa5bdc19c2920b3254f78db893d7700414c60c12fb2e2593925d3c9c4cfa4ce1.png" src="../_images/aa5bdc19c2920b3254f78db893d7700414c60c12fb2e2593925d3c9c4cfa4ce1.png" />
+<img alt="../_images/1514aed0a24e1a5455da5037c2e73209b54e4c6361c3703b22a62e98b58308a6.png" src="../_images/1514aed0a24e1a5455da5037c2e73209b54e4c6361c3703b22a62e98b58308a6.png" />
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
-But, in between the modes, the model is a rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero — see the loss curve above.</p>
-<p>When we train the neural network, we do not uniformly sample the ambiant space <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span>. Rather, we sample from the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
+But, in between the modes, the model is a rather poor approximation of the ground truth score even though the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is very close to zero — see the loss curve above. When we train the neural network, we do not uniformly sample the ambiant space <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span>. Rather, we sample from the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
 It is almost impossible to sample a point in between the modes — which we chose to be well-separated. The loss function is blind there.</p>
 <p>To alleviate this problem, we can change the sampling distribution to something more uniform.
 Although it might work for our toy example, we might worry about what happens in high-dimensional spaces — like images.
@@ -601,12 +602,8 @@ In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\thet
 \[
     p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}e^{- \beta E(\mathbf{x})}\, .
 \]</div>
-<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>, the exponential tend to one. Loosely speaking, <span class="math notranslate nohighlight">\(p_0(\mathbf{x})\)</span> will describe a Uniform distribution</p>
-<div class="math notranslate nohighlight">
-\[
-    p_0(\mathbf{x}) = \mathcal{U}(\mathbb{R}^n)\, .
-\]</div>
-<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>, the exponential becomes extremely sensitive to any non-zero energy values.
+<p>When <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>, the exponential tend to one. Loosely speaking, <span class="math notranslate nohighlight">\(p_0(\mathbf{x}) = \mathcal{U}(\mathbb{R}^n)\)</span> will describe a Uniform distribution.
+When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>, the exponential becomes extremely sensitive to any non-zero energy values.
 In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
 <div class="math notranslate nohighlight">
 \[
@@ -618,20 +615,20 @@ p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
 \[
     p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}\sum_{i} w_i e^{-\beta E_i(\mathbf{x})}\, ,
 \]</div>
-<p>with the energy function</p>
-<div class="math notranslate nohighlight">
-\[
+<p>with the energy function
+<span class="math notranslate nohighlight">\(
     E_i(\mathbf{x}) = \frac{1}{2 \sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_i \rVert^2 \, .
-\]</div>
-<p>Therefore, the temperature parameters has the effect of scaling the size of each mode</p>
+\)</span>
+Therefore, the temperature parameters has the effect of scaling the size of each mode</p>
 <div class="math notranslate nohighlight">
 \[
-    \sigma(\beta) = \frac{\sigma}{\sqrt{\beta}}\, .
+    \sigma \rightarrow \frac{\sigma}{\sqrt{\beta}}\, .
 \]</div>
 </section>
 <section id="annealed-score-matching">
 <h3>Annealed score matching<a class="headerlink" href="#annealed-score-matching" title="Link to this heading">#</a></h3>
-<p>Learning a family of distribution might seem like a more difficult task than what we set out to do initially. The point is that we’ll be changing the sampling distribution accordingly so that the neural network can train on points from the ambiant space — in between the modes. We’ll use the following loss function</p>
+<p>Learning a family of distribution might seem like a more difficult task than what we set out to do initially.
+But the neural network can now train on points from the ambiant space — in between the modes. We’ll use the following loss function</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}_\theta = \mathbb{E}_{p(\beta)} \mathbb{E}_{p_\beta(\mathbf{x})}
@@ -639,18 +636,17 @@ p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
             \mathbf{s}_\theta(\beta, \mathbf{x}) - \nabla_{\mathbf{x}} \log p_\beta(\mathbf{x}) 
          \big\rVert^2_2 \bigg]\, .
 \]</div>
-<p>We introduced a weight factor <span class="math notranslate nohighlight">\(\lambda(\beta)\)</span> to control the importance of the different temperature. We will make the choice</p>
-<div class="math notranslate nohighlight">
-\[
+<p>We introduced a weight factor <span class="math notranslate nohighlight">\(\lambda(\beta)\)</span> to control the importance of the different temperatures. We will make the choice
+<span class="math notranslate nohighlight">\(
     \lambda(\beta) = \beta^{-1}\, ,
-\]</div>
-<p>anticipating the formal derivation of the loss function. We also choose <span class="math notranslate nohighlight">\(p(\beta)\)</span> to be a log uniform distribution over the range <span class="math notranslate nohighlight">\([10^{-3}, 1]\)</span>. The lower bound is to avoid the singularity as <span class="math notranslate nohighlight">\(\beta \rightarrow 0\)</span>.
+\)</span>
+anticipating the formal derivation of the loss function. We also choose <span class="math notranslate nohighlight">\(p(\beta)\)</span> to be a log uniform distribution over the range <span class="math notranslate nohighlight">\([10^{-3}, 1]\)</span>. The lower bound is introduced to avoid the singularity at <span class="math notranslate nohighlight">\(\beta = 0\)</span>.
 Also, to make the task easier for the neural network, we redefine the score to incorporate the temperature parameter</p>
 <div class="math notranslate nohighlight">
 \[
     \mathbf{s}_\theta(\beta, \mathbf{x}) \equiv \sqrt{\beta} \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x})\, .
 \]</div>
-<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate temperature parameter as input. We modify the architecture of the neural network accordingly in the implementation below.</p>
+<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate the temperature parameter as input. We must modify the architecture of the neural network accordingly in the implementation below.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">):</span> <span class="c1"># p_{\beta}(\mathbf{x})</span>
@@ -749,8 +745,22 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "e53514d56c7446b79781051906bb0e7a", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "94b59459fa55477abd4b9e5d5674abc6", "version_major": 2, "version_minor": 0}</script></div>
 </details>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Annealed Score Matching Loss&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathcal</span><span class="si">{L}</span><span class="s2">_\theta$&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/9e889cc7cfc621703a2829d7c8bfb088929dbd03f54b0fffb4f141da5582fbc3.png" src="../_images/9e889cc7cfc621703a2829d7c8bfb088929dbd03f54b0fffb4f141da5582fbc3.png" />
+</div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -789,7 +799,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/3aa23289d1afbc1a7bab9be1ea6ccae1987511d447d9b5baf542e7da92ff01a1.png" src="../_images/3aa23289d1afbc1a7bab9be1ea6ccae1987511d447d9b5baf542e7da92ff01a1.png" />
+<img alt="../_images/02ce9526d2ce9c72da9e0a169d606ee7758309b1b238d9e2478ac24abc04bb03.png" src="../_images/02ce9526d2ce9c72da9e0a169d606ee7758309b1b238d9e2478ac24abc04bb03.png" />
 </div>
 </div>
 <p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
@@ -797,31 +807,8 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </section>
 </section>
 <section id="denoising-score-matching-dsm">
-<h2>Denoising Score-Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
-<p>Now, the interesting question is: how do we make this work when we don’t have access to the target score function? To make this work, we need to construct a score matching procedure that do not make use of any knowledge about the actual distribution. This procedure was discovered by <a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">Pascal Vincent in 2011</a>.</p>
-<p>We will treat in detail P. Vincent’s derivation at then end of this section. I find it more intuitive to realize that the task of denoising is intimately connected to learning a distribution using Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
-Tweedie’s formula works as follows. Suppose we have <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim p(\mathbf{x}_0)\)</span>, a noise free sample from the target distribution.
-Suppose further that we perturb this sample using a Gaussian kernel <span class="math notranslate nohighlight">\(\mathbf{x}_t \sim p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, where</p>
-<div class="math notranslate nohighlight">
-\[
-    p(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0, \sigma^2(t))\, .
-\]</div>
-<p>Another way to parametrize this perturbation is to introduce a normal random variable <span class="math notranslate nohighlight">\(\mathbf{z} \sim \mathcal{N}(\mathbf{z} \mid 0, 1)\)</span>, s.t.</p>
-<div class="math notranslate nohighlight">
-\[
-    \mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}\, .
-\]</div>
-<p>Hopefully, it is clear that <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> is now a noisy version of <span class="math notranslate nohighlight">\(\mathbf{x}_0\)</span>.
-Tweedie’s formula gives an expression for the optimal denoiser at first order, which is given by the follwing expectation</p>
-<div class="math notranslate nohighlight">
-\[
-    \mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t] = \mathbf{x}_t + \sigma^2(t) \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\, .
-\]</div>
-<p>In other words, the score function is the optimal denoiser at first order. More importantly, this connection between denoising and the score function will allow us to move back and forth between the two pictures to construct a scalable framework for learning distributions from samples in high-dimensional spaces.</p>
-<p>I have used <span class="math notranslate nohighlight">\(t\)</span>, a time-index, to label the noise level of the perturbation. In fact, <span class="math notranslate nohighlight">\(t\)</span> is equivalent to <span class="math notranslate nohighlight">\(\beta\)</span>. Though we will prefer <span class="math notranslate nohighlight">\(t\)</span> from now on because we will be using stochastic differential equations (SDE) to formally describe the noising and denoising processes in the next section on <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p>
-<section id="empirical-distributions">
-<h3>Empirical distributions<a class="headerlink" href="#empirical-distributions" title="Link to this heading">#</a></h3>
-<p>In practice, we are given access to a dataset with <span class="math notranslate nohighlight">\(N\)</span> samples</p>
+<h2>Denoising Score Matching (DSM)<a class="headerlink" href="#denoising-score-matching-dsm" title="Link to this heading">#</a></h2>
+<p>We now address how to make this procedure work when we don’t have access to the target score function. We need to construct a score matching procedure that do not make use of any knowledge about the actual distribution. This procedure was discovered by <a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">Pascal Vincent in 2011</a>. But first, let’s describe the setup. In practice, we are given access to a dataset with <span class="math notranslate nohighlight">\(N\)</span> samples</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{D} = \{\mathbf{x}^{(i)}\}_{i=1}^N
@@ -831,42 +818,223 @@ Tweedie’s formula gives an expression for the optimal denoiser at first order,
 \[
     p(\mathbf{x}) = \sum_{i=1}^N \delta^{(n)}(\mathbf{x} - \mathbf{x}^{(i)})
 \]</div>
-<p>Naturally, this description gets better as <span class="math notranslate nohighlight">\(N \rightarrow \infty\)</span>. Also, notice the similarity between this empirical description and the annealed distribution as <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>. Working with samples instead of a distribution is simply a shift in perspective, starting at <span class="math notranslate nohighlight">\(\beta = \infty\)</span> instead <span class="math notranslate nohighlight">\(\beta = 1\)</span>. Actually, <span class="math notranslate nohighlight">\(\beta = \infty\)</span> will coresponds to <span class="math notranslate nohighlight">\(t = 0\)</span> in our new indexing scheme because we want the sequence of noise levels to be monotically increasing</p>
+<p>Naturally, this description gets better as <span class="math notranslate nohighlight">\(N \rightarrow \infty\)</span>. Also, notice the similarity between this empirical description and the annealed distribution as <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>. Working with samples instead of a distribution is simply a shift in perspective, starting at <span class="math notranslate nohighlight">\(\beta = \infty\)</span> instead <span class="math notranslate nohighlight">\(\beta = 1\)</span>.</p>
+<section id="annealing-by-adding-noise">
+<h3>Annealing by adding noise<a class="headerlink" href="#annealing-by-adding-noise" title="Link to this heading">#</a></h3>
+<p>To anneal this distribution, we will be adding noise to the samples in our dataset. Let <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim \mathcal{D}\)</span> be a sample from the dataset. We define <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> to be a noisy or perturbed version of <span class="math notranslate nohighlight">\(\mathbf{x}_0\)</span>. <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> is sampled from the Gaussian perturbation kernel <span class="math notranslate nohighlight">\(\mathbf{x}_t \sim p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, where</p>
 <div class="math notranslate nohighlight">
 \[
-    t_1 &lt; t_2 \implies \sigma(t_1) &lt; \sigma(t_2)\, .
+    p(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0, \sigma^2(t))\, .
 \]</div>
-<p>This is much more convenient for the purpose of indexing annealed empirical distributions in SDEs.</p>
-</section>
-<section id="annealing-with-a-heat-kernel">
-<h3>Annealing with a heat kernel<a class="headerlink" href="#annealing-with-a-heat-kernel" title="Link to this heading">#</a></h3>
-<p>To anneal this distribution, we will be adding noise to the samples in our dataset. This is perhaps the easiest thing to understand about denoising score matching. In other words, we will always start by doing the following two steps:</p>
-<ol class="arabic simple">
-<li><p>Pick a time-index <span class="math notranslate nohighlight">\(t \in [0, T]\)</span> — equivalent to a noise-level <span class="math notranslate nohighlight">\(\sigma(t)\)</span>;</p></li>
-<li><p>Add noise to a sample from the dataset <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}\)</span>, with <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim \mathcal{D}\)</span>.</p></li>
-</ol>
-<p>At the distribution level, adding noise corresponds to applying a heat kernel to the distribution <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>. To see this, let’s first consider the distribution of the perturbed sample, which we label <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>. First, express <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> in terms of known quantities, namely the empirical distribution <span class="math notranslate nohighlight">\(p(\mathbf{x}_0)\)</span> and the Gaussian perturbation kernel <span class="math notranslate nohighlight">\(p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span></p>
+<p>Another way to parametrize this perturbation is to make use of an auxiliary random variable <span class="math notranslate nohighlight">\(\mathbf{z} \sim \mathcal{N}(\mathbf{z} \mid 0, 1)\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}
+\]</div>
+<p>We use the time-index <span class="math notranslate nohighlight">\(t\)</span> to label the different levels of noise, <span class="math notranslate nohighlight">\(\sigma(t)\)</span>. The time-index <span class="math notranslate nohighlight">\(t\)</span> plays the role of <span class="math notranslate nohighlight">\(\beta\)</span> in indexing the distributions. <span class="math notranslate nohighlight">\(t\)</span> is much more convenient than <span class="math notranslate nohighlight">\(\beta\)</span> since the empirical distribution corresponds to <span class="math notranslate nohighlight">\(t = 0\)</span> instead of <span class="math notranslate nohighlight">\(\beta = \infty\)</span>. The sequence of noise levels is a monotically increasing sequence, for which <span class="math notranslate nohighlight">\(t\)</span> is a natural index</p>
+<div class="math notranslate nohighlight">
+\[
+    t_1 &lt; t_2 \implies \sigma(t_1) &lt; \sigma(t_2)
+\]</div>
+<p>To connect with the previous section, let’s work out what the annealed distribution is. Let’s write <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> in terms of the empirical distribution <span class="math notranslate nohighlight">\(p(\mathbf{x}_0)\)</span> and the Gaussian perturbation kernel <span class="math notranslate nohighlight">\(p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span></p>
 <div class="math notranslate nohighlight">
 \[\begin{split}
 \begin{align*}
     p_t(\mathbf{x}_t) &amp;= \int_\mathcal{X} p(\mathbf{x}_0) p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
-                    &amp;= \sum_{i=1}^N \int_\mathcal{X} \delta^{(n)}(\mathbf{x}_0 - \mathbf{x}^{(i)})p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
-                    &amp;= \sum_{i=1}^N p(\mathbf{x}_t \mid \mathbf{x}^{(i)})
+                    &amp;= \int_\mathcal{X} \sum_{i=1}^N \delta^{(n)}(\mathbf{x}_0 - \mathbf{x}^{(i)}_0)p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
+                    &amp;= \sum_{i=1}^N p(\mathbf{x}_t \mid \mathbf{x}^{(i)}_0) \\
+                    &amp;= \sum_{i=1}^N \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0^{(i)}, \sigma^2(t))
 \end{align*}
 \end{split}\]</div>
-<p>Annealing our empirical distribution gives us a mixture of Gaussian modes as our target distribution. Since the width
-of these modes increases monotically as <span class="math notranslate nohighlight">\(t\)</span> increases, we can also think of this as a heating process for the distribution.
-To see this, let’s study for a moment the time derivative of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>. Remember that a Gaussian kernel has the form</p>
+<p>What this tells us is that adding noise to samples from the empirical distribution produces an annealed distribution, <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>, which is a mixture of Gaussian modes around each samples from the dataset.
+The width of thes modes is increased as a function of <span class="math notranslate nohighlight">\(t\)</span>, similarly to our previous example with <span class="math notranslate nohighlight">\(\beta\)</span>.</p>
+</section>
+<section id="dsm-equivalence-with-sm">
+<h3>DSM equivalence with SM<a class="headerlink" href="#dsm-equivalence-with-sm" title="Link to this heading">#</a></h3>
+<p>Using the empirical description above leads to a problem in our current score matching (SM) formulation.
+Let’s recall the SM loss, now written in terms of <span class="math notranslate nohighlight">\(t\)</span> instead of <span class="math notranslate nohighlight">\(\beta\)</span></p>
 <div class="math notranslate nohighlight">
 \[
-    p(\mathbf{x}_t \mid \mathbf{x}_0) = \frac{e^{- \frac{1}{2 \sigma^2(t)} \lVert \mathbf{x} - \mathbf{x}_0 \rVert^2 }}{\sqrt{(2 \pi)^n \sigma^{2n}(t)}} 
-        
+    \mathcal{L}^{\mathrm{SM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p_t(\mathbf{x}_t)}
+    \bigg[
+        \lambda(t)\big\lVert \mathbf{s}_\theta(t, \mathbf{x}_t) - \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) \big\rVert^2_2
+    \bigg]
 \]</div>
-<p>It is a simple matter of algebra to show that</p>
+<p>Our empirical description for the target score of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is defined as a sum over the entire dataset <span class="math notranslate nohighlight">\(\mathcal{D}\)</span>. In practice, a dataset is often too large to fit into the fast-access memory of the hardware used to train the neural network model. Typical dataset for images can easily contain from <span class="math notranslate nohighlight">\(10\, \mathrm{GB}\)</span> to more than <span class="math notranslate nohighlight">\(1\, \mathrm{TB}\)</span> of data.
+In the future, hardware could perhaps handle this situation. But current GPUs are limited to <span class="math notranslate nohighlight">\(\mathcal{O}(10)\, \mathrm{GB}\)</span> of VRAM — to my knowledge, the largest being the H100 GPU which can reach <span class="math notranslate nohighlight">\(80\, \mathrm{GB}\)</span> of VRAM. Of course, GPUs can be connected to increase the memory. But let’s not consider this here. It makes the challenge overly complicated, and there is a rather simple solution to our predicament.</p>
+<p><a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">P. Vincent (2011)</a> defined a loss function completely equivalent to the one above with a clever manipulation. The argument goes as follows. First, develop the error term and collect every terms that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span> in a constant, <span class="math notranslate nohighlight">\(C\)</span>. This constant represent all terms that do not impact the learning problem, specifically those that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span>. Indeed, minimizing <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> w.r.t. <span class="math notranslate nohighlight">\(\theta\)</span> involves taking the gradient <span class="math notranslate nohighlight">\(\nabla_\theta\)</span>, which will make all such terms vanish.</p>
 <div class="math notranslate nohighlight">
 \[
-    \partial_t p(\mathbf{x}_t \mid \mathbf{x}_0) = \partial_t \sigma^2(t)
+    \mathcal{L}^{\mathrm{SM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p_t(\mathbf{x}_t)}
+    \bigg[
+        \lambda(t)\big\lVert \mathbf{s}_\theta(t, \mathbf{x}_t) \big\rVert^2_2
+        - 2\lambda(t) \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) 
+    \bigg]
+    + C
 \]</div>
+<p>Let’s isolate the second term and develop it, ignoring multiplicative factors and the expectation over <span class="math notranslate nohighlight">\(t\)</span></p>
+<div class="math notranslate nohighlight">
+\[\begin{split}
+    \begin{align*}
+        \mathbb{E}_{p_t(\mathbf{x}_t)}
+            \bigg[ 
+                 \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)
+            \bigg]
+            &amp;= 
+             \int\, p_t(\mathbf{x}_t)
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) \mathrm{d}^n \mathbf{x}_t \\
+            &amp;= 
+             \int \, p_t(\mathbf{x}_t)
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \frac{1}{p_t(\mathbf{x}_t)}\nabla_{\mathbf{x}_t} p_t(\mathbf{x}_t) \mathrm{d}^n \mathbf{x}_t \\
+            &amp;= 
+             \int 
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \nabla_{\mathbf{x}_t} \int p_t(\mathbf{x}_t, \mathbf{x}_0) \mathrm{d}^n \mathbf{x}_0 \mathrm{d}^n \mathbf{x}_t \\
+            &amp;= 
+             \int 
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \nabla_{\mathbf{x}_t}  \int p_0(\mathbf{x}_0)  p(\mathbf{x}_t \mid \mathbf{x}_0) \mathrm{d}^n \mathbf{x}_0 \mathrm{d}^n \mathbf{x}_t\\
+            &amp;= 
+             \int 
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot \int p_0(\mathbf{x}_0) p(\mathbf{x}_t \mid \mathbf{x}_0) 
+            \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) \mathrm{d}^n \mathbf{x}_0 \mathrm{d}^n \mathbf{x}_t \\
+            &amp;= 
+            \mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0)} \bigg[ 
+            \,
+            \mathbf{s}_\theta(t, \mathbf{x}_t) \cdot 
+            \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) \bigg] \\
+    \end{align*}
+\end{split}\]</div>
+<p>Now, inserting this term back into the previous expression and completing the square— we can always define a loss function up to a constant — we obtain a new objective</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{L}^{\mathrm{DSM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0)}
+    \bigg[
+        \big\lVert 
+            \mathbf{s}_\theta(t, \mathbf{x}_t) - \nabla_{x_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0)
+        \big\rVert^2_2
+    \bigg]\, .
+\]</div>
+<p>Both objectives yield the same score function <span class="math notranslate nohighlight">\(\mathbf{s}_{\theta^\star}(t, \mathbf{x}_t)\)</span> at their optimum <span class="math notranslate nohighlight">\(\theta^\star\)</span>. But this new objective is vastly more efficient because it makes use only of <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, and not <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\)</span>. Indeed, <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is often intractable, whereas the Gaussian perturbation kernel is trivial to evaluate. Its score is</p>
+<div class="math notranslate nohighlight">
+\[
+    \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{x}_t - \mathbf{x}_0}{\sigma^2(t)}\, .
+\]</div>
+<p>We can even use our auxiliary variable to reparametrize <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_t + \sigma(t)\mathbf{z}\)</span>. The score then becomes</p>
+<div class="math notranslate nohighlight">
+\[
+    \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{z}}{\sigma(t)}\, .
+\]</div>
+<p>After we redefine the score function to make the learning problem easier for the neural network</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbf{s}_\theta(t, \mathbf{x}_t) \equiv \frac{\boldsymbol{\epsilon}_\theta(t, \mathbf{x}_t)}{\sigma(t)}\, ,
+\]</div>
+<p>the loss function becomes — setting <span class="math notranslate nohighlight">\(\lambda(t) = \sigma(t)\)</span> as the weight</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathcal{L}_\theta^{\mathrm{DSM}} = 
+    \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0, \mathbf{z})}
+    \bigg[
+        \big\lVert 
+            \boldsymbol{\epsilon}_\theta(t, \mathbf{x}_t) + \mathbf{z}
+        \big\rVert^2_2
+    \bigg]\, .
+\]</div>
+<p>This is what we’ll use in practice. The choice of the weight factor is justified at the end of this notebook. We can also choose <span class="math notranslate nohighlight">\(p(t) = \mathcal{U}(0, 1)\)</span>. Of course we need to set a noise schedule. Let’s use a geometric progression, which is set such that it interpolates between two chosen value, <span class="math notranslate nohighlight">\(\sigma_{\max/\min}\)</span></p>
+<div class="math notranslate nohighlight">
+\[
+    \sigma(t) = \sigma_{\min} \left( \frac{\sigma_{\max}}{\sigma_{\min}}\right)^t\, .
+\]</div>
+<p>Naturaly, the choice for <span class="math notranslate nohighlight">\(\lambda(t)\)</span>, <span class="math notranslate nohighlight">\(p(t)\)</span> and <span class="math notranslate nohighlight">\(\sigma(t)\)</span> all seem arbitrary. And to some degree they are. But I explain in more detail the reasoning and theory behind them in the section discussing <a class="reference internal" href="#./04-sdes.ipynb"><span class="xref myst">SDEs</span></a>.</p>
+</section>
+<section id="dsm-in-practice">
+<h3>DSM in practice<a class="headerlink" href="#dsm-in-practice" title="Link to this heading">#</a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e3</span><span class="p">)</span>  <span class="c1"># Number of samples in the dataset</span>
+<span class="n">distribution</span> <span class="o">=</span> <span class="n">swiss_roll</span><span class="p">()</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">D</span><span class="p">,))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sigma_min</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">sigma_max</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="k">def</span> <span class="nf">sigma</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">sigma_min</span> <span class="o">*</span> <span class="p">(</span><span class="n">sigma_max</span> <span class="o">/</span> <span class="n">sigma_min</span><span class="p">)</span> <span class="o">**</span> <span class="n">t</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">dsm_loss</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">):</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">xt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">sigma</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">z</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">epsilon</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">xt</span><span class="p">)</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell tag_hide-cell docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell content</span>
+<span class="expanded">Hide code cell content</span>
+</summary>
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">2e3</span><span class="p">)</span>  <span class="c1"># Number of iterations</span>
+<span class="n">B</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Batch size</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">Epsilon</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">optim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+
+<span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">dsm_loss</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">net</span><span class="p">)</span>
+    <span class="n">optim</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">optim</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "0ab8a958466643a5a91c06520d8bec4c", "version_major": 2, "version_minor": 0}</script></div>
+</details>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Diffusion Score Matching Loss&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\mathcal</span><span class="si">{L}</span><span class="s2">_\theta$&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Iteration&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/af5bc53aafabd6f9f86e5dd4d703293190b20df4da358676246ead3e7c21c12a.png" src="../_images/af5bc53aafabd6f9f86e5dd4d703293190b20df4da358676246ead3e7c21c12a.png" />
+</div>
+</div>
+</section>
+<section id="tweedie-s-formula">
+<h3>Tweedie’s formula<a class="headerlink" href="#tweedie-s-formula" title="Link to this heading">#</a></h3>
+<p>Denoising is intimately connected to learning a distribution. This connection is most evident in Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
+Tweedie’s formula gives an expression for the optimal denoiser at first order, which is given by the follwing expectation</p>
+<div class="math notranslate nohighlight">
+\[
+    \mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t] = \mathbf{x}_t + \sigma^2(t) \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\, .
+\]</div>
+<p>In other words, the score function is the optimal denoiser at first order. More importantly, this connection between denoising and the score function will allow us to move back and forth between the two pictures to construct a scalable framework for learning distributions from samples in high-dimensional spaces.</p>
 </section>
 </section>
 </section>
@@ -943,9 +1111,11 @@ To see this, let’s study for a moment the time derivative of <span class="math
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealed-score-matching">Annealed score matching</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score-Matching (DSM)</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-distributions">Empirical distributions</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-with-a-heat-kernel">Annealing with a heat kernel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#denoising-score-matching-dsm">Denoising Score Matching (DSM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-by-adding-noise">Annealing by adding noise</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-equivalence-with-sm">DSM equivalence with SM</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
 </li>
 </ul>

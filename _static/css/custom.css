@@ -57,10 +57,3 @@ h3 {
     transition: background-position 0.5s ease-in-out;
 }
 
-.tag_hide {
-    background-color: rgba(0, 0, 0, 1);
-    color: rgba(0, 0, 0, 1);
-    border: 1px solid #34495e;
-    padding: 10px;
-    border-radius: 4px;
-}
