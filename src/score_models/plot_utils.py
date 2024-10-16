@@ -114,7 +114,7 @@ def plot_score(
         extent=(-2, 2, -2, 2),
         n=20, 
         dx=0.05, 
-        scale=1.5e3, 
+        scale=None , 
         width=0.007,
         colorbar=False,
         cmap=cc.cm.fire,
