@@ -411,7 +411,7 @@ document.write(`
 This introduction is my own take on the subject.</p>
 <section id="the-normalization-condition">
 <h2>The normalization condition<a class="headerlink" href="#the-normalization-condition" title="Link to this heading">#</a></h2>
-<p>First, a natural question that arises is: why not model the probability density function, <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, directly?
+<p>First, a natural question that arises is: why not directly model the probability density function, <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>?
 For a probability density function to be valid, it must be normalized over its domain <span class="math notranslate nohighlight">\(\mathcal{X}\)</span></p>
 <div class="math notranslate nohighlight">
 \[
@@ -641,10 +641,11 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 </ol>
 <p>The score models package also offer some more utilities to</p>
 <ul class="simple">
-<li><p>Train a <span class="xref myst">conditional SBM</span></p></li>
+<li><p>Train a <span class="xref myst">conditional SBM</span>;</p></li>
+<li><p>Compute <a class="reference internal" href="#./05-log_prob.ipnyb"><span class="xref myst">log probability</span></a>;</p></li>
+<li><p><a class="reference internal" href="#./06-lora.ipnyb"><span class="xref myst">Fine-tuning</span></a> of SBM’s with LoRA weights.</p></li>
 </ul>
-<!-- - Evaluate the [log probability](./05-log_prob.ipnyb) of the learned distribution -->
-<!-- - [Fine-tuning](./06-lora.ipnyb) of SBM's with LoRA weights.  --></section>
+</section>
 </section>
 
     <script type="text/x-thebe-config">

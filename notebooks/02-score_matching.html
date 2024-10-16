@@ -396,7 +396,6 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-by-adding-noise">Annealing by adding noise</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-equivalence-with-sm">DSM equivalence with SM</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
 </li>
 </ul>
@@ -593,7 +592,7 @@ In other words, the probability of randomly choosing a valid sample from <span c
 vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> increases — at least for interesting <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
 If we want to approximate the score of <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, we better make sure our score is good near points of high-density.</p>
 <p>There are also good theoretical reasons to keep <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> in our sampling distribution.
-In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence. We will come back to this point later.</p>
+In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence. I come back to this point in the section discussing <a class="reference internal" href="#./04-sdes.ipynb"><span class="xref myst">SDEs</span></a>.</p>
 </section>
 <section id="annealing-the-distribution">
 <h3>Annealing the distribution<a class="headerlink" href="#annealing-the-distribution" title="Link to this heading">#</a></h3>
@@ -847,7 +846,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 \end{align*}
 \end{split}\]</div>
 <p>What this tells us is that adding noise to samples from the empirical distribution produces an annealed distribution, <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span>, which is a mixture of Gaussian modes around each samples from the dataset.
-The width of these modes is increased as a function of <span class="math notranslate nohighlight">\(t\)</span>, which analogous to how our previous example was annealed by decreasing values of <span class="math notranslate nohighlight">\(\beta\)</span>.</p>
+The width of these modes is increased as a function of <span class="math notranslate nohighlight">\(t\)</span>. This is analogous to how our previous example was annealed by decreasing values of <span class="math notranslate nohighlight">\(\beta\)</span>.</p>
 </section>
 <section id="dsm-equivalence-with-sm">
 <h3>DSM equivalence with SM<a class="headerlink" href="#dsm-equivalence-with-sm" title="Link to this heading">#</a></h3>
@@ -861,8 +860,8 @@ Let’s recall the SM loss, now written in terms of <span class="math notranslat
     \bigg]
 \]</div>
 <p>Our empirical description for the target score of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is defined as a sum over the entire dataset <span class="math notranslate nohighlight">\(\mathcal{D}\)</span>. In practice, a dataset is often too large to fit into the fast-access memory of the hardware used to train the neural network model. Typical dataset for images can easily contain from <span class="math notranslate nohighlight">\(10\, \mathrm{GB}\)</span> to more than <span class="math notranslate nohighlight">\(1\, \mathrm{TB}\)</span> of data.
-In the future, hardware could perhaps handle this situation. But current GPUs are limited to <span class="math notranslate nohighlight">\(\mathcal{O}(10)\, \mathrm{GB}\)</span> of VRAM — to my knowledge, the largest being the H100 GPU which can reach <span class="math notranslate nohighlight">\(80\, \mathrm{GB}\)</span> of VRAM. Of course, GPUs can be connected to increase the memory. But let’s not consider this here. It makes the challenge overly complicated, and there is a rather simple solution to our predicament.</p>
-<p><a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">P. Vincent (2011)</a> defined a loss function completely equivalent to the one above with a clever manipulation. The argument goes as follows. First, develop the error term and collect every terms that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span> in a constant, <span class="math notranslate nohighlight">\(C\)</span>. This constant represent all terms that do not impact the learning problem, specifically those that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span>. Indeed, minimizing <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> w.r.t. <span class="math notranslate nohighlight">\(\theta\)</span> involves taking the gradient <span class="math notranslate nohighlight">\(\nabla_\theta\)</span>, which will make all such terms vanish.</p>
+In the future, hardware could perhaps handle this situation. But, to my knowledge, current GPUs can only deal with <span class="math notranslate nohighlight">\(\mathcal{O}(10)\, \mathrm{GB}\)</span> of VRAM — the largest being the H100 GPU with <span class="math notranslate nohighlight">\(\sim 80\, \mathrm{GB}\)</span> of VRAM. Of course, GPUs can be connected to increase the memory. But let’s not consider this here. It makes the challenge overly complicated, and there is a rather simple solution to our predicament.</p>
+<p><a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">P. Vincent (2011)</a> defined a loss function completely equivalent to the one above with a clever manipulation. The argument goes as follows. First, develop the squared norm and collect every terms that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span> in a constant, <span class="math notranslate nohighlight">\(C\)</span>. This constant represent all terms that do not impact the learning problem, specifically those that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span>. Indeed, minimizing <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> w.r.t. <span class="math notranslate nohighlight">\(\theta\)</span> involves taking the gradient <span class="math notranslate nohighlight">\(\nabla_\theta\)</span>, which will make all such terms vanish.</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}^{\mathrm{SM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p_t(\mathbf{x}_t)}
@@ -915,7 +914,7 @@ In the future, hardware could perhaps handle this situation. But current GPUs ar
     \end{align*}
 \end{split}\]</div>
 <p>In this derivation, we used the shortcut notation <span class="math notranslate nohighlight">\(\int_{\mathbf{x}} \equiv \int_{\mathcal{X}}\, \mathrm{d}^n\mathbf{x}\)</span>.
-Now, inserting this term back into the previous expression and completing the square— we can always define a loss function up to a constant — we obtain a new objective</p>
+Now, inserting this term back into the previous expression and completing the square, we obtain a new objective</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}^{\mathrm{DSM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0)}
@@ -930,7 +929,7 @@ Now, inserting this term back into the previous expression and completing the sq
 \[
     \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{x}_t - \mathbf{x}_0}{\sigma^2(t)}\, .
 \]</div>
-<p>We can even use our auxiliary variable to reparametrize <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_t + \sigma(t)\mathbf{z}\)</span>. The score then becomes</p>
+<p>We can also use an auxiliary variable to reparametrize <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_t + \sigma(t)\mathbf{z}\)</span>. The score then becomes</p>
 <div class="math notranslate nohighlight">
 \[
     \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{z}}{\sigma(t)}\, .
@@ -951,7 +950,7 @@ Now, inserting this term back into the previous expression and completing the sq
         \big\rVert^2_2
     \bigg]\, .
 \]</div>
-<p>This is what we’ll use in practice. The choice of the weight factor is justified at the end of this notebook. We can also choose <span class="math notranslate nohighlight">\(p(t) = \mathcal{U}(0, 1)\)</span>. Of course we need to set a noise schedule. Let’s use a geometric progression, which is set such that it interpolates between two chosen value, <span class="math notranslate nohighlight">\(\sigma_{\max/\min}\)</span></p>
+<p>This is what we’ll use in practice. We can also choose <span class="math notranslate nohighlight">\(p(t) = \mathcal{U}(0, 1)\)</span>. Of course we need to set a noise schedule. Let’s use a geometric progression, which is set such that it interpolates between two chosen value, <span class="math notranslate nohighlight">\(\sigma_{\max/\min}\)</span></p>
 <div class="math notranslate nohighlight">
 \[
     \sigma(t) = \sigma_{\min} \left( \frac{\sigma_{\max}}{\sigma_{\min}}\right)^t\, .
@@ -963,10 +962,8 @@ Now, inserting this term back into the previous expression and completing the sq
 <p>One thing about DSM that can be confusing at first is the behavior of the loss function. Don’t try to read too much into it. The loss function is not supposed to reach 0. And it is normal that it oscillates a lot. To compensate for this, we use a neat technique. Instead of saving the weights <span class="math notranslate nohighlight">\(\theta\)</span> of the neural network after a number of iterations, we save the exponential moving average (EMA) of the weight over the training.</p>
 <p>Here is little FAQ:</p>
 <p><strong>Q</strong>: Should I split the dataset into a training and validation set?
-<strong>A</strong>: No. The goal of training an SBM is to encode and interpolate an empirical distribution defined by your samples.
-The concept of the generalization error (error on some held-out test set), has no meaning in this setting. In fact, by annealing
-the distribution, we’ve made sure the neural network can be evaluated over all space (up to a distance of <span class="math notranslate nohighlight">\(\sigma_{\max}\)</span>). As such, most points in <span class="math notranslate nohighlight">\(\mathbb{R}^n\)</span> are parts of its training domain. The function will yield a valid output for any point you put in it.</p>
-<p><strong>Q</strong>: The loss has plateaued. How do I know if the neural network has converged? <strong>A</strong>: Train the neural network for as long as you can. There is no such thing as overfitting for SBM. Also, the loss won’t indicate convergence. Typically, one needs to sample from the model to assess its quality. And you most definitely don’t want to do this while training. <strong>Notebooks on quality metrics will be produced eventually.</strong></p>
+<strong>A</strong>: No. The goal of training an SBM is to encode an empirical distribution defined by your samples. The concept of the generalization error is ill-defined in this setting.</p>
+<p><strong>Q</strong>: The loss has plateaued, should I stop training? <strong>A</strong>: No. The neural network is still learning, even while the loss reaches a plateau. Keep training with a constant learning rate for as long as you can afford it.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e3</span><span class="p">)</span>  <span class="c1"># Number of samples in the dataset</span>
@@ -1107,16 +1104,6 @@ the distribution, we’ve made sure the neural network can be evaluated over all
 </div>
 </div>
 </section>
-<section id="tweedie-s-formula">
-<h3>Tweedie’s formula<a class="headerlink" href="#tweedie-s-formula" title="Link to this heading">#</a></h3>
-<p>Denoising is intimately connected to learning a distribution. This connection is most evident in Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
-Tweedie’s formula gives an expression for the optimal denoiser at first order, which is given by the follwing expectation</p>
-<div class="math notranslate nohighlight">
-\[
-    \mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t] = \mathbf{x}_t + \sigma^2(t) \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\, .
-\]</div>
-<p>In other words, the score function is the optimal denoiser at first order. More importantly, this connection between denoising and the score function will allow us to move back and forth between the two pictures to construct a scalable framework for learning distributions from samples in high-dimensional spaces.</p>
-</section>
 </section>
 </section>
 
@@ -1196,7 +1183,6 @@ Tweedie’s formula gives an expression for the optimal denoiser at first order,
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#annealing-by-adding-noise">Annealing by adding noise</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-equivalence-with-sm">DSM equivalence with SM</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
 </li>
 </ul>
