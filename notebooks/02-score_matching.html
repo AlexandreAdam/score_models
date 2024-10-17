@@ -151,8 +151,14 @@
   
   
   
+    
+    
+      
+    
+    
+    <img src="../_static/sbm_logo.png" class="logo__image only-light" alt="Score Models - Home"/>
+    <script>document.write(`<img src="../_static/sbm_logo.png" class="logo__image only-dark" alt="Score Models - Home"/>`);</script>
   
-    <p class="title logo__title">Score Models</p>
   
 </a></div>
         <div class="sidebar-primary-item">
@@ -821,7 +827,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 \[
     p(\mathbf{x}) = \sum_{i=1}^N \delta^{(n)}(\mathbf{x} - \mathbf{x}^{(i)})
 \]</div>
-<p>Naturally, this description gets better as <span class="math notranslate nohighlight">\(N \rightarrow \infty\)</span>. Also, notice the similarity between this empirical description and the annealed distribution as <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>. Working with samples instead of a distribution is simply a shift in perspective, starting at <span class="math notranslate nohighlight">\(\beta = \infty\)</span> instead <span class="math notranslate nohighlight">\(\beta = 1\)</span>.</p>
+<p>Naturally, this description gets better as <span class="math notranslate nohighlight">\(N \rightarrow \infty\)</span>. Also, notice the similarity between this empirical description and the annealed distribution as <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span>. Working with samples can be thought of as a shift in perspective, starting at <span class="math notranslate nohighlight">\(\beta = \infty\)</span> instead of <span class="math notranslate nohighlight">\(\beta = 1\)</span>.</p>
 <section id="annealing-by-adding-noise">
 <h3>Annealing by adding noise<a class="headerlink" href="#annealing-by-adding-noise" title="Link to this heading">#</a></h3>
 <p>To anneal this distribution, we will be adding noise to the samples in our dataset. Let <span class="math notranslate nohighlight">\(\mathbf{x}_0 \sim \mathcal{D}\)</span> be a sample from the dataset. We define <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> to be a noisy or perturbed version of <span class="math notranslate nohighlight">\(\mathbf{x}_0\)</span>. <span class="math notranslate nohighlight">\(\mathbf{x}_t\)</span> is sampled from the Gaussian perturbation kernel <span class="math notranslate nohighlight">\(\mathbf{x}_t \sim p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, where</p>
@@ -829,12 +835,12 @@ Also, to make the task easier for the neural network, we redefine the score to i
 \[
     p(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0, \sigma^2(t))\, .
 \]</div>
-<p>Another way to parametrize this perturbation is to make use of an auxiliary random variable <span class="math notranslate nohighlight">\(\mathbf{z} \sim \mathcal{N}(\mathbf{z} \mid 0, 1)\)</span>:</p>
+<p>Another way to parametrize this perturbation is to make use of an auxiliary variable <span class="math notranslate nohighlight">\(\mathbf{z} \sim \mathcal{N}(\mathbf{z} \mid 0, 1)\)</span>:</p>
 <div class="math notranslate nohighlight">
 \[
     \mathbf{x}_t = \mathbf{x}_0 + \sigma(t) \mathbf{z}
 \]</div>
-<p>We use the time-index <span class="math notranslate nohighlight">\(t\)</span> to label the different levels of noise, <span class="math notranslate nohighlight">\(\sigma(t)\)</span>. The time-index <span class="math notranslate nohighlight">\(t\)</span> plays the role of <span class="math notranslate nohighlight">\(\beta\)</span> in indexing the distributions. <span class="math notranslate nohighlight">\(t\)</span> is much more convenient than <span class="math notranslate nohighlight">\(\beta\)</span> since the empirical distribution corresponds to <span class="math notranslate nohighlight">\(t = 0\)</span> instead of <span class="math notranslate nohighlight">\(\beta = \infty\)</span>. The sequence of noise levels is a monotically increasing sequence, for which <span class="math notranslate nohighlight">\(t\)</span> is a natural index</p>
+<p>We use the time-index <span class="math notranslate nohighlight">\(t\)</span> to label the different levels of noise, <span class="math notranslate nohighlight">\(\sigma(t)\)</span>. The time-index <span class="math notranslate nohighlight">\(t\)</span> plays the role of <span class="math notranslate nohighlight">\(\beta\)</span> in indexing the distributions. However, <span class="math notranslate nohighlight">\(t\)</span> is much more convenient than <span class="math notranslate nohighlight">\(\beta\)</span> since we start indexing empirical distribution at <span class="math notranslate nohighlight">\(t = 0\)</span> instead of <span class="math notranslate nohighlight">\(\beta = \infty\)</span>. Also, the sequence of noise levels is a monotically increasing sequence, for which <span class="math notranslate nohighlight">\(t\)</span> is a convenient index choice</p>
 <div class="math notranslate nohighlight">
 \[
     t_1 &lt; t_2 \implies \sigma(t_1) &lt; \sigma(t_2)
@@ -843,8 +849,8 @@ Also, to make the task easier for the neural network, we redefine the score to i
 <div class="math notranslate nohighlight">
 \[\begin{split}
 \begin{align*}
-    p_t(\mathbf{x}_t) &amp;= \int_\mathcal{X} p(\mathbf{x}_0) p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
-                    &amp;= \int_\mathcal{X} \sum_{i=1}^N \delta^{(n)}(\mathbf{x}_0 - \mathbf{x}^{(i)}_0)p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d}^n \mathbf{x}_0 \\
+    p_t(\mathbf{x}_t) &amp;= \int_\mathcal{X} p(\mathbf{x}_0) p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d} \mathbf{x}_0 \\
+                    &amp;= \int_\mathcal{X} \sum_{i=1}^N \delta^{(n)}(\mathbf{x}_0 - \mathbf{x}^{(i)}_0)p(\mathbf{x}_t \mid \mathbf{x}_0)\, \mathrm{d} \mathbf{x}_0 \\
                     &amp;= \sum_{i=1}^N p(\mathbf{x}_t \mid \mathbf{x}^{(i)}_0) \\
                     &amp;= \sum_{i=1}^N \mathcal{N}(\mathbf{x}_t \mid \mathbf{x}_0^{(i)}, \sigma^2(t))
 \end{align*}
@@ -1062,7 +1068,6 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
     <span class="n">energy</span> <span class="o">=</span> <span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">dataset</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">logsumexp</span><span class="p">(</span><span class="o">-</span><span class="n">energy</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     
-
 <span class="k">def</span> <span class="nf">annealed_empirical_distribution_score</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">vmap</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">annealed_empirical_distribution_logp</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">))(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
 </pre></div>
