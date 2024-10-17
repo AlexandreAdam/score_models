@@ -484,8 +484,6 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">distribution</span> <span class="o">=</span> <span class="n">egg_box</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">mode_width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="c1"># distribution = two_moons()</span>
-<span class="c1"># distribution = swiss_roll()</span>
 
 <span class="k">def</span> <span class="nf">logp</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">distribution</span><span class="o">.</span><span class="n">log_prob</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
@@ -526,7 +524,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "44e553bbb8fa4b02bc5ff0b20adbf665", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "ea5562fb17f24b1e857b9a91a2a75ef6", "version_major": 2, "version_minor": 0}</script></div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -545,7 +543,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/69111169676c31a1238a7d03d4e86d4d81be3c75a7ae6cc2930fd5ea52208983.png" src="../_images/69111169676c31a1238a7d03d4e86d4d81be3c75a7ae6cc2930fd5ea52208983.png" />
+<img alt="../_images/984df3008b75a819a2eee5eea148045b10acdb2d5c1d7fc483d68f572ac5154a.png" src="../_images/984df3008b75a819a2eee5eea148045b10acdb2d5c1d7fc483d68f572ac5154a.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -578,7 +576,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/ea1a633b42686d2a0888d64b9c2c9d82ea0d355235d75160a77b7e893dbb592b.png" src="../_images/ea1a633b42686d2a0888d64b9c2c9d82ea0d355235d75160a77b7e893dbb592b.png" />
+<img alt="../_images/9abcc0d5abaa723bda79816626d3c34124b777042e800c569bf3c2260b61d279.png" src="../_images/9abcc0d5abaa723bda79816626d3c34124b777042e800c569bf3c2260b61d279.png" />
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
@@ -592,7 +590,7 @@ In other words, the probability of randomly choosing a valid sample from <span c
 vanishingly small as <span class="math notranslate nohighlight">\(n\)</span> increases — at least for interesting <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>.
 If we want to approximate the score of <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span>, we better make sure our score is good near points of high-density.</p>
 <p>There are also good theoretical reasons to keep <span class="math notranslate nohighlight">\(p(\mathbf{x})\)</span> in our sampling distribution.
-In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence. I come back to this point in the section discussing <a class="reference internal" href="#./04-sdes.ipynb"><span class="xref myst">SDEs</span></a>.</p>
+In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> is a forward Fisher divergence, which is closely related to the Kullback-Leibler divergence.</p>
 </section>
 <section id="annealing-the-distribution">
 <h3>Annealing the distribution<a class="headerlink" href="#annealing-the-distribution" title="Link to this heading">#</a></h3>
@@ -744,10 +742,15 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "3e5b71f3f0ec4c05b448045f83e3b076", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "f3ffa0b548384703b843c825e62e4477", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
-<div class="cell docutils container">
+<div class="cell tag_hide-input docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell source</span>
+<span class="expanded">Hide code cell source</span>
+</summary>
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
@@ -757,8 +760,9 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </pre></div>
 </div>
 </div>
+</details>
 <div class="cell_output docutils container">
-<img alt="../_images/01f1cabe69d89c4ef796198ceeb9e1bcea6946ccb9a6b20ea7f3f6e6b8600c59.png" src="../_images/01f1cabe69d89c4ef796198ceeb9e1bcea6946ccb9a6b20ea7f3f6e6b8600c59.png" />
+<img alt="../_images/654856bcb5fd5f8a271dfe44c3d661358c370d67b1ecaab5e09a1cd904028f56.png" src="../_images/654856bcb5fd5f8a271dfe44c3d661358c370d67b1ecaab5e09a1cd904028f56.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -798,7 +802,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/70527d4333d901b939f8f0cc84fc9e9f6370ba9548fcbf083f62ddaa52311b24.png" src="../_images/70527d4333d901b939f8f0cc84fc9e9f6370ba9548fcbf083f62ddaa52311b24.png" />
+<img alt="../_images/f95f900d30749d6f2680d2ebe4c5a39c4c5be8e1b3b9334880d130b02e409af7.png" src="../_images/f95f900d30749d6f2680d2ebe4c5a39c4c5be8e1b3b9334880d130b02e409af7.png" />
 </div>
 </div>
 <p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
@@ -954,7 +958,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 \[
     \sigma(t) = \sigma_{\min} \left( \frac{\sigma_{\max}}{\sigma_{\min}}\right)^t\, .
 \]</div>
-<p>Naturaly, the choice for <span class="math notranslate nohighlight">\(\lambda(t)\)</span>, <span class="math notranslate nohighlight">\(p(t)\)</span> and <span class="math notranslate nohighlight">\(\sigma(t)\)</span> all seem arbitrary. And to some degree they are. But I explain in more detail the reasoning and theory behind them in the section discussing <a class="reference internal" href="#./04-sdes.ipynb"><span class="xref myst">SDEs</span></a> alongside the pioneering works of Yang Song, Jonathan Ho and many others.</p>
+<p>Naturaly, the choice for <span class="math notranslate nohighlight">\(\lambda(t)\)</span>, <span class="math notranslate nohighlight">\(p(t)\)</span> and <span class="math notranslate nohighlight">\(\sigma(t)\)</span> all seem arbitrary. And to some degree they are. But I explain in more detail the reasoning and theory behind them in the section [XXX] alongside the pioneering works of Yang Song, Jonathan Ho and many others.</p>
 </section>
 <section id="dsm-in-practice">
 <h3>DSM in practice<a class="headerlink" href="#dsm-in-practice" title="Link to this heading">#</a></h3>
@@ -966,9 +970,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e3</span><span class="p">)</span>  <span class="c1"># Number of samples in the dataset</span>
-<span class="c1"># distribution = egg_box(4, mode_width=0.1, box_size=1)</span>
 <span class="n">distribution</span> <span class="o">=</span> <span class="n">swiss_roll</span><span class="p">()</span>
-<span class="c1"># distribution = two_moons()</span>
 <span class="n">dataset</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">D</span><span class="p">,))</span>
 </pre></div>
 </div>
@@ -1024,10 +1026,15 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "b4298d645c404cf59bdb33438fa1a5c6", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "c06f5297a30e4a75b514670174d245a5", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
-<div class="cell docutils container">
+<div class="cell tag_hide-input docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell source</span>
+<span class="expanded">Hide code cell source</span>
+</summary>
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span>
@@ -1037,8 +1044,9 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </pre></div>
 </div>
 </div>
+</details>
 <div class="cell_output docutils container">
-<img alt="../_images/64c08d1b38a32498fd95944fd37b776aae066bdd7d2cdeeb79400548ce2dd5a4.png" src="../_images/64c08d1b38a32498fd95944fd37b776aae066bdd7d2cdeeb79400548ce2dd5a4.png" />
+<img alt="../_images/18709116342411467b6a0b898c8a47a8494b4955bf2e062619eb4b8759f2dd98.png" src="../_images/18709116342411467b6a0b898c8a47a8494b4955bf2e062619eb4b8759f2dd98.png" />
 </div>
 </div>
 <p>We can compare our model against the annealed empirical distribution. Remember that</p>
@@ -1099,7 +1107,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/b366c7906b70f2d948ef4a6387f9383d18fd5da609f68efdea98e8fe2b77dc69.png" src="../_images/b366c7906b70f2d948ef4a6387f9383d18fd5da609f68efdea98e8fe2b77dc69.png" />
+<img alt="../_images/a28ae280cc9f9774180e3ab7600f138f89558dc2ca25307750a4166fd82cefd5.png" src="../_images/a28ae280cc9f9774180e3ab7600f138f89558dc2ca25307750a4166fd82cefd5.png" />
 </div>
 </div>
 </section>
