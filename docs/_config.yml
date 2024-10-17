@@ -3,7 +3,7 @@
 title: Score Models # The title of the book. Will be placed in the left navbar.
 author: Alexandre Adam # The author of the book
 copyright: "2023" # Copyright year to be placed in the footer
-#logo                        : "figures/milex_logo_cyber.png"  # A path to the book logo
+logo: "../assets/sbm_logo.png"  # A path to the book logo
 # Patterns to skip when building the book. Can be glob-style (e.g. "*skip.ipynb")
 exclude_patterns: [_build, Thumbs.db, .DS_Store, "**.ipynb_checkpoints"]
 # Auto-exclude files not in the toc
