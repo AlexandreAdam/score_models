@@ -526,7 +526,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "b81cf328ad2142b2b9fdc41310a56038", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "44e553bbb8fa4b02bc5ff0b20adbf665", "version_major": 2, "version_minor": 0}</script></div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -545,7 +545,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/f45ea9691cad0a6bd28fe8bc101ea6e54096640d6034450e738096bbffefa804.png" src="../_images/f45ea9691cad0a6bd28fe8bc101ea6e54096640d6034450e738096bbffefa804.png" />
+<img alt="../_images/69111169676c31a1238a7d03d4e86d4d81be3c75a7ae6cc2930fd5ea52208983.png" src="../_images/69111169676c31a1238a7d03d4e86d4d81be3c75a7ae6cc2930fd5ea52208983.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -578,7 +578,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/4400b1d81b5c851b80cfe94e98ff48c3148b991b63b2fb903da3c5ba7c95fcf0.png" src="../_images/4400b1d81b5c851b80cfe94e98ff48c3148b991b63b2fb903da3c5ba7c95fcf0.png" />
+<img alt="../_images/ea1a633b42686d2a0888d64b9c2c9d82ea0d355235d75160a77b7e893dbb592b.png" src="../_images/ea1a633b42686d2a0888d64b9c2c9d82ea0d355235d75160a77b7e893dbb592b.png" />
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
@@ -596,7 +596,7 @@ In fact, the loss <span class="math notranslate nohighlight">\(\mathcal{L}_\thet
 </section>
 <section id="annealing-the-distribution">
 <h3>Annealing the distribution<a class="headerlink" href="#annealing-the-distribution" title="Link to this heading">#</a></h3>
-<p>Our first attempt at improving score matching is to introduce an annealing procedure. Technically, this implementation of annealing assumes we have access to the ground truth score. But bear with me, we’ll eventually define a procedure that works with data. Let’s recall the Gibbs measure and use the (inverse) temperature parameter <span class="math notranslate nohighlight">\(\beta\)</span> to describe a family of distributions related by the same energy function</p>
+<p>Our first attempt at improving score matching is to introduce an annealing procedure. Technically, the following implementation of annealing assumes we have access to the ground truth score. But bear with me, we’ll eventually define a procedure that works with data. Let’s recall the Gibbs measure and use the (inverse) temperature parameter <span class="math notranslate nohighlight">\(\beta\)</span> to describe a family of distributions related by the same energy function</p>
 <div class="math notranslate nohighlight">
 \[
     p_\beta(\mathbf{x}) = \frac{1}{\mathcal{Z}}e^{- \beta E(\mathbf{x})}\, .
@@ -606,9 +606,9 @@ When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</sp
 In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
 <div class="math notranslate nohighlight">
 \[
-p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \mathbf{\mu}_i)\, .
+p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_i)\, .
 \]</div>
-<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\mathbf{\mu}_i) = 0\)</span>. For our exercice, we only need to consider the family
+<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_i) = 0\)</span>. For our exercice, we only need to consider the family
 <span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution. For our Gaussian mixture, the distribution has the form</p>
 <div class="math notranslate nohighlight">
 \[
@@ -616,7 +616,7 @@ p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \mathbf{\mu}_i)\, .
 \]</div>
 <p>with the energy function
 <span class="math notranslate nohighlight">\(
-    E_i(\mathbf{x}) = \frac{1}{2 \sigma^2} \lVert \mathbf{x} - \mathbf{\mu}_i \rVert^2 \, .
+    E_i(\mathbf{x}) = \frac{1}{2 \sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_i \rVert^2 \, .
 \)</span>
 Therefore, the temperature parameters has the effect of scaling the size of each mode</p>
 <div class="math notranslate nohighlight">
@@ -744,7 +744,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "e59a44bc4a6d481fb0bb26cae52ef8d0", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "3e5b71f3f0ec4c05b448045f83e3b076", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell docutils container">
@@ -758,7 +758,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/ca7c68be341199ce0c42a27ed350fd553ee03e9f55c83d9d514fb17cb6c99764.png" src="../_images/ca7c68be341199ce0c42a27ed350fd553ee03e9f55c83d9d514fb17cb6c99764.png" />
+<img alt="../_images/01f1cabe69d89c4ef796198ceeb9e1bcea6946ccb9a6b20ea7f3f6e6b8600c59.png" src="../_images/01f1cabe69d89c4ef796198ceeb9e1bcea6946ccb9a6b20ea7f3f6e6b8600c59.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -798,7 +798,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/4762f5ca6c22dc66a616c38c3b4f05d71b5317f94d22f16d9143396410e8894e.png" src="../_images/4762f5ca6c22dc66a616c38c3b4f05d71b5317f94d22f16d9143396410e8894e.png" />
+<img alt="../_images/70527d4333d901b939f8f0cc84fc9e9f6370ba9548fcbf083f62ddaa52311b24.png" src="../_images/70527d4333d901b939f8f0cc84fc9e9f6370ba9548fcbf083f62ddaa52311b24.png" />
 </div>
 </div>
 <p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
@@ -859,7 +859,7 @@ Let’s recall the SM loss, now written in terms of <span class="math notranslat
         \lambda(t)\big\lVert \mathbf{s}_\theta(t, \mathbf{x}_t) - \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) \big\rVert^2_2
     \bigg]
 \]</div>
-<p>Our empirical description for the target score of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is defined as a sum over the entire dataset <span class="math notranslate nohighlight">\(\mathcal{D}\)</span>. In practice, a dataset is often too large to fit into the fast-access memory of the hardware used to train the neural network model. Typical dataset for images can easily contain from <span class="math notranslate nohighlight">\(10\, \mathrm{GB}\)</span> to more than <span class="math notranslate nohighlight">\(1\, \mathrm{TB}\)</span> of data.
+<p>Our empirical description for the target score of <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is defined as a sum over the entire dataset <span class="math notranslate nohighlight">\(\mathcal{D}\)</span>. In practice, a dataset is often too large to fit into the fast-access memory of the hardware used to train the neural network model. Typical datasets with images can easily contain from <span class="math notranslate nohighlight">\(10\, \mathrm{GB}\)</span> to more than <span class="math notranslate nohighlight">\(1\, \mathrm{TB}\)</span> of data.
 In the future, hardware could perhaps handle this situation. But, to my knowledge, current GPUs can only deal with <span class="math notranslate nohighlight">\(\mathcal{O}(10)\, \mathrm{GB}\)</span> of VRAM — the largest being the H100 GPU with <span class="math notranslate nohighlight">\(\sim 80\, \mathrm{GB}\)</span> of VRAM. Of course, GPUs can be connected to increase the memory. But let’s not consider this here. It makes the challenge overly complicated, and there is a rather simple solution to our predicament.</p>
 <p><a class="reference external" href="https://www.iro.umontreal.ca/~vincentp/Publications/smdae_techreport.pdf">P. Vincent (2011)</a> defined a loss function completely equivalent to the one above with a clever manipulation. The argument goes as follows. First, develop the squared norm and collect every terms that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span> in a constant, <span class="math notranslate nohighlight">\(C\)</span>. This constant represent all terms that do not impact the learning problem, specifically those that do not depend on <span class="math notranslate nohighlight">\(\theta\)</span>. Indeed, minimizing <span class="math notranslate nohighlight">\(\mathcal{L}_\theta\)</span> w.r.t. <span class="math notranslate nohighlight">\(\theta\)</span> involves taking the gradient <span class="math notranslate nohighlight">\(\nabla_\theta\)</span>, which will make all such terms vanish.</p>
 <div class="math notranslate nohighlight">
@@ -913,8 +913,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
             \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) \bigg] \\
     \end{align*}
 \end{split}\]</div>
-<p>In this derivation, we used the shortcut notation <span class="math notranslate nohighlight">\(\int_{\mathbf{x}} \equiv \int_{\mathcal{X}}\, \mathrm{d}^n\mathbf{x}\)</span>.
-Now, inserting this term back into the previous expression and completing the square, we obtain a new objective</p>
+<p>Now, inserting this term back into the previous expression and completing the square, we obtain a new objective</p>
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}^{\mathrm{DSM}}_\theta = \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0)}
@@ -943,10 +942,10 @@ Now, inserting this term back into the previous expression and completing the sq
 <div class="math notranslate nohighlight">
 \[
     \mathcal{L}_\theta^{\mathrm{DSM}} = 
-    \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{x}_t, \mathbf{x}_0, \mathbf{z})}
+    \mathbb{E}_{p(t)}\mathbb{E}_{p(\mathbf{z}, \mathbf{x}_0)}
     \bigg[
         \big\lVert 
-            \boldsymbol{\epsilon}_\theta(t, \mathbf{x}_t) + \mathbf{z}
+            \boldsymbol{\epsilon}_\theta\big(t, \mathbf{x}_0 + \sigma(t) \mathbf{z}\big) + \mathbf{z}
         \big\rVert^2_2
     \bigg]\, .
 \]</div>
@@ -1006,7 +1005,7 @@ Now, inserting this term back into the previous expression and completing the sq
 <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">2e4</span><span class="p">)</span>  <span class="c1"># Number of iterations</span>
 <span class="n">B</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Batch size</span>
 <span class="n">net</span> <span class="o">=</span> <span class="n">Epsilon</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-<span class="n">optim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">optim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">3e-4</span><span class="p">)</span>
 <span class="n">ema</span> <span class="o">=</span> <span class="n">ExponentialMovingAverage</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">decay</span><span class="o">=</span><span class="mf">0.999</span><span class="p">)</span>
 
 <span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1025,7 +1024,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "a98ba0e1a10b4e5bbb1a5abb0fb046ad", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "b4298d645c404cf59bdb33438fa1a5c6", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell docutils container">
@@ -1039,7 +1038,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/9a1bdbc4e31a404aef4fa5045abd03c37eeb64dd8545a550feba3c206cebd7fc.png" src="../_images/9a1bdbc4e31a404aef4fa5045abd03c37eeb64dd8545a550feba3c206cebd7fc.png" />
+<img alt="../_images/64c08d1b38a32498fd95944fd37b776aae066bdd7d2cdeeb79400548ce2dd5a4.png" src="../_images/64c08d1b38a32498fd95944fd37b776aae066bdd7d2cdeeb79400548ce2dd5a4.png" />
 </div>
 </div>
 <p>We can compare our model against the annealed empirical distribution. Remember that</p>
@@ -1100,7 +1099,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/650638fd7b34762a8f66072e1707f8d5c1cac51a87b24f8ffaa9a049f18ef78a.png" src="../_images/650638fd7b34762a8f66072e1707f8d5c1cac51a87b24f8ffaa9a049f18ef78a.png" />
+<img alt="../_images/b366c7906b70f2d948ef4a6387f9383d18fd5da609f68efdea98e8fe2b77dc69.png" src="../_images/b366c7906b70f2d948ef4a6387f9383d18fd5da609f68efdea98e8fe2b77dc69.png" />
 </div>
 </div>
 </section>

@@ -58,6 +58,8 @@
     <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'notebooks/03-diffusion';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -359,7 +361,9 @@ document.write(`
   </button>
 `);
 </script>
-
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
 </div></div>
       
     </div>
@@ -375,6 +379,14 @@ document.write(`
     <div id="print-main-content">
         <div id="jb-print-toc">
             
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
+</ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -386,6 +398,16 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="diffusion">
 <h1>Diffusion<a class="headerlink" href="#diffusion" title="Link to this heading">#</a></h1>
+<p>Diffusion is a rather old concept in physics. The phenomena was first discovered by Robert Brown in 1827. The first formal theory of Brownian motion was then developped by Einstein in 1905, one of his 3 famous paper in that year.</p>
+<section id="tweedie-s-formula">
+<h2>Tweedie’s formula<a class="headerlink" href="#tweedie-s-formula" title="Link to this heading">#</a></h2>
+<p>Denoising is intimately connected to learning a distribution. This connection is most evident in Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
+Tweedie’s formula gives an expression for the optimal denoiser at first order, which is given by the following expectation,
+$<span class="math notranslate nohighlight">\(
+\mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t] = \mathbf{x}_t + \sigma^2(t) \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\, .
+\)</span>$
+In other words, the score function is the optimal denoiser at first order. More importantly, this connection between denoising and the score function will allow us to move back and forth between the two pictures to construct a scalable framework for learning distributions from samples in high-dimensional spaces.</p>
+</section>
 </section>
 
     <script type="text/x-thebe-config">
@@ -442,6 +464,21 @@ document.write(`
             </div>
             
             
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>
