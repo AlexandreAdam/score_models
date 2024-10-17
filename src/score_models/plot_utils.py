@@ -27,6 +27,8 @@ params = {
          'xtick.minor.size': 4,
          'ytick.major.size': 8,
          'ytick.minor.size': 4,
+         'text.usetex': True,
+         'text.latex.preamble': r'\usepackage{bm}',
          }
 pylab.rcParams.update(params)
 
