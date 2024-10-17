@@ -382,10 +382,23 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling-with-diffusion">Sampling with Diffusion</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-based-models-ebm">Energy-Based Models (EBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d">1D</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-long-sequences-etc">Time-series, long sequences, etc.</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#images">Images</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cube">Cube</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training">Training</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-on-hpc-cluster-upcoming">Training on HPC Cluster (Upcoming)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling">Sampling</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#heavy-duty-sampling-upcoming">Heavy duty sampling (upcoming)</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hessian-diagonal-models-hdm">Hessian Diagonal Models (HDM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditional-sbm">Conditional SBM</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#guided-diffusion">Guided Diffusion</a></li>
@@ -403,17 +416,185 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="getting-started">
 <h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h1>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>score_models
+</pre></div>
+</div>
+</section>
 <section id="neural-network-architectures">
 <h2>Neural network architectures<a class="headerlink" href="#neural-network-architectures" title="Link to this heading">#</a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">score_models</span> <span class="kn">import</span> <span class="n">NCSNpp</span><span class="p">,</span> <span class="n">MLP</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="d">
+<h3>1D<a class="headerlink" href="#d" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Shape of the input is <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">C]</span></code>, where <code class="docutils literal notranslate"><span class="pre">B</span></code> is an unspecified batch size.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">C</span></code> is the number of channels of the input vector.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">units</span></code> is the width of the hidden layers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">layers</span></code> is the number of hidden layers, not counting the attention bottleneck.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">attention</span></code>: if True, use the attention mechanism in the bottleneck of the MLP</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">net</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;silu&#39;</span><span class="p">,</span> <span class="n">attention</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Example MLP</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="time-series-long-sequences-etc">
+<h3>Time-series, long sequences, etc.<a class="headerlink" href="#time-series-long-sequences-etc" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Shape of the input is <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">C,</span> <span class="pre">L]</span></code>, where <code class="docutils literal notranslate"><span class="pre">L</span></code> is an unspecified sequence length.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dimensions=1</span></code> is used to specify 1D CNN layers in the architecture.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nf</span></code> is the base number of filters for the CNN layers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ch_mult</span></code> is used to specify the number of levels in the U-net and also is used as a multiplicative factor for the number of filters. In the example below, the CNN layers of the first level have <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">x</span> <span class="pre">nf</span></code>, the second have <code class="docutils literal notranslate"><span class="pre">2</span>&#160; <span class="pre">nf</span></code>, etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">L</span></code> must be divisible by <code class="docutils literal notranslate"><span class="pre">2^len(ch_mult)</span></code>.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">net</span> <span class="o">=</span> <span class="n">NCSNpp</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">nf</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">ch_mult</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">attention</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Example NCSN++</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="images">
+<h3>Images<a class="headerlink" href="#images" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Shape of the input is <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">C,</span> <span class="pre">H,</span> <span class="pre">W]</span></code></p></li>
+<li><p>Both <code class="docutils literal notranslate"><span class="pre">H</span></code> and <code class="docutils literal notranslate"><span class="pre">W</span></code> must be divisible by <code class="docutils literal notranslate"><span class="pre">2^len(ch_mult)</span></code></p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">net</span> <span class="o">=</span> <span class="n">NCSNpp</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">nf</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">ch_mult</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">attention</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Example NCSN++</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="cube">
+<h3>Cube<a class="headerlink" href="#cube" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Shape of the input is <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">C,</span> <span class="pre">H,</span> <span class="pre">W,</span> <span class="pre">D]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">H</span></code>, <code class="docutils literal notranslate"><span class="pre">W</span></code> and <code class="docutils literal notranslate"><span class="pre">D</span></code> must be divisible by <code class="docutils literal notranslate"><span class="pre">2^len(ch_mult)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dimensions=3</span></code> is used to specify3D CNN layers in the architecture.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">net</span> <span class="o">=</span> <span class="n">NCSNpp</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">nf</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">ch_mult</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">attention</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Example NCSN++</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
 </section>
 <section id="score-based-model-sbm">
 <h2>Score-Based Model (SBM)<a class="headerlink" href="#score-based-model-sbm" title="Link to this heading">#</a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">score_models</span> <span class="kn">import</span> <span class="n">ScoreModel</span><span class="p">,</span> <span class="n">VPSDE</span>
+
+<span class="n">sde</span> <span class="o">=</span> <span class="n">VPSDE</span><span class="p">()</span>
+<span class="n">sbm</span> <span class="o">=</span> <span class="n">ScoreModel</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">sde</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="training">
+<h3>Training<a class="headerlink" href="#training" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code> must be an instance of PyTorch <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> or <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code>. See e.g. <a class="reference external" href="https://pytorch.org/tutorials/beginner/basics/data_tutorial.html">this tutorial</a> to get started.</p></li>
+<li><p>If a <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> instance is provided, we wrap it automatically with a <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code>. Ideally, provide <code class="docutils literal notranslate"><span class="pre">batch_size</span></code> to the <code class="docutils literal notranslate"><span class="pre">fit</span></code> method in that case.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sbm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">,</span>
+    <span class="n">epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>          <span class="c1"># Only if dataset is not a torch DataLoader</span>
+    <span class="n">ema_decay</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span>
+    <span class="n">checkpoints_every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>   <span class="c1"># Save model every 10 epochs</span>
+    <span class="n">models_to_keep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>       <span class="c1"># Keep only the last model</span>
+    <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/path/to/checkpoints_directory&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
 </section>
-<section id="sampling-with-diffusion">
-<h2>Sampling with Diffusion<a class="headerlink" href="#sampling-with-diffusion" title="Link to this heading">#</a></h2>
+<section id="training-on-hpc-cluster-upcoming">
+<h3>Training on HPC Cluster (Upcoming)<a class="headerlink" href="#training-on-hpc-cluster-upcoming" title="Link to this heading">#</a></h3>
+<p>Requires setting up the <code class="docutils literal notranslate"><span class="pre">milex-scheduler</span></code> with</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>milex-configuration
+</pre></div>
+</div>
+<p>[Link to documentation]. The code below will schedule training on a cluster, possibly remote, through ssh. See [link] to configure the ssh protocol correctly.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sbm</span><span class="o">.</span><span class="n">scheduled_fit</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">,</span>
+    <span class="n">epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>          <span class="c1"># Only if dataset is not a torch DataLoader</span>
+    <span class="n">ema_decay</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span>
+    <span class="n">checkpoints_every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>   <span class="c1"># Save model every 10 epochs</span>
+    <span class="n">models_to_keep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>       <span class="c1"># Keep only the last model</span>
+    <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/path/to/checkpoints_directory&#39;</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="s2">&quot;03-00:00&quot;</span><span class="p">,</span>        <span class="c1"># Time allocation for the job (DD-HH:MM)</span>
+    <span class="n">gres</span><span class="o">=</span><span class="s2">&quot;gpu:1&quot;</span><span class="p">,</span>           <span class="c1"># Number of GPUs to allocate</span>
+    <span class="n">machine</span><span class="o">=</span><span class="s2">&quot;remote&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>You can also allocate more than one GPU accross multiple node for heavy duty training (upcoming). The following will request 4 nodes, each with 4 GPU (assuming your compute node support 4 GPU connected with NVLinks), for a total of 16 GPU training in data parallel mode. For this type of training, the dataset must be a Dataset instance, not a DataLoader. Also, you can specify the batch size to maximize the usage of all GPUs.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sbm</span><span class="o">.</span><span class="n">scheduled_fit</span><span class="p">(</span>
+    <span class="o">...</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="o">*</span><span class="n">B</span><span class="p">,</span>        <span class="c1"># Increase the batch to be 16 times B, where B would be optimal for one GPU.</span>
+    <span class="n">node</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>                 <span class="c1"># Number of nodes to allocate</span>
+    <span class="n">gres</span><span class="o">=</span><span class="s2">&quot;gpu:4&quot;</span><span class="p">,</span>           <span class="c1"># Number of GPUs to allocate</span>
+    <span class="n">machine</span><span class="o">=</span><span class="s2">&quot;remote&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
 </section>
-<section id="energy-based-models-ebm">
-<h2>Energy-Based Models (EBM)<a class="headerlink" href="#energy-based-models-ebm" title="Link to this heading">#</a></h2>
+<section id="sampling">
+<h3>Sampling<a class="headerlink" href="#sampling" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">shape</span></code> of the input must be provided. <code class="docutils literal notranslate"><span class="pre">B</span></code> samples will be produced in parallel.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">steps</span></code> specifies the discretization of the SDE. It can be increased to improve the sample quality.</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sbm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="o">...</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<section id="heavy-duty-sampling-upcoming">
+<h4>Heavy duty sampling (upcoming)<a class="headerlink" href="#heavy-duty-sampling-upcoming" title="Link to this heading">#</a></h4>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sbm</span><span class="o">.</span><span class="n">scheduled_sample</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="c1"># Similar to scheduled fit</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
 </section>
 <section id="hessian-diagonal-models-hdm">
 <h2>Hessian Diagonal Models (HDM)<a class="headerlink" href="#hessian-diagonal-models-hdm" title="Link to this heading">#</a></h2>
@@ -493,10 +674,23 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling-with-diffusion">Sampling with Diffusion</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#energy-based-models-ebm">Energy-Based Models (EBM)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#neural-network-architectures">Neural network architectures</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d">1D</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-long-sequences-etc">Time-series, long sequences, etc.</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#images">Images</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cube">Cube</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-based-model-sbm">Score-Based Model (SBM)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training">Training</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-on-hpc-cluster-upcoming">Training on HPC Cluster (Upcoming)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sampling">Sampling</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#heavy-duty-sampling-upcoming">Heavy duty sampling (upcoming)</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hessian-diagonal-models-hdm">Hessian Diagonal Models (HDM)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditional-sbm">Conditional SBM</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#guided-diffusion">Guided Diffusion</a></li>

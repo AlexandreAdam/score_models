@@ -606,9 +606,9 @@ When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</sp
 In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
 <div class="math notranslate nohighlight">
 \[
-p_\infty(\mathbf{x}) = \sum_{j}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_j)\, .
+p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_i)\, .
 \]</div>
-<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_j) = 0\)</span>. For our exercice, we only need to consider the family
+<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_i) = 0\)</span>. For our exercice, we only need to consider the family
 <span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution. For our Gaussian mixture, the distribution has the form</p>
 <div class="math notranslate nohighlight">
 \[
@@ -929,7 +929,7 @@ Now, inserting this term back into the previous expression and completing the sq
 \[
     \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{x}_t - \mathbf{x}_0}{\sigma^2(t)}\, .
 \]</div>
-<p>We can also use an auxiliary variable to reparametrize <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_t + \sigma(t)\mathbf{z}\)</span>. The score then becomes</p>
+<p>We can also use an auxiliary variable to reparametrize <span class="math notranslate nohighlight">\(\mathbf{x}_t = \mathbf{x}_0 + \sigma(t)\mathbf{z}\)</span>. The score then becomes</p>
 <div class="math notranslate nohighlight">
 \[
     \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{z}}{\sigma(t)}\, .
