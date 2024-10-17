@@ -31,7 +31,7 @@ params = {
          'text.latex.preamble': r'\usepackage{bm}',
          }
 pylab.rcParams.update(params)
-
+cmap = cc.cm.fire
 
 def plot_density(
         logp_fn: Callable,
@@ -41,7 +41,7 @@ def plot_density(
         dx=0.01, 
         dy=0.01, 
         colorbar=False, 
-        cmap=cc.cm.fire, 
+        cmap=cmap, 
         vmin=None, 
         vmax=None, 
         **kwargs):
@@ -77,7 +77,7 @@ def plot_scatter(
         norm=None, 
         ticks=None, 
         colorbar=False, 
-        cmap=cc.cm.fire, 
+        cmap=cmap, 
         **kwargs):
     """
     Scatter plot colored by 2d histogram
@@ -115,11 +115,10 @@ def plot_score(
         ax=None,
         extent=(-2, 2, -2, 2),
         n=20, 
-        dx=0.05, 
-        scale=None , 
+        scale=None, 
         width=0.007,
         colorbar=False,
-        cmap=cc.cm.fire,
+        cmap=cmap,
         ):
     """
     Plot a vector field
