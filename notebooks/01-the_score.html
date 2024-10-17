@@ -385,9 +385,9 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-normalization-condition">The normalization condition</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-score-is-local-for-a-gibbs-measure">The score is local (for a Gibbs measure)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-score-is-local-for-the-gibbs-measure">The score is local for the Gibbs measure</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-a-gaussian-mixture">Score of a Gaussian mixture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-an-annealed-mixture-of-gaussian">Score of an annealed mixture of Gaussian</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-an-annealed-gaussian-mixture">Score of an annealed Gaussian mixture</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a></li>
 </ul>
             </nav>
@@ -415,7 +415,7 @@ This introduction is my own take on the subject.</p>
 For a probability density function to be valid, it must be normalized over its domain <span class="math notranslate nohighlight">\(\mathcal{X}\)</span></p>
 <div class="math notranslate nohighlight">
 \[
-    \int_{\mathcal{X}} p(\mathbf{x}) \mathrm{d}^n \mathbf{x} = 1\, .
+    \int_{\mathcal{X}} p(\mathbf{x}) \mathrm{d} \mathbf{x} = 1\, .
 \]</div>
 <p>This, it turns out, is a very stringent condition. Not many functions have this property.
 Normalizing flows attempt to model probability densities by starting from a valid distribution,
@@ -431,8 +431,8 @@ In general,</p>
 \[\mathbf{x} \in \mathcal{X} \subseteq \mathbb{R}^n\,.\]</div>
 <p>For images, <span class="math notranslate nohighlight">\(n &gt; 10^4\)</span> is typical. This is a problem.</p>
 </section>
-<section id="the-score-is-local-for-a-gibbs-measure">
-<h2>The score is local (for a Gibbs measure)<a class="headerlink" href="#the-score-is-local-for-a-gibbs-measure" title="Link to this heading">#</a></h2>
+<section id="the-score-is-local-for-the-gibbs-measure">
+<h2>The score is local for the Gibbs measure<a class="headerlink" href="#the-score-is-local-for-the-gibbs-measure" title="Link to this heading">#</a></h2>
 <p>By targeting the score, we sidestep the normalization condition entirely. Indeed,
 a large class of distributions can be described by the Gibbs measure</p>
 <div class="math notranslate nohighlight">
@@ -444,7 +444,7 @@ which now describes the distribution, so to speak.
 The normalization condition is encoded in the partition function</p>
 <div class="math notranslate nohighlight">
 \[
-    \mathcal{Z} = \int_\mathcal{X} e^{-E(\mathbf{x})} \mathrm{d}^n \mathbf{x}\, .
+    \mathcal{Z} = \int_\mathcal{X} e^{-E(\mathbf{x})} \mathrm{d} \mathbf{x}\, .
 \]</div>
 <p>Crucially, the score of a Gibbs measure is a purely local description of the distribution,
 independent of the partition function</p>
@@ -524,7 +524,7 @@ Let’s consider a mixture of 4 well-separated Gaussian modes with equal weights
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/b3684182a312ed75b7480d9c44f2bffd1805157a01dbf3006bebce95e1053fb4.png" src="../_images/b3684182a312ed75b7480d9c44f2bffd1805157a01dbf3006bebce95e1053fb4.png" />
+<img alt="../_images/412c61e0b4eba06155863965380441634e11a94b1cb64d3b195fa4a555b59095.png" src="../_images/412c61e0b4eba06155863965380441634e11a94b1cb64d3b195fa4a555b59095.png" />
 </div>
 </div>
 <p>The score is a vector field pointing toward regions of higher density. The farther from these regions, the larger the magnitude of the score. But, since the score is local, the magnitude does not depend on the relative magnitude of the mode.</p>
@@ -561,7 +561,7 @@ But, the magnitude and orientation of the score field picture on the right does 
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/ed521d987901427af3ce5f408a3f21eff36532c1eac9382848e741942169c599.png" src="../_images/ed521d987901427af3ce5f408a3f21eff36532c1eac9382848e741942169c599.png" />
+<img alt="../_images/ca22896f87db23a3e6767c0443f2ddf1eb315492d1de6fac20de5b10e56c5b35.png" src="../_images/ca22896f87db23a3e6767c0443f2ddf1eb315492d1de6fac20de5b10e56c5b35.png" />
 </div>
 </div>
 <p>Of course, there is nothing magical about this.
@@ -570,7 +570,7 @@ Using <span class="math notranslate nohighlight">\(w_i\)</span> as weights, we c
 \[
     p(\mathbf{x}) = \frac{1}{\mathcal{Z}}\sum_{i}w_i e^{-E_i(\mathbf{x}) }\, ,
 \]</div>
-<p>where <span class="math notranslate nohighlight">\(E_i(\mathbf{x}) = \frac{1}{2\sigma^2} \big\lVert \mathbf{x} - \boldsymbol{\mu}_i \big\rVert^2_2\)</span> for a Gaussian distribution. The score becomes,</p>
+<p>where <span class="math notranslate nohighlight">\(E_i(\mathbf{x}) = \frac{1}{2\sigma^2} \big\lVert \mathbf{x} - \mathbf{\mu}_i \big\rVert^2_2\)</span> for a Gaussian distribution. The score becomes,</p>
 <div class="math notranslate nohighlight">
 \[
     \nabla_{\mathbf{x}} \log p(\mathbf{x}) = \nabla_{\mathbf{x}} \log \left(\sum_{i}w_i e^{-E_i(\mathbf{x}) } \right)\, .
@@ -585,12 +585,12 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 <p>The score becomes</p>
 <div class="math notranslate nohighlight">
 \[
-    \nabla_{\mathbf{x}} \log p(\mathbf{x}) \approx -\nabla_\mathbf{x} E_j (\mathbf{x})\, .
+    \nabla_{\mathbf{x}} \log p(\mathbf{x}) \approx -\nabla_{\mathbf{x}} E_j (\mathbf{x})\, .
 \]</div>
 <p>Crucially, we find that the score around the dominant mode does not depend on the weight of this mode nor the global normalization of the distribution.</p>
 </section>
-<section id="score-of-an-annealed-mixture-of-gaussian">
-<h2>Score of an annealed mixture of Gaussian<a class="headerlink" href="#score-of-an-annealed-mixture-of-gaussian" title="Link to this heading">#</a></h2>
+<section id="score-of-an-annealed-gaussian-mixture">
+<h2>Score of an annealed Gaussian mixture<a class="headerlink" href="#score-of-an-annealed-gaussian-mixture" title="Link to this heading">#</a></h2>
 <p>This is not to say that the score never depends on the relative weights of the modes. If we anneal each modes by increasing their width, we notice that the score field starts to picks up the relative importance of each mode. This is especially noticable for the mode in the top-right corner. With our choice of annealing, this mode has disappeared and the score there points away from the mode toward the other 3.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
@@ -623,7 +623,7 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/da84a27740f9c13d485c1feb0a3087cdc0cad16815e446bd7393d06592cd2120.png" src="../_images/da84a27740f9c13d485c1feb0a3087cdc0cad16815e446bd7393d06592cd2120.png" />
+<img alt="../_images/ba629e238eb8df4dbd19436d2eb5ad0daa071238c34755ef0b2179665125739e.png" src="../_images/ba629e238eb8df4dbd19436d2eb5ad0daa071238c34755ef0b2179665125739e.png" />
 </div>
 </div>
 </section>
@@ -713,9 +713,9 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-normalization-condition">The normalization condition</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-score-is-local-for-a-gibbs-measure">The score is local (for a Gibbs measure)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-score-is-local-for-the-gibbs-measure">The score is local for the Gibbs measure</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-a-gaussian-mixture">Score of a Gaussian mixture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-an-annealed-mixture-of-gaussian">Score of an annealed mixture of Gaussian</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#score-of-an-annealed-gaussian-mixture">Score of an annealed Gaussian mixture</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a></li>
 </ul>
   </nav></div>

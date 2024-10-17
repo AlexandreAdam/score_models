@@ -526,7 +526,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "2559b53815ba4afeb5146e965e2e6f0c", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "b81cf328ad2142b2b9fdc41310a56038", "version_major": 2, "version_minor": 0}</script></div>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -545,7 +545,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/acb39037c6975c66cd21eef59d08dffc5abc78190af74791ac23a0ba4b967334.png" src="../_images/acb39037c6975c66cd21eef59d08dffc5abc78190af74791ac23a0ba4b967334.png" />
+<img alt="../_images/f45ea9691cad0a6bd28fe8bc101ea6e54096640d6034450e738096bbffefa804.png" src="../_images/f45ea9691cad0a6bd28fe8bc101ea6e54096640d6034450e738096bbffefa804.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -578,7 +578,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/0d9787e8273f811a3a74e68ab876efdc1a5cebf3a997e1454c08343f758d7066.png" src="../_images/0d9787e8273f811a3a74e68ab876efdc1a5cebf3a997e1454c08343f758d7066.png" />
+<img alt="../_images/4400b1d81b5c851b80cfe94e98ff48c3148b991b63b2fb903da3c5ba7c95fcf0.png" src="../_images/4400b1d81b5c851b80cfe94e98ff48c3148b991b63b2fb903da3c5ba7c95fcf0.png" />
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
@@ -606,9 +606,9 @@ When <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</sp
 In fact, <span class="math notranslate nohighlight">\(\beta \rightarrow \infty\)</span> will describe a sum of Dirac deltas</p>
 <div class="math notranslate nohighlight">
 \[
-p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_i)\, .
+p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \mathbf{\mu}_i)\, .
 \]</div>
-<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\boldsymbol{\mu}_i) = 0\)</span>. For our exercice, we only need to consider the family
+<p>The sum runs over all point s.t. <span class="math notranslate nohighlight">\(E(\mathbf{\mu}_i) = 0\)</span>. For our exercice, we only need to consider the family
 <span class="math notranslate nohighlight">\(\beta \in [0, 1]\)</span>, where <span class="math notranslate nohighlight">\(\beta = 1\)</span> corresponds to our target distribution. For our Gaussian mixture, the distribution has the form</p>
 <div class="math notranslate nohighlight">
 \[
@@ -616,7 +616,7 @@ p_\infty(\mathbf{x}) = \sum_{i}\delta^{(n)}(\mathbf{x} - \boldsymbol{\mu}_i)\, .
 \]</div>
 <p>with the energy function
 <span class="math notranslate nohighlight">\(
-    E_i(\mathbf{x}) = \frac{1}{2 \sigma^2} \lVert \mathbf{x} - \boldsymbol{\mu}_i \rVert^2 \, .
+    E_i(\mathbf{x}) = \frac{1}{2 \sigma^2} \lVert \mathbf{x} - \mathbf{\mu}_i \rVert^2 \, .
 \)</span>
 Therefore, the temperature parameters has the effect of scaling the size of each mode</p>
 <div class="math notranslate nohighlight">
@@ -643,9 +643,9 @@ anticipating the formal derivation of the loss function. We also choose <span cl
 Also, to make the task easier for the neural network, we redefine the score to incorporate the temperature parameter</p>
 <div class="math notranslate nohighlight">
 \[
-    \mathbf{s}_\theta(\beta, \mathbf{x}) \equiv \sqrt{\beta} \boldsymbol{\epsilon}_\theta(\beta, \mathbf{x})\, .
+    \mathbf{s}_\theta(\beta, \mathbf{x}) \equiv \sqrt{\beta} \mathbf{\epsilon}_\theta(\beta, \mathbf{x})\, .
 \]</div>
-<p><span class="math notranslate nohighlight">\(\boldsymbol{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate the temperature parameter as input. We must modify the architecture of the neural network accordingly in the implementation below.</p>
+<p><span class="math notranslate nohighlight">\(\mathbf{\epsilon}_\theta: [0, 1] \times \mathbb{R}^n \rightarrow \mathbb{R}^n\)</span> will be a neural network. Notice that we need to incorporate the temperature parameter as input. We must modify the architecture of the neural network accordingly in the implementation below.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">annealed_egg_box</span><span class="p">(</span><span class="n">beta</span><span class="p">):</span> <span class="c1"># p_{\beta}(\mathbf{x})</span>
@@ -744,7 +744,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "ca1b18e2f45d475dbbe6429393058ee8", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "e59a44bc4a6d481fb0bb26cae52ef8d0", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell docutils container">
@@ -758,7 +758,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/9ce851f8955cd19c805fefc134d6b37d4d21dc456857360005ec1d40dc7233dc.png" src="../_images/9ce851f8955cd19c805fefc134d6b37d4d21dc456857360005ec1d40dc7233dc.png" />
+<img alt="../_images/ca7c68be341199ce0c42a27ed350fd553ee03e9f55c83d9d514fb17cb6c99764.png" src="../_images/ca7c68be341199ce0c42a27ed350fd553ee03e9f55c83d9d514fb17cb6c99764.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -798,7 +798,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/5d907dc1f400630e83e9bbccfdd12fcb1b8108b8656d66f15d7a8b0656b32cee.png" src="../_images/5d907dc1f400630e83e9bbccfdd12fcb1b8108b8656d66f15d7a8b0656b32cee.png" />
+<img alt="../_images/4762f5ca6c22dc66a616c38c3b4f05d71b5317f94d22f16d9143396410e8894e.png" src="../_images/4762f5ca6c22dc66a616c38c3b4f05d71b5317f94d22f16d9143396410e8894e.png" />
 </div>
 </div>
 <p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
@@ -1025,7 +1025,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "851766740bbb4818b1a23ef8f9fc43ef", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "a98ba0e1a10b4e5bbb1a5abb0fb046ad", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell docutils container">
@@ -1039,7 +1039,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/9e368d5ea735762ba816f8de617409c2fe3eae79d18a57c322bc7be8d3478cb9.png" src="../_images/9e368d5ea735762ba816f8de617409c2fe3eae79d18a57c322bc7be8d3478cb9.png" />
+<img alt="../_images/9a1bdbc4e31a404aef4fa5045abd03c37eeb64dd8545a550feba3c206cebd7fc.png" src="../_images/9a1bdbc4e31a404aef4fa5045abd03c37eeb64dd8545a550feba3c206cebd7fc.png" />
 </div>
 </div>
 <p>We can compare our model against the annealed empirical distribution. Remember that</p>
@@ -1100,7 +1100,7 @@ Now, inserting this term back into the previous expression and completing the sq
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/580d89515052f994ec95bdb2f1097d1282deabffd210b73c7a3b66d4b8240f8e.png" src="../_images/580d89515052f994ec95bdb2f1097d1282deabffd210b73c7a3b66d4b8240f8e.png" />
+<img alt="../_images/650638fd7b34762a8f66072e1707f8d5c1cac51a87b24f8ffaa9a049f18ef78a.png" src="../_images/650638fd7b34762a8f66072e1707f8d5c1cac51a87b24f8ffaa9a049f18ef78a.png" />
 </div>
 </div>
 </section>
