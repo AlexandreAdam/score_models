@@ -38,7 +38,8 @@ model.fit(
 #### Sample from SBM
 ```python
 B = 10 # batch size
-samples = model.sample(shape=(B, C, *D), steps=1000)
+N = 100 # Euler-Maruyama discretisation steps
+samples = model.sample(shape=(B, C, *D), steps=N)
 ```
 
 #### Save and Load SBM
