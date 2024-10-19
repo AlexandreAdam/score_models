@@ -151,14 +151,8 @@
   
   
   
-    
-    
-      
-    
-    
-    <img src="../_static/sbm_logo.png" class="logo__image only-light" alt="Score Models - Home"/>
-    <script>document.write(`<img src="../_static/sbm_logo.png" class="logo__image only-dark" alt="Score Models - Home"/>`);</script>
   
+    <p class="title logo__title">Score Models</p>
   
 </a></div>
         <div class="sidebar-primary-item">
@@ -432,7 +426,7 @@ can be trained to match a score function by minimizing the mean squared error lo
     \bigg[\big\lVert \mathbf{s}_\theta(\mathbf{x}) - \nabla_{\mathbf{x}} \log p(\mathbf{x}) \big\rVert^2_2 \bigg] \, .
 \]</div>
 <p>This construction is naive because it assumes we have access to the ground truth score, <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}} \log p(\mathbf{x})\)</span>. Naturally, there would be no need to train a neural network if we did. This is why <a class="reference external" href="https://www.jmlr.org/papers/volume6/hyvarinen05a/hyvarinen05a.pdf">Hyvärinen (2005)</a> derived an equivalent loss
-function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. (2019)</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function. Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls — which the SSM also inherited.
+function which abstracts away the ground truth score. His work eventually led Yang Song to build the Sliced Score Matching (SSM) loss function (<a class="reference external" href="https://arxiv.org/abs/1905.07088">Song et al. 2019</a>) using the Hutchinson trace estimator to speed up the Hessian trace in Hyvärinen’s loss function. Instead of the SSM loss function, we will focus on the naive score matching approach to demonstrate some of its pitfalls — which the SSM also inherited.
 As it turns out, score matching is not straightforward even when given perfect information about the ground truth score.</p>
 <p>We will build score matching from scratch to showcase the internals of the score models package. The stuff relevant to score matching done in this notebook are abstracted in the package.
 You can find these routines in the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> page.</p>
@@ -511,7 +505,12 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </div>
 </div>
-<div class="cell docutils container">
+<div class="cell tag_hide-cell docutils container">
+<details class="hide above-input">
+<summary aria-label="Toggle hidden content">
+<span class="collapsed">Show code cell content</span>
+<span class="expanded">Hide code cell content</span>
+</summary>
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">2e3</span><span class="p">)</span>  <span class="c1"># Number of iterations</span>
 <span class="n">B</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Batch size</span>
@@ -531,6 +530,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 <div class="cell_output docutils container">
 <script type="application/vnd.jupyter.widget-view+json">{"model_id": "ea5562fb17f24b1e857b9a91a2a75ef6", "version_major": 2, "version_minor": 0}</script></div>
+</details>
 </div>
 <div class="cell tag_hide-input docutils container">
 <details class="hide above-input">
@@ -933,7 +933,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
         \big\rVert^2_2
     \bigg]\, .
 \]</div>
-<p>Both objectives yield the same score function <span class="math notranslate nohighlight">\(\mathbf{s}_{\theta^\star}(t, \mathbf{x}_t)\)</span> at their optimum <span class="math notranslate nohighlight">\(\theta^\star\)</span>. But this new objective is vastly more efficient because it makes use only of <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, and not <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\)</span>. Indeed, <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is often intractable, whereas the Gaussian perturbation kernel is trivial to evaluate. Its score is</p>
+<p>Both objectives yield the same score function <span class="math notranslate nohighlight">\(\mathbf{s}_{\theta^\star}(t, \mathbf{x}_t)\)</span> at their optimum <span class="math notranslate nohighlight">\(\theta^\star\)</span>. However, this new objective is much more efficient because it uses <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0)\)</span>, and not <span class="math notranslate nohighlight">\(\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)\)</span>. Indeed, <span class="math notranslate nohighlight">\(p_t(\mathbf{x}_t)\)</span> is often intractable, whereas the Gaussian perturbation kernel is trivial to evaluate. Its score is</p>
 <div class="math notranslate nohighlight">
 \[
     \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t \mid \mathbf{x}_0) = - \frac{\mathbf{x}_t - \mathbf{x}_0}{\sigma^2(t)}\, .
@@ -959,12 +959,12 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
         \big\rVert^2_2
     \bigg]\, .
 \]</div>
-<p>This is what we’ll use in practice. We can also choose <span class="math notranslate nohighlight">\(p(t) = \mathcal{U}(0, 1)\)</span>. Of course we need to set a noise schedule. Let’s use a geometric progression, which is set such that it interpolates between two chosen value, <span class="math notranslate nohighlight">\(\sigma_{\max/\min}\)</span></p>
+<p>This is what we’ll use in practice. We also choose <span class="math notranslate nohighlight">\(p(t) = \mathcal{U}(0, 1)\)</span>. Finally, we need to set a noise schedule. Let’s use a geometric progression, which is defined such that it interpolates between two chosen value, <span class="math notranslate nohighlight">\(\sigma_{\max/\min}\)</span></p>
 <div class="math notranslate nohighlight">
 \[
     \sigma(t) = \sigma_{\min} \left( \frac{\sigma_{\max}}{\sigma_{\min}}\right)^t\, .
 \]</div>
-<p>Naturaly, the choice for <span class="math notranslate nohighlight">\(\lambda(t)\)</span>, <span class="math notranslate nohighlight">\(p(t)\)</span> and <span class="math notranslate nohighlight">\(\sigma(t)\)</span> all seem arbitrary. And to some degree they are. But I explain in more detail the reasoning and theory behind them in the section [XXX] alongside the pioneering works of Yang Song, Jonathan Ho and many others.</p>
+<p>The choice for <span class="math notranslate nohighlight">\(\lambda(t)\)</span>, <span class="math notranslate nohighlight">\(p(t)\)</span> and <span class="math notranslate nohighlight">\(\sigma(t)\)</span> may all seem a bit arbitrary. And to some degree they are. But I explain in more detail the reasoning and theory behind them in the section [XXX] alongside the pioneering works of Yang Song, Jonathan Ho and many others.</p>
 </section>
 <section id="dsm-in-practice">
 <h3>DSM in practice<a class="headerlink" href="#dsm-in-practice" title="Link to this heading">#</a></h3>

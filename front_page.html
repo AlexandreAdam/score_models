@@ -152,14 +152,8 @@
   
   
   
-    
-    
-      
-    
-    
-    <img src="_static/sbm_logo.png" class="logo__image only-light" alt="Score Models - Home"/>
-    <script>document.write(`<img src="_static/sbm_logo.png" class="logo__image only-dark" alt="Score Models - Home"/>`);</script>
   
+    <p class="title logo__title">Score Models</p>
   
 </a></div>
         <div class="sidebar-primary-item">
@@ -391,7 +385,18 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-of-the-package">Scope of the package</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-of-the-package">Scope of the package</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#it-can-be-used-to">It can be used to…</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#train-sbm">Train SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#sample-from-sbm">Sample from SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#save-and-load-sbm">Save and Load SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#evalute-log-likelihood">Evalute log-likelihood</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#and-some-more">And some more</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#this-package-is-not">This package is not…</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#table-of-content">Table of Content</a><ul class="nav section-nav flex-column">
 </ul>
 </li>
@@ -420,14 +425,60 @@ please feel free to open an issue or a pull request.
 You can use the Github Button at the top of the page to access the repository or to open an issue.</p>
 <section id="scope-of-the-package">
 <h2>Scope of the package<a class="headerlink" href="#scope-of-the-package" title="Link to this heading">#</a></h2>
-<p>This package is intended to</p>
-<ol class="arabic simple">
-<li><p>Store neural network architectures for score-based models (SBM);</p></li>
-<li><p>Provide methods to train and sample from SBM;</p></li>
-<li><p>Provide utilities for SBM.</p></li>
-</ol>
-<p>This package is not intended to be a general-purpose machine learning library nor a general-purpose sampler package.
-If you use it for your science, please cite the original authors of the methods you use.</p>
+<p>The interface of this package is centered around providing basic utilities for score-based models (SBM)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">score_models</span> <span class="kn">import</span> <span class="n">NCSNpp</span><span class="p">,</span> <span class="n">VPSDE</span><span class="p">,</span> <span class="n">ScoreModel</span>
+
+<span class="n">C</span> <span class="o">=</span> <span class="mi">1</span> <span class="c1"># number of channels</span>
+<span class="n">D</span> <span class="o">=</span> <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span> <span class="c1"># spatial dimensions</span>
+<span class="n">sde</span> <span class="o">=</span> <span class="n">VPSDE</span><span class="p">()</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">NCSNpp</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="n">C</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">D</span><span class="p">),</span> <span class="n">nf</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">ch_mult</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ScoreModel</span><span class="p">(</span><span class="n">net</span><span class="o">=</span><span class="n">net</span><span class="p">,</span> <span class="n">sde</span><span class="o">=</span><span class="n">sde</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="it-can-be-used-to">
+<h3>It can be used to…<a class="headerlink" href="#it-can-be-used-to" title="Link to this heading">#</a></h3>
+<section id="train-sbm">
+<h4>Train SBM<a class="headerlink" href="#train-sbm" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">,</span> 
+    <span class="n">epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> 
+    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/path/to/checkpoint/directory&quot;</span><span class="p">,</span>
+    <span class="n">checkpoint_every</span><span class="o">=</span><span class="mi">10</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="sample-from-sbm">
+<h4>Sample from SBM<a class="headerlink" href="#sample-from-sbm" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">B</span> <span class="o">=</span> <span class="mi">10</span> <span class="c1"># batch size</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="o">*</span><span class="n">D</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="save-and-load-sbm">
+<h4>Save and Load SBM<a class="headerlink" href="#save-and-load-sbm" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Save the model</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;/path/to/checkpoint/directory&quot;</span><span class="p">)</span>
+<span class="c1"># Reload the model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ScoreModel</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;/path/to/checkpoint/directory&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="evalute-log-likelihood">
+<h4>Evalute log-likelihood<a class="headerlink" href="#evalute-log-likelihood" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">log_likelihood</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">log_likelihood</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="and-some-more">
+<h3>And some more<a class="headerlink" href="#and-some-more" title="Link to this heading">#</a></h3>
+<p>See the <span class="xref myst">Getting Started</span> page for more information.</p>
+</section>
+<section id="this-package-is-not">
+<h3>This package is not…<a class="headerlink" href="#this-package-is-not" title="Link to this heading">#</a></h3>
+<p>intended to be a general-purpose machine learning library nor a general-purpose sampler package.</p>
+</section>
 </section>
 <section id="table-of-content">
 <h2>Table of Content<a class="headerlink" href="#table-of-content" title="Link to this heading">#</a></h2>
@@ -509,7 +560,18 @@ If you use it for your science, please cite the original authors of the methods 
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-of-the-package">Scope of the package</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-of-the-package">Scope of the package</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#it-can-be-used-to">It can be used to…</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#train-sbm">Train SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#sample-from-sbm">Sample from SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#save-and-load-sbm">Save and Load SBM</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#evalute-log-likelihood">Evalute log-likelihood</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#and-some-more">And some more</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#this-package-is-not">This package is not…</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#table-of-content">Table of Content</a><ul class="nav section-nav flex-column">
 </ul>
 </li>

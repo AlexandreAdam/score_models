@@ -151,14 +151,8 @@
   
   
   
-    
-    
-      
-    
-    
-    <img src="../_static/sbm_logo.png" class="logo__image only-light" alt="Score Models - Home"/>
-    <script>document.write(`<img src="../_static/sbm_logo.png" class="logo__image only-dark" alt="Score Models - Home"/>`);</script>
   
+    <p class="title logo__title">Score Models</p>
   
 </a></div>
         <div class="sidebar-primary-item">
@@ -597,7 +591,7 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 </section>
 <section id="score-of-an-annealed-gaussian-mixture">
 <h2>Score of an annealed Gaussian mixture<a class="headerlink" href="#score-of-an-annealed-gaussian-mixture" title="Link to this heading">#</a></h2>
-<p>This is not to say that the score never depends on the relative weights of the modes. If we anneal each modes by increasing their width, we notice that the score field starts to picks up the relative importance of each mode. This is especially noticable for the mode in the top-right corner. With our choice of annealing, this mode has disappeared and the score there points away from the mode toward the other 3.</p>
+<p>This is not to say that the score never depends on the relative weights of the modes. If we anneal each mode by increasing their width, the score field starts to picks up their relative importance. In the figure below, this is especially noticable for the mode in the top-right corner. With our choice of annealing, this mode has mostly disappeared and the score there points away from the mode toward the other 3.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">distribution</span> <span class="o">=</span> <span class="n">egg_box</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">mode_width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">))</span>
@@ -640,17 +634,11 @@ Thus, we are left with only the dominant mode in the sum (say mode <span class="
 <li><p>For well-separated modes, the score is local;</p></li>
 <li><p>We can recover the weight of each mode using annealing.</p></li>
 </ul>
-<p>These two facts alone should give enough intuition for the next sections:</p>
+<p>Hopefully, these facts should provide enough intuition for the next sections:</p>
 <ol class="arabic simple">
 <li><p>Training an SBM with <a class="reference internal" href="02-score_matching.html"><span class="std std-doc">score matching</span></a>;</p></li>
 <li><p>Sampling with <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p></li>
 </ol>
-<p>The score models package also offer some more utilities to</p>
-<ul class="simple">
-<li><p>Train a <span class="xref myst">conditional SBM</span>;</p></li>
-<li><p>Compute <a class="reference internal" href="#./05-log_prob.ipnyb"><span class="xref myst">log probability</span></a>;</p></li>
-<li><p><a class="reference internal" href="#./06-lora.ipnyb"><span class="xref myst">Fine-tuning</span></a> of SBM’s with LoRA weights.</p></li>
-</ul>
 </section>
 </section>
 
