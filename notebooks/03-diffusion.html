@@ -385,6 +385,11 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brownian-motion">Brownian motion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-heat-equation">The Heat equation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#langevin-dynamics">Langevin dynamics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-fokker-planck-equation">The Fokker-Planck equation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anderson-s-reverse-time-formula">Anderson’s reverse-time formula</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
             </nav>
@@ -399,7 +404,30 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="diffusion">
 <h1>Diffusion<a class="headerlink" href="#diffusion" title="Link to this heading">#</a></h1>
-<p>Diffusion is a rather old concept in physics. The phenomena was first discovered by Robert Brown in 1827 by studying the movement of molecules suspended in a stationary liquid. A formal theory of Brownian motion was then developped by <a class="reference external" href="https://www.damtp.cam.ac.uk/user/gold/pdfs/teaching/old_literature/Einstein1905.pdf">Einstein in 1905</a>, linking the motion observed by Brown to the kinetic theory of heat dissipation.</p>
+<p>Diffusion is a rather old concept in physics. The phenomena was first discovered by Robert Brown in 1827 when he was studying the movement of molecules suspended in a stationary liquid. A formal theory of Brownian motion was developped by <a class="reference external" href="https://www.damtp.cam.ac.uk/user/gold/pdfs/teaching/old_literature/Einstein1905.pdf">Einstein in 1905</a>, linking Brownian motion to the kinetic theory of heat dissipation.</p>
+<p>In this section, we will build a diffusion model from scratch.
+To do this, I provide a minimal description of stochastic processes based on
+Brownian motion, Langevin dynamics, the heat equation and the more general Fokker-Planck equation.
+I try to keep the theoretical description of diffusion to a minimum to avoid overloading this section with technical
+concepts.
+The more general theory that describes Stochastic Differential Equations and Itô Calculus are touched upon in a different section for the reader interested in more advanced concepts.</p>
+<p>I have decided to mute the connection with thermodynamic to some degree.
+Of course, thermodynamic served as the main inspiration for the invention of diffusion models (<a class="reference external" href="https://arxiv.org/abs/1503.03585">Sohl-Dickstein et al. 2015</a>). So I might eventually explore this work in a separate section.</p>
+<section id="brownian-motion">
+<h2>Brownian motion<a class="headerlink" href="#brownian-motion" title="Link to this heading">#</a></h2>
+</section>
+<section id="the-heat-equation">
+<h2>The Heat equation<a class="headerlink" href="#the-heat-equation" title="Link to this heading">#</a></h2>
+</section>
+<section id="langevin-dynamics">
+<h2>Langevin dynamics<a class="headerlink" href="#langevin-dynamics" title="Link to this heading">#</a></h2>
+</section>
+<section id="the-fokker-planck-equation">
+<h2>The Fokker-Planck equation<a class="headerlink" href="#the-fokker-planck-equation" title="Link to this heading">#</a></h2>
+</section>
+<section id="anderson-s-reverse-time-formula">
+<h2>Anderson’s reverse-time formula<a class="headerlink" href="#anderson-s-reverse-time-formula" title="Link to this heading">#</a></h2>
+</section>
 <section id="tweedie-s-formula">
 <h2>Tweedie’s formula<a class="headerlink" href="#tweedie-s-formula" title="Link to this heading">#</a></h2>
 <p>Denoising is intimately connected to learning a distribution. This connection is most evident in Tweedie’s formula, first reported by <a class="reference external" href="https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/The-Empirical-Bayes-Approach-to-Statistical-Decision-Problems/10.1214/aoms/1177703729.full">Robbins (1956)</a>.
@@ -475,6 +503,11 @@ In other words, the score function is the optimal denoiser at first order. More 
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brownian-motion">Brownian motion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-heat-equation">The Heat equation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#langevin-dynamics">Langevin dynamics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-fokker-planck-equation">The Fokker-Planck equation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anderson-s-reverse-time-formula">Anderson’s reverse-time formula</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tweedie-s-formula">Tweedie’s formula</a></li>
 </ul>
   </nav></div>
