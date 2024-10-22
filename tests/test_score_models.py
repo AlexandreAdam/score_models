@@ -19,19 +19,19 @@ def local_test_loading_model_and_score_fn():
 
 
 def test_loading_from_string():
-    score = ScoreModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
+    score = ScoreModel("mlp", sigma_min=1e-2, sigma_max=10, channels=2)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
     score(t, x)
 
-    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2)
+    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, channels=2)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
     score(t, x)
 
-    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, dimensions=2, nn_is_energy=True)
+    score = EnergyModel("mlp", sigma_min=1e-2, sigma_max=10, channels =2, nn_is_energy=True)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
@@ -45,21 +45,21 @@ def test_loading_from_string():
 
 
 def test_loading_with_nn():
-    net = MLP(dimensions=2)
+    net = MLP(2)
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
     score(t, x)
 
-    net = MLP(dimensions=2)
+    net = MLP(2)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 2)
     t = torch.ones(1)
     score(t, x)
 
-    net = MLP(dimensions=2, nn_is_energy=True)
+    net = MLP(2, nn_is_energy=True)
     score = EnergyModel(net, sigma_min=1e-2, sigma_max=10)
     print(score.sde)
     x = torch.randn(1, 2)
@@ -80,16 +80,16 @@ def test_init_score():
         score = ScoreModel(net)
 
 
-def test_log_likelihood():
-    net = MLP(dimensions=2)
+def test_log_prob():
+    net = MLP(channels=2)
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = torch.randn(3, 2)
-    ll = score.log_likelihood(x, steps=10, verbose=1, method="euler_ode")
+    ll = score.log_prob(x, steps=10, verbose=1, method="euler_ode")
     print(ll)
     assert ll.shape == torch.Size([3])
 
-    ll = score.log_likelihood(x, steps=10, verbose=1, method="rk2_ode")
+    ll = score.log_prob(x, steps=10, verbose=1, method="rk2_ode")
     print(ll)
     assert ll.shape == torch.Size([3])
 

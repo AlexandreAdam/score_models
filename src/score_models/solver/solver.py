@@ -42,8 +42,8 @@ class Solver(ABC):
 
         return super(Solver, cls).__new__(cls)
 
-    def __init__(self, score, *args, **kwargs):
-        self.score = score
+    def __init__(self, sbm, *args, **kwargs):
+        self.sbm = sbm
 
     @abstractmethod
     def solve(
@@ -81,7 +81,7 @@ class Solver(ABC):
 
     @property
     def sde(self):
-        return self.score.sde
+        return self.sbm.sde
 
     def time_steps(
         self,
@@ -139,4 +139,4 @@ class Solver(ABC):
         B, *D = x.shape
         mu = self.sde.mu(t).view(-1, *[1] * len(D))
         sigma = self.sde.sigma(t).view(-1, *[1] * len(D))
-        return (x + sigma**2 * self.score(t, x, *args, **kwargs)) / mu
+        return (x + sigma**2 * self.sbm.score(t, x, *args, **kwargs)) / mu

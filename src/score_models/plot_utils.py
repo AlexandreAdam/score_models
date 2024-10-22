@@ -38,8 +38,8 @@ def plot_density(
         fig=None, 
         ax=None, 
         extent=(-2, 2, -2, 2),
-        dx=0.01, 
-        dy=0.01, 
+        dx=0.025, 
+        dy=0.025,
         colorbar=False, 
         cmap=cmap, 
         vmin=None, 
@@ -54,10 +54,10 @@ def plot_density(
     y = np.arange(ymin, ymax, dy)
     n = x.size
     m = y.size
-    points = np.stack(np.meshgrid(x, y, indexing="xy"), axis=-1).reshape((-1, 2)) 
+    points = np.stack(np.meshgrid(x, y, indexing="xy"), axis=-1).reshape((-1, 2))
     # Compute log probability and normalize to get the density
-    logp = logp_fn(torch.tensor(points).to(DEVICE)).detach().numpy().reshape([m, n])
-    p = np.exp(logp - logsumexp(logp))
+    logp = logp_fn(torch.tensor(points).to(DEVICE).float()).detach().numpy().reshape([m, n])
+    p = np.exp(logp - logsumexp(logp + np.log(dx) + np.log(dy)))
     # Plot the density
     norm = Normalize(vmin=p.min() if vmin is None else vmin, vmax=p.max() if vmax is None else vmax)
     if ax is None:
@@ -149,8 +149,8 @@ def plot_contours(
         ax=None,
         extent=(-2, 2, -2, 2),
         ci: tuple = (0.68, 0.95, 0.99),
-        dx=0.01, 
-        dy=0.01,
+        dx=0.025, 
+        dy=0.025,
         cmap=cc.cm.fire,
         ):
     """
