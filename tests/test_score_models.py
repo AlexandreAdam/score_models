@@ -10,7 +10,7 @@ def local_test_loading_model_and_score_fn():
     # local test only
     path = "/home/alexandre/Desktop/Projects/data/score_models/ncsnpp_ct_g_220912024942"
     model, hparams = load_architecture(path)
-    
+
     score = ScoreModel(checkpoints_directory=path)
     print(score.sde)
     x = torch.randn(1, 1, 256, 256)
@@ -73,26 +73,28 @@ def test_loading_with_nn():
     t = torch.ones(1)
     score(t, x)
 
+
 def test_init_score():
     net = MLP(10)
     with pytest.raises(KeyError):
         score = ScoreModel(net)
+
 
 def test_log_likelihood():
     net = MLP(dimensions=2)
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     print(score.sde)
     x = torch.randn(3, 2)
-    ll = score.log_likelihood(x, steps=10, verbose=1, method="euler")
+    ll = score.log_likelihood(x, steps=10, verbose=1, method="euler_ode")
     print(ll)
     assert ll.shape == torch.Size([3])
 
-    ll = score.log_likelihood(x, steps=10, verbose=1, method="heun")
+    ll = score.log_likelihood(x, steps=10, verbose=1, method="rk2_ode")
     print(ll)
     assert ll.shape == torch.Size([3])
 
 
-def test_sample_fn():
+def test_sample_method():
     net = NCSNpp(1, nf=8, ch_mult=(2, 2))
     score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
@@ -101,16 +103,29 @@ def test_sample_fn():
     score = ScoreModel(net, beta_min=1e-2, beta_max=10)
     score.sample(shape=[5, 1, 16, 16], steps=10)
 
+
+@pytest.mark.parametrize("epsilon", [None, 1e-3, 0.1])
+def test_denoise_method(epsilon):
+    net = NCSNpp(1, nf=8, ch_mult=(2, 2))
+    score = ScoreModel(net, sigma_min=1e-2, sigma_max=10)
+    B = 5
+    t = torch.rand(1) * torch.ones(B)
+    x = torch.randn(B, 1, 16, 16)
+    score.denoise(t, x, steps=10, epsilon=epsilon)
+
+
 @pytest.mark.parametrize("anneal_residuals", [True, False])
 def test_slic_score(anneal_residuals):
     B = 3
     m = 10
     D = 100
+
     def forward_model(t, x):
-        return x[:, :m] # Function R^C to R^m
+        return x[:, :m]  # Function R^C to R^m
+
     x = torch.randn(B, D)
     t = torch.rand(B)
-    net = MLP(m) # Define SLIC in output space of forward model (m)
+    net = MLP(m)  # Define SLIC in output space of forward model (m)
     model = SLIC(forward_model, net, beta_min=1e-2, beta_max=10, anneal_residuals=anneal_residuals)
     y = forward_model(None, x)
     x = torch.randn(B, D)
@@ -119,7 +134,7 @@ def test_slic_score(anneal_residuals):
     print(s)
     print(s.shape)
     assert s.shape == torch.Size([B, D])
-    
+
 
 def test_loading_different_sdes():
     net = DDPM(1, nf=32, ch_mult=(2, 2))
@@ -145,7 +160,6 @@ def test_loading_different_sdes():
     assert score.sde.T == 1
     assert score.sde.t_star == 0.5
     assert score.sde.beta == 10
-
 
 
 if __name__ == "__main__":

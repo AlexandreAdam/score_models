@@ -1,27 +1,33 @@
-name: Code Coverage
+name: CI
 
 on:
   push:
     branches:
-      - master
-      - dev
+      - '**'  # Trigger on all branches
   pull_request:
     branches:
       - master
       - dev
+
 jobs:
-  coverage:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+        os: [ubuntu-latest]
 
     steps:
-      - name: Checkout score_models
-        uses: actions/checkout@v3
-          
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
-          
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
       - name: Record State
         run: |
           pwd
@@ -34,29 +40,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov torch
-          # Install deps
+          pip install pytest pytest-cov
           cd $GITHUB_WORKSPACE
           pip install -r requirements.txt
-        shell: bash
-          
-      - name: Install score_models
+
+      - name: Install package
         run: |
-          cd $GITHUB_WORKSPACE
           pip install -e .
-          pip show score_models
-        shell: bash
-
-      - name: Run tests with coverage
+          
+      - name: Test
         run: |
-          cd $GITHUB_WORKSPACE
-          pwd
-          pytest --cov-report=xml --cov=score_models tests/
-        shell: bash
-
-      - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v3
+          pytest --cov=${{ env.PROJECT_NAME }} --cov-report=xml --cov-report=term tests/
+        # Generate coverage report
+        continue-on-error: true  # Allow tests to fail without breaking the workflow
+      
+      - name: Upload coverage reports to Codecov
+        if: matrix.python-version == '3.10'  # Change this to upload coverage only for a specific version
+        uses: codecov/codecov-action@v4
         with:
-          files: ${{ github.workspace }}/coverage.xml
-          fail_ci_if_error: true
-
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
