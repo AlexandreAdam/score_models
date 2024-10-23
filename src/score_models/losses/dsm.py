@@ -3,17 +3,19 @@ if TYPE_CHECKING:
     from score_models import ScoreModel, HessianDiagonal
 
 from torch import Tensor
+from contextlib import nullcontext
 import torch
 
 __all__ = [
         "dsm", 
         "denoising_score_matching", 
         "second_order_dsm", 
-        "second_order_dsm_meng_variation"
+        "second_order_dsm_meng_variation",
+        "joint_second_order_dsm"
         ]
 
 
-def dsm(model: "ScoreModel", samples: Tensor, *args: list[Tensor]):
+def dsm(model: "ScoreModel", samples: Tensor, *args: list[Tensor], **kwargs):
     B, *D = samples.shape
     sde = model.sde
     
@@ -31,12 +33,13 @@ def dsm(model: "ScoreModel", samples: Tensor, *args: list[Tensor]):
     return ((epsilon_theta + z)**2).sum() / (2 * B)
 
 
-def denoising_score_matching(model: "ScoreModel", samples: Tensor, *args: list[Tensor]):
+def denoising_score_matching(model: "ScoreModel", samples: Tensor, *args: list[Tensor], **kwargs):
     # Used for backward compatibility
     return dsm(model, samples, *args)
 
 
-def second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
+# Note Meng's version is completely equivalent to Lu's version coded here
+def second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor], no_grad: bool = True, **kwargs):
     """
     Loss used to train a model to approximate the diagonal of the Hessians of log p(x).
     This loss is derived in the works of Meng et al. (2020), arxiv.org/pdf/2111.04726
@@ -61,14 +64,14 @@ def second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tens
     mu = sde.mu(t).view(-1, *[1]*len(D))
     sigma = sde.sigma(t).view(-1, *[1]*len(D))
     xt = mu * samples + sigma * z                                                  # xt ~ p(xt | x0)
-    with torch.no_grad():
+    with torch.no_grad() if no_grad else nullcontext():
         ell_1 = epsilon_model(t, xt, *args) + z                                    # ell_1 is the DSM loss term before contraction
     
     # Compute the second order DSM loss
     diag_theta = model.reparametrized_diagonal(t, xt, *args)                       # diag_theta(t, x) = sigma(t)**2 * diag(s_2(t, x)) + 1
     return ((diag_theta - ell_1**2)**2).sum() / (2 * B)
 
-def second_order_dsm_meng_variation(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor]):
+def second_order_dsm_meng_variation(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor], no_grad: bool = True, **kwargs):
     """
     Loss used to train a model to approximate the diagonal of the Hessians of log p(x).
     This loss is derived in the works of Meng et al. (2020), arxiv.org/pdf/2111.04726
@@ -90,9 +93,35 @@ def second_order_dsm_meng_variation(model: "HessianDiagonal", samples: Tensor, *
     mu = sde.mu(t).view(-1, *[1]*len(D))
     sigma = sde.sigma(t).view(-1, *[1]*len(D))
     xt = mu * samples + sigma * z                                                  # xt ~ p(xt | x0)
-    with torch.no_grad():
+    with torch.no_grad() if no_grad else nullcontext():
         epsilon_1 = epsilon_model(t, xt, *args) 
     
     # Compute the second order DSM loss
     diag_theta = model.reparametrized_diagonal(t, xt, *args)                       # diag_theta(t, x) = sigma(t)**2 * diag(s_2(t, x)) + 1
     return ((diag_theta + epsilon_1**2 - z**2)**2).sum() / (2 * B)
+
+def joint_second_order_dsm(model: "HessianDiagonal", samples: Tensor, *args: list[Tensor], lambda_1: float = 1., **kwargs):
+    """
+    Joint optimization of the first and second order DSM losses.
+    """
+    B, *D = samples.shape
+    sde = model.sde
+    
+    x0 = samples                                                                   # x0 ~ p(x0)
+    t = torch.rand(B).to(model.device) * (sde.T - sde.epsilon) + sde.epsilon       # t ~ U(epsilon, T)
+    z = torch.randn_like(samples)                                                  # z ~ N(0, 1)
+    
+    # Sample from the marginal at time t using the Gaussian perturbation kernel
+    mu = sde.mu(t).view(-1, *[1]*len(D))
+    sigma = sde.sigma(t).view(-1, *[1]*len(D))
+    xt = mu * samples + sigma * z                                                  # xt ~ p(xt | x0)
+    
+    # Compute the DSM loss for the SBM
+    epsilon_theta = model.score_model.reparametrized_score(t, xt, *args)           # epsilon_theta(t, x) = sigma(t) * s(t, x)
+    ell_1 = epsilon_theta + z                                                      # ell_1 is the DSM loss term before contraction
+    dsm_loss = (ell_1**2).sum() / (2 * B)
+
+    # Compute the second order DSM loss
+    diag_theta = model.reparametrized_diagonal(t, xt, *args)                       # diag_theta(t, x) = sigma(t)**2 * diag(s_2(t, x)) + 1
+    second_order_loss = ((diag_theta - ell_1**2)**2).sum() / (2 * B)
+    return dsm_loss + lambda_1 * second_order_loss
