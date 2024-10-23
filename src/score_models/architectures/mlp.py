@@ -36,10 +36,8 @@ class MLP(nn.Module):
 
         Parameters:
         - channels (Optional[int]): Number of input channels. Default is None.
-        - units (int): Number of units in each hidden layer. Default is 100.
+        - width (int): Number of units in each hidden layer. Default is 100.
         - layers (int): Number of hidden layers. Default is 2.
-        - time_branch_channels (int): Number of channels in the time branch. Default is 32.
-        - time_branch_layers (int): Number of layers in the time branch. Default is 1.
         - fourier_scale (int): Scale factor for Fourier features. Default is 16.
         - activation (str): Activation function to use. Default is "swish".
         - attention (bool): Whether to use attention mechanism. Default is False.

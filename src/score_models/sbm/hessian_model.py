@@ -9,7 +9,10 @@ from .base import Base
 from .score_model import ScoreModel
 from ..sde import SDE
 from ..utils import DEVICE
-from ..losses import second_order_dsm, second_order_dsm_meng_variation
+from ..losses import (
+        second_order_dsm, 
+        second_order_dsm_meng_variation,
+        )
 from ..solver import ODESolver
 
 __all__ = ["HessianDiagonal"]
@@ -24,7 +27,7 @@ class HessianDiagonal(Base):
             path: Optional[str] = None,
             checkpoint: Optional[int] = None,
             device: torch.device = DEVICE,
-            loss: Literal["canonical", "meng"] = "canonical",
+            loss: Literal["lu", "meng"] = "meng",
             **hyperparameters
             ):
         if isinstance(score_model, ScoreModel):
@@ -35,12 +38,12 @@ class HessianDiagonal(Base):
             if not isinstance(score_model, ScoreModel):
                 raise ValueError("Must provide a ScoreModel instance to instantiate the HessianDiagonal model.")
             self.score_model = score_model
-        if loss == "canonical":
+        if loss.lower() == "lu":
             self._loss = second_order_dsm
-        elif loss == "meng":
+        elif loss.lower() == "meng":
             self._loss = second_order_dsm_meng_variation
         else:
-            raise ValueError(f"Loss function {loss} is not recognized. Choose 'canonical' or 'meng'.")
+            raise ValueError(f"Loss function {loss} is not recognized. Choose between 'Lu' or 'Meng' loss functions.")
         # Make sure ScoreModel weights are frozen (this class does not allow joint optimization for now)
         for p in self.score_model.net.parameters():
             p.requires_grad = False
@@ -99,7 +102,7 @@ class HessianDiagonal(Base):
         solver = ODESolver(self, solver=solver, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         xT, dlogp = solver(
-            x, *args, steps=steps, forward=True, t_min=t, **kwargs, return_logp=True, dlogp=self.dlogp
+            x, *args, steps=steps, forward=True, t_min=t, **kwargs, return_dlogp=True, dlogp=self.dlogp
         )
         # add boundary condition PDF probability
         logp = self.sde.prior(D).log_prob(xT) + dlogp

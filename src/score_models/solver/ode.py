@@ -22,7 +22,7 @@ class ODESolver(Solver):
         denoise_last_step: bool = False,
         time_steps: Optional[Tensor] = None,
         dlogp: Optional[Callable] = None,
-        return_logp: bool = False,
+        return_dlogp: bool = False,
         hook: Optional[Callable] = None,
         **kwargs,
     ):
@@ -51,12 +51,13 @@ class ODESolver(Solver):
             trace: Whether to return the full path or just the last point.
             kill_on_nan: Whether to raise an error if NaNs are encountered.
             denoise_last_step: Whether to project to the boundary at the last step.
+            return_dlogp: Whether to return the log probability change.
             time_steps: Optional time steps to use for integration. Should be a 1D tensor containing the bin edges of the
                 time steps. For example, if one wanted 50 steps from 0 to 1, the time steps would be ``torch.linspace(0, 1, 51)``.
             hook: Optional hook function to call after each step. Will be called with the signature ``hook(t, x, sde, score, solver)``.
         """
         B, *D = x.shape
-        if return_logp:
+        if return_dlogp:
             if dlogp:
                 self.dlogp = dlogp
             else:
@@ -94,10 +95,10 @@ class ODESolver(Solver):
             if trace:
                 path[-1] = x
         if trace:
-            if return_logp:
+            if return_dlogp:
                 return torch.stack(path), logp
             return torch.stack(path)
-        if return_logp:
+        if return_dlogp:
             return x, logp
         return x
 

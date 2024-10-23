@@ -75,7 +75,7 @@ class ScoreModel(Base):
         solver = ODESolver(self, solver=solver, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         xT, dlogp = solver(
-            x, *args, steps=steps, forward=True, t_min=t, **kwargs, return_logp=True, dlogp=self.dlogp
+            x, *args, steps=steps, forward=True, t_min=t, **kwargs, return_dlogp=True, dlogp=self.dlogp
         )
         # add boundary condition PDF probability
         logp = self.sde.prior(D).log_prob(xT) + dlogp
