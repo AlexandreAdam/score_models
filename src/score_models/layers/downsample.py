@@ -1,3 +1,5 @@
+from typing import Union, Optional
+
 import torch
 import torch.nn.functional as F
 from .conv_layers import conv3x3
@@ -14,11 +16,12 @@ __all__ = ['DownsampleLayer']
 class DownsampleLayer(torch.nn.Module):
     def __init__(
             self, 
-            in_ch=None, 
-            out_ch=None, 
-            with_conv=False, 
-            fir=False, 
-            fir_kernel=(1, 3, 3, 1),
+            in_ch: Optional[int] = None, 
+            out_ch: Optional[int] = None, 
+            with_conv: bool = False, 
+            fir: bool =False, 
+            fir_kernel: tuple =(1, 3, 3, 1),
+            factor: Union[int, tuple] = 2,
             dimensions:int = 2,
             ):
         super().__init__()
@@ -28,6 +31,11 @@ class DownsampleLayer(torch.nn.Module):
         self.dimensions = dimensions
         self.with_conv = with_conv
         self.out_ch = out_ch
+        if isinstance(factor, int):
+            factor = [factor]*dimensions
+        if len(factor) != dimensions:
+            raise ValueError(f'Factor must have {dimensions} elements.')
+        self.factor = factor
         if not fir:
             if with_conv:
                 self.Conv_0 = conv3x3(in_ch, out_ch, stride=2, dimensions=dimensions)
@@ -53,7 +61,7 @@ class DownsampleLayer(torch.nn.Module):
                 x = AVGPOOL_FUNC[self.dimensions](x, 2, stride=2)
         else:
             if not self.with_conv:
-                x = downsample(x, self.fir_kernel, factor=2, dimensions=self.dimensions)
+                x = downsample(x, self.fir_kernel, factor=self.factor, dimensions=self.dimensions)
             else:
                 x = self.Conv_0(x)
         return x

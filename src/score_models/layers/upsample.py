@@ -1,3 +1,5 @@
+from typing import Union, Optional
+
 from torch.nn import Module
 import torch.nn.functional as F
 from .conv_layers import conv3x3
@@ -9,10 +11,23 @@ __all__ = ['UpsampleLayer']
 
 
 class UpsampleLayer(Module):
-    def __init__(self, in_ch=None, out_ch=None, with_conv=False, fir=False,
-                 fir_kernel=(1, 3, 3, 1), dimensions=2):
+    def __init__(
+            self, 
+            in_ch: Optional[int] = None,
+            out_ch: Optional[int] = None,
+            with_conv: bool = False,
+            fir: bool = False,
+            fir_kernel: tuple = (1, 3, 3, 1),
+            factor: Union[int, tuple] = 2,
+            dimensions: int = 2,
+            ):
         super().__init__()
         out_ch = out_ch if out_ch else in_ch
+        if isinstance(factor, int):
+            factor = [factor]*dimensions
+        if len(factor) != dimensions:
+            raise ValueError(f'Factor must have {dimensions} elements.')
+        self.factor = factor
         if out_ch != in_ch:
             assert with_conv
         if not fir:
@@ -39,7 +54,7 @@ class UpsampleLayer(Module):
                 h = self.Conv_0(h)
         else:
             if not self.with_conv:
-                h = upsample(x, self.fir_kernel, factor=2, dimensions=len(D))
+                h = upsample(x, self.fir_kernel, factor=self.factor, dimensions=len(D))
             else:
                 h = self.Conv1d_0(x)
         return h

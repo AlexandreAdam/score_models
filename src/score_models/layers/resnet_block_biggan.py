@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 
 import torch
 from torch import nn
@@ -26,7 +26,7 @@ class ResnetBlockBigGANpp(nn.Module):
             fir_kernel: tuple[int] = (1, 3, 3, 1),
             skip_rescale: bool = True,
             init_scale: float = 0.,
-            factor: int = 2,
+            factor: Union[int, tuple[int]] = 2,
             dimensions: int = 2
     ):
         super().__init__()
@@ -41,6 +41,10 @@ class ResnetBlockBigGANpp(nn.Module):
         self.act = act
         self.in_ch = in_ch
         self.out_ch = out_ch
+        if isinstance(factor, int):
+            factor = [factor]*dimensions
+        if len(factor) != dimensions:
+            raise ValueError(f'Factor must have {dimensions} elements.')
         self.factor = factor 
 
         self.GroupNorm_0 = nn.GroupNorm(num_groups=max(min(in_ch // 4, 32), 1), num_channels=in_ch, eps=1e-6)

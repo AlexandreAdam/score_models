@@ -3,6 +3,7 @@ from score_models.layers import StyleGANConv, UpsampleLayer, DownsampleLayer, Co
 from score_models.layers.attention_block import SelfAttentionBlock, ScaledAttentionLayer
 from score_models.definitions import default_init
 from score_models.utils import get_activation
+from score_models.layers.up_or_downsampling import downsample, upsample
 import numpy as np
 import pytest
 
@@ -103,6 +104,21 @@ def test_up_down_sampling_layer(D, P, Cin, Cout, fir, with_conv):
     out = layer(x)
     assert list(out.shape) == [1, Cout, *[P//2]*D]
 
+@pytest.mark.parametrize("D", [1, 2, 3])
+@pytest.mark.parametrize("P", [8, 16])
+@pytest.mark.parametrize("factor", [[2, 1]])
+def test_uneven_pooling(D, P, factor):
+    # TODO: Generalize to 1d 3d
+    Px, Py = 8, 16
+    x = torch.ones(1, 1, Px, Py)
+    k = (1, 3, 3, 1)
+    y = downsample(x, k=k, factor=factor, dimensions=2)
+    assert y.shape == torch.Size([1, 1, Px//factor[0], Py//factor[1]])
+    
+    y = upsample(x, factor=factor, dimensions=2)
+    assert y.shape == torch.Size([1, 1, Px*factor[0], Py*factor[1]])
+    
+    assert 0 == 1
 
 @pytest.mark.parametrize("D", [1, 2, 3])
 @pytest.mark.parametrize("P", [4, 8])
@@ -127,7 +143,6 @@ def test_stylegan_conv_shape(D, P, Cin, Cout, up_down):
     out = conv(x)
     Pout = P*2 if up else P//2 if down else P
     assert list(out.shape) == [1, Cout, *[Pout]*D]
-   
 
 def test_stylegan_conv_resample_kernel():
     x = torch.ones(1, 1, 8, 8)

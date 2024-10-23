@@ -44,7 +44,15 @@ class NIN(nn.Module):
 
 class DDPMResnetBlock(nn.Module):
     """The ResNet Blocks used in DDPM."""
-    def __init__(self, act, in_ch, out_ch=None, temb_dim=None, conv_shortcut=False, dropout=0.1, dimensions=2):
+    def __init__(
+            self, 
+            act, 
+            in_ch, 
+            out_ch=None, 
+            temb_dim=None, 
+            conv_shortcut=False, 
+            dropout=0.1, 
+            dimensions=2):
         super().__init__()
         if out_ch is None:
             out_ch = in_ch

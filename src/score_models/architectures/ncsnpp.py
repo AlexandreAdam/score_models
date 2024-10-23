@@ -1,4 +1,4 @@
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 
 import torch.nn as nn
 import numpy as np
@@ -41,6 +41,7 @@ class NCSNpp(nn.Module):
         resample_with_conv: bool = True,
         fir: bool = True,
         fir_kernel: tuple[int] = (1, 3, 3, 1),
+        downsampling_factor: Union[int, tuple[int]] = 2,
         skip_rescale: bool = True,
         progressive: Literal["none", "output_skip", "residual"] = "output_skip",
         progressive_input: Literal["none", "input_skip", "residual"] = "input_skip",
@@ -73,6 +74,7 @@ class NCSNpp(nn.Module):
             resample_with_conv (bool): Whether to resample with convolution. Default is True.
             fir (bool): Whether to use finite impulse response filter. Default is True.
             fir_kernel (tuple[int]): Kernel size for FIR filter. Default is (1, 3, 3, 1).
+            downsampling_factor (Union[int, tuple[int]]): Downsampling factor. Default is 2.
             skip_rescale (bool): Whether to skip rescaling. Default is True.
             progressive (Literal["none", "output_skip", "residual"]): Type of progressive training. Default is "output_skip".
             progressive_input (Literal["none", "input_skip", "residual"]): Type of progressive input. Default is "input_skip".
@@ -127,6 +129,7 @@ class NCSNpp(nn.Module):
             "skip_rescale": skip_rescale,
             "progressive": progressive,
             "progressive_input": progressive_input,
+            "downsampling_factor": downsampling_factor,
             "init_scale": init_scale,
             "fourier_scale": fourier_scale,
             "resblock_type": resblock_type,
@@ -178,6 +181,7 @@ class NCSNpp(nn.Module):
             UpsampleLayer,
             with_conv=resample_with_conv,
             fir=fir,
+            factor=downsampling_factor,
             fir_kernel=fir_kernel,
             dimensions=self.dimensions,
         )
@@ -186,6 +190,7 @@ class NCSNpp(nn.Module):
             with_conv=resample_with_conv,
             fir=fir,
             fir_kernel=fir_kernel,
+            factor=downsampling_factor,
             dimensions=self.dimensions,
         )
         if progressive == "output_skip":
@@ -195,13 +200,14 @@ class NCSNpp(nn.Module):
                 UpsampleLayer,
                 fir=fir,
                 fir_kernel=fir_kernel,
+                factor=downsampling_factor,
                 with_conv=True,
                 dimensions=self.dimensions,
             )
         if progressive_input == "input_skip":
-            self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)
+            self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, factor=downsampling_factor, with_conv=False)
         elif progressive_input == "residual":
-            pyramid_downsample = partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
+            pyramid_downsample = partial(Downsample, fir=fir, fir_kernel=fir_kernel, factor=downsampling_factor, with_conv=True)
         if resblock_type == "ddpm":
             ResnetBlock = partial(
                 DDPMResnetBlock,
@@ -246,7 +252,7 @@ class NCSNpp(nn.Module):
                 if resblock_type == "ddpm":
                     modules.append(Downsample(in_ch=in_ch))
                 else:
-                    modules.append(ResnetBlock(down=True, in_ch=in_ch))
+                    modules.append(ResnetBlock(down=True, in_ch=in_ch, factor=downsampling_factor))
 
                 if progressive_input == "input_skip":
                     modules.append(combiner(in_ch=input_pyramid_ch, out_ch=in_ch))
@@ -321,7 +327,7 @@ class NCSNpp(nn.Module):
                 if resblock_type == "ddpm":
                     modules.append(Upsample(in_ch=in_ch))
                 else:
-                    modules.append(ResnetBlock(in_ch=in_ch, up=True))
+                    modules.append(ResnetBlock(in_ch=in_ch, up=True, factor=downsampling_factor))
 
         assert not hs_c
 
@@ -366,6 +372,7 @@ class NCSNpp(nn.Module):
                 torch.var(h)
                 m_idx += 1
                 hs.append(h)
+                print("downsampling", "Level", i_level, "Block", i_block, h.shape)
 
             if i_level != self.num_resolutions - 1:
                 if self.resblock_type == "ddpm":
@@ -404,6 +411,7 @@ class NCSNpp(nn.Module):
             for i_block in range(self.num_res_blocks + 1):
                 h = modules[m_idx](torch.cat([h, hs.pop()], dim=1), temb)
                 m_idx += 1
+                print("upsampling", "Level", i_level, "Block", i_block, h.shape)
 
             if self.progressive != "none":
                 if i_level == self.num_resolutions - 1:

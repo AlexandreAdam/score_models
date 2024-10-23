@@ -199,12 +199,13 @@ def downsample_2d(x, k=None, factor=(2, 2), gain=1):
     if k is None:
         k = [1] * max(factor)
     k = _setup_kernel(k) * gain
-    p0 = k.shape[0] - factor[0]
-    p1 = k.shape[1] - factor[1]
-    pad_x0 = (p0 + 1) // 2
-    pad_x1 = p0 // 2
-    pad_y0 = (p1 + 1) // 2
-    pad_y1 = p1 // 2
+    print("kernel", k.shape)
+    px = k.shape[0] - factor[0]
+    py = k.shape[1] - factor[1]
+    pad_x0 = (px + 1) // 2
+    pad_x1 = px // 2
+    pad_y0 = (py + 1) // 2
+    pad_y1 = py // 2
     return upfirdn2d(
             x, 
             kernel=torch.tensor(k, device=x.device),

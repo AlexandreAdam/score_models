@@ -8,37 +8,41 @@ from torch.nn import functional as F
 def upfirdn2d(
     x, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1, pad_y0, pad_y1
 ):
+    print("pad", pad_x0, pad_x1, pad_y0, pad_y1)
     _, channel, in_h, in_w = x.shape
     kernel_h, kernel_w = kernel.shape
     
     # Interweave zeros between input pixels (if upsampling)
     out = x.view(-1, in_h, 1, in_w, 1, 1)
     out = F.pad(out, [0, 0, 0, up_x - 1, 0, 0, 0, up_y - 1])
-    out = out.view(-1, in_h * up_y, in_w * up_x, 1)
+    out = out.view(-1, in_h * up_x, in_w * up_y)
+    
+    print("Interweave", out.shape)
 
     # Pad with zeros at the boundaries
     out = F.pad(
         out,
         [
-            0, 
-            0, 
-            max(pad_x0, 0), 
-            max(pad_x1, 0), 
-            max(pad_y0, 0), 
+            0,
+            0,
+            max(pad_x0, 0),
+            max(pad_x1, 0),
+            max(pad_y0, 0),
             max(pad_y1, 0)
-        ]
+            ][::-1]
     )
+    print("Pad", out.shape)
     out = out[
         :,
-        max(-pad_y0, 0) : out.shape[1] - max(-pad_y1, 0),
-        max(-pad_x0, 0) : out.shape[2] - max(-pad_x1, 0),
-        :,
+        max(-pad_x0, 0) : out.shape[1] - max(-pad_x1, 0),
+        max(-pad_y0, 0) : out.shape[2] - max(-pad_y1, 0),
     ]
 
     # Reshape for convolution (NHWI -> NIHW)
-    out = out.permute(0, 3, 1, 2)
+    print(out.shape)
+    print(in_h * up_x + pad_x0 + pad_x1, in_w * up_y + pad_y0 + pad_y1)
     out = out.view(
-        [-1, 1, in_h * up_y + pad_y0 + pad_y1, in_w * up_x + pad_x0 + pad_x1]
+        [-1, 1, in_h * up_x + pad_x0 + pad_x1, in_w * up_y + pad_y0 + pad_y1]
     )
     
     # Flip spatial + reshape kernel for convolution (HW -> OIHW).
@@ -49,14 +53,14 @@ def upfirdn2d(
     out = out.view(
         -1,
         1,
-        in_h * up_y + pad_y0 + pad_y1 - kernel_h + 1,
-        in_w * up_x + pad_x0 + pad_x1 - kernel_w + 1,
+        in_h * up_x + pad_x0 + pad_x1 - kernel_h + 1,
+        in_w * up_y + pad_y0 + pad_y1 - kernel_w + 1,
     )
     out = out.permute(0, 2, 3, 1)
     
     # Downsample (if needed)
-    out = out[:, ::down_y, ::down_x, :]
+    out = out[:, ::down_x, ::down_y, :]
 
-    out_h = (in_h * up_y + pad_y0 + pad_y1 - kernel_h) // down_y + 1
-    out_w = (in_w * up_x + pad_x0 + pad_x1 - kernel_w) // down_x + 1
+    out_h = (in_h * up_x + pad_x0 + pad_x1 - kernel_h) // down_x + 1
+    out_w = (in_w * up_y + pad_y0 + pad_y1 - kernel_w) // down_y + 1
     return out.view(-1, channel, out_h, out_w)

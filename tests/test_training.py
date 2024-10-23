@@ -128,6 +128,27 @@ def test_training_score_model(B, conditions, sde, Net, models_to_keep, tmp_path,
         assert not os.path.exists(os.path.join(path, f"checkpoint_{i:03}.pt")), f"checkpoint_{i:03}.pt found, should not be there"
         assert not os.path.exists(os.path.join(path, f"optimizer_{i:03}.pt")), f"optimizer_{i:03}.pt found, should not be there"
 
+@pytest.mark.parametrize("factor", [[1, 2], [2, 1]])
+def test_training_uneven(factor, tmp_path):
+    hp = { # Hyperparameters for the dataset
+            "ch_mult": (1, 1, 1),
+            "nf": 2,
+            "downsampling_factor": factor,
+            }
+    E = 3 # epochs
+    C = 3
+    N = 4
+    B = 1
+    D = [8, 16]
+    sde = {"sde": "vp"}
+    dataset = Dataset(N, C, dimensions=D, **hp)
+    net = NCSNpp(C, **hp)
+    model = ScoreModel(net, **sde)
+    
+    path = tmp_path / "test"
+    # Fitting method's batch_size argument is basically the reverse of Dataset, since we turn off/on the dataloader
+    losses = model.fit(dataset, batch_size=B, epochs=E, path=path)
+
 
 @pytest.mark.parametrize("Net", [MLP, NCSNpp])
 @pytest.mark.parametrize("sde", [

@@ -24,6 +24,8 @@ def naive_downsample(x, factor=2, dimensions=2):
         return naive_downsample_3d(x, factor)
  
 def upsample(x, k=None, factor=2, gain=1, dimensions=2):
+    if isinstance(factor, int):
+        factor = [factor]*dimensions
     if dimensions == 1:
         return upsample_1d(x, k, factor, gain)
     elif dimensions == 2:
@@ -32,6 +34,8 @@ def upsample(x, k=None, factor=2, gain=1, dimensions=2):
         return upsample_3d(x, k, factor, gain)
 
 def downsample(x, k=None, factor=2, gain=1, dimensions=2):
+    if isinstance(factor, int):
+        factor = [factor]*dimensions
     if dimensions == 1:
         return downsample_1d(x, k, factor, gain)
     elif dimensions == 2:
