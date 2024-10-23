@@ -16,17 +16,19 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!-- 
+    this give us a css class that will be invisible only if js is disabled 
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="../_static/styles/theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=a3416100" />
@@ -37,10 +39,11 @@
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=6b62941f" />
   
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=26a4bc78f4c0ddb94549"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549" />
 
     <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
@@ -67,6 +70,7 @@
     <link rel="prev" title="The score" href="01-the_score.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -82,19 +86,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="../search.html"
       method="get">
@@ -102,7 +95,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search this book..."
          aria-label="Search this book..."
          autocomplete="off"
@@ -110,8 +102,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -127,7 +119,8 @@
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -157,15 +150,11 @@
 </a></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         
@@ -344,24 +333,16 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
+</button>
 <button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <span class="fa-solid fa-list"></span>
 </button>
@@ -399,6 +380,8 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a></li>
 </ul>
             </nav>
         </div>
@@ -415,6 +398,9 @@ document.write(`
 <p>This section is about learning a score function from data using a neural network.
 We will not yet address the notion of sampling from the SBM,
 which is covered in the next section on <a class="reference internal" href="03-diffusion.html"><span class="std std-doc">diffusion</span></a>.</p>
+<p>If you are looking for some short piece of code to get started, then this section is not the right place for this.
+Look into the <a class="reference internal" href="#./00-Overview.md"><span class="xref myst">Getting Started</span></a> section. I’ve also placed a demonstration at the end of the notebook that summarizes
+the concepts covered and showcases the routine of the package.</p>
 <section id="naive-score-matching">
 <h2>Naive Score Matching<a class="headerlink" href="#naive-score-matching" title="Link to this heading">#</a></h2>
 <p>Constructing a loss function for score matching is rather straight forward. The procedure was first described
@@ -530,7 +516,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "ea5562fb17f24b1e857b9a91a2a75ef6", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "d6b95cddc0db470197469ca261ca99f4", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -550,7 +536,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/984df3008b75a819a2eee5eea148045b10acdb2d5c1d7fc483d68f572ac5154a.png" src="../_images/984df3008b75a819a2eee5eea148045b10acdb2d5c1d7fc483d68f572ac5154a.png" />
+<img alt="../_images/c72ee95def337ec7aec853bcd3dcc9b86fc768f13713ff0ad8091db3d06d6cff.png" src="../_images/c72ee95def337ec7aec853bcd3dcc9b86fc768f13713ff0ad8091db3d06d6cff.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -583,7 +569,7 @@ You can find these routines in the <a class="reference internal" href="#./00-Ove
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/9abcc0d5abaa723bda79816626d3c34124b777042e800c569bf3c2260b61d279.png" src="../_images/9abcc0d5abaa723bda79816626d3c34124b777042e800c569bf3c2260b61d279.png" />
+<img alt="../_images/5efd41d94838c05726df00c5b22b184827171b6b88cc4f1b4416b6c7921ccf8e.png" src="../_images/5efd41d94838c05726df00c5b22b184827171b6b88cc4f1b4416b6c7921ccf8e.png" />
 </div>
 </div>
 <p>Close to each mode, the score is very well approximated.
@@ -749,7 +735,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "f3ffa0b548384703b843c825e62e4477", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "425e55315af84e4181cc8782b7be7e82", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -769,7 +755,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/654856bcb5fd5f8a271dfe44c3d661358c370d67b1ecaab5e09a1cd904028f56.png" src="../_images/654856bcb5fd5f8a271dfe44c3d661358c370d67b1ecaab5e09a1cd904028f56.png" />
+<img alt="../_images/163c5bd64f170a40cb0d780f22f8a336c9f34216d7a641661d82b79a7168602d.png" src="../_images/163c5bd64f170a40cb0d780f22f8a336c9f34216d7a641661d82b79a7168602d.png" />
 </div>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -809,7 +795,7 @@ Also, to make the task easier for the neural network, we redefine the score to i
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/f95f900d30749d6f2680d2ebe4c5a39c4c5be8e1b3b9334880d130b02e409af7.png" src="../_images/f95f900d30749d6f2680d2ebe4c5a39c4c5be8e1b3b9334880d130b02e409af7.png" />
+<img alt="../_images/4bdd1331cec4ffd4516d97b5c95b18fefc11bf8b592e6e44200c3dc146f9e5ad.png" src="../_images/4bdd1331cec4ffd4516d97b5c95b18fefc11bf8b592e6e44200c3dc146f9e5ad.png" />
 </div>
 </div>
 <p>Not so bad. The model is able to accurately capture the score for a wide range of values for <span class="math notranslate nohighlight">\(\beta\)</span>. It is also much more precise in regions of low density compared to our previous attempts.</p>
@@ -976,7 +962,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 <p><strong>Q</strong>: The loss has plateaued, should I stop training? <strong>A</strong>: No. The neural network is still learning, even while the loss reaches a plateau. Keep training with a constant learning rate for as long as you can afford it.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e3</span><span class="p">)</span>  <span class="c1"># Number of samples in the dataset</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">2e3</span><span class="p">)</span>  <span class="c1"># Number of samples in the dataset</span>
 <span class="n">distribution</span> <span class="o">=</span> <span class="n">swiss_roll</span><span class="p">()</span>
 <span class="n">dataset</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">D</span><span class="p">,))</span>
 </pre></div>
@@ -995,7 +981,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">dsm_loss</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">):</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">dsm_loss</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
     <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">xt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">sigma</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">z</span>
     <span class="k">return</span> <span class="p">((</span><span class="n">epsilon</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">xt</span><span class="p">)</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
@@ -1033,7 +1019,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 </div>
 <div class="cell_output docutils container">
-<script type="application/vnd.jupyter.widget-view+json">{"model_id": "c06f5297a30e4a75b514670174d245a5", "version_major": 2, "version_minor": 0}</script></div>
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "9961e098a64d422aba8bebde412203c0", "version_major": 2, "version_minor": 0}</script></div>
 </details>
 </div>
 <div class="cell tag_hide-input docutils container">
@@ -1053,7 +1039,7 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/18709116342411467b6a0b898c8a47a8494b4955bf2e062619eb4b8759f2dd98.png" src="../_images/18709116342411467b6a0b898c8a47a8494b4955bf2e062619eb4b8759f2dd98.png" />
+<img alt="../_images/c4b7b2610b6e2720eda77f9bb05628224d64480503e87a13e9a6357bd18c1e86.png" src="../_images/c4b7b2610b6e2720eda77f9bb05628224d64480503e87a13e9a6357bd18c1e86.png" />
 </div>
 </div>
 <p>We can compare our model against the annealed empirical distribution. Remember that</p>
@@ -1113,10 +1099,16 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 </div>
 </details>
 <div class="cell_output docutils container">
-<img alt="../_images/a28ae280cc9f9774180e3ab7600f138f89558dc2ca25307750a4166fd82cefd5.png" src="../_images/a28ae280cc9f9774180e3ab7600f138f89558dc2ca25307750a4166fd82cefd5.png" />
+<img alt="../_images/4fa0844cc12d5ee5e0b5368032853dcb207369072dd697deb8103354e789d911.png" src="../_images/4fa0844cc12d5ee5e0b5368032853dcb207369072dd697deb8103354e789d911.png" />
 </div>
 </div>
 </section>
+</section>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+</section>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading">#</a></h2>
 </section>
 </section>
 
@@ -1175,7 +1167,8 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
   <div class="sidebar-secondary-item">
@@ -1198,6 +1191,8 @@ In the future, hardware could perhaps handle this situation. But, to my knowledg
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dsm-in-practice">DSM in practice</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conclusion">Conclusion</a></li>
 </ul>
   </nav></div>
 
@@ -1246,8 +1241,8 @@ By Alexandre Adam
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549"></script>
 
   <footer class="bd-footer">
   </footer>
