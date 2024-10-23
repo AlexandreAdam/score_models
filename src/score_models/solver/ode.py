@@ -51,6 +51,7 @@ class ODESolver(Solver):
             trace: Whether to return the full path or just the last point.
             kill_on_nan: Whether to raise an error if NaNs are encountered.
             denoise_last_step: Whether to project to the boundary at the last step.
+            dlogp: Optional function to compute the divergence of the drift function.
             return_dlogp: Whether to return the log probability change.
             time_steps: Optional time steps to use for integration. Should be a 1D tensor containing the bin edges of the
                 time steps. For example, if one wanted 50 steps from 0 to 1, the time steps would be ``torch.linspace(0, 1, 51)``.
