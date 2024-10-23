@@ -19,12 +19,10 @@ def test_unets(D, C, ch_mult, nf, num_res_blocks, attention, Net):
     assert out.shape == torch.Size([B, C, *[P]*D])
     assert torch.isfinite(out).all()
 
+@pytest.mark.parametrize("width", [10, 50])
 @pytest.mark.parametrize("layers", [1, 3])
-@pytest.mark.parametrize("time_branch_channels", [16, 32])
-@pytest.mark.parametrize("time_branch_layers", [1, 3])
-@pytest.mark.parametrize("bottleneck", [10, 20])
 @pytest.mark.parametrize("attention", [True, False])
-def test_mlp(layers, time_branch_channels, time_branch_layers, bottleneck, attention):
+def test_mlp(width, layers, attention):
     B = 2
     C = 10
     x = torch.randn(B, C)
@@ -32,9 +30,7 @@ def test_mlp(layers, time_branch_channels, time_branch_layers, bottleneck, atten
     model = MLP(
             C, 
             layers=layers, 
-            time_branch_channels=time_branch_channels, 
-            time_branch_layers=time_branch_layers, 
-            bottleneck=bottleneck, 
+            width=width,
             attention=attention)
     out = model(t, x)
     assert out.shape == torch.Size([B, C])

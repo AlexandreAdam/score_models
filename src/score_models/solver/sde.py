@@ -93,7 +93,7 @@ class SDESolver(Solver):
 
             # Call hook
             if hook is not None:
-                hook(t, x, self.sde, self.score, self)
+                hook(t, x, self.sde, self.sbm.score, self)
 
         # Project to boundary if denoising
         if denoise_last_step and not forward:
@@ -110,7 +110,7 @@ class SDESolver(Solver):
         _, *D = x.shape
         z = torch.randn_like(x)
         epsilon = (snr * self.sde.sigma(t).view(-1, *[1] * len(D))) ** 2
-        return x + epsilon * self.score(t, x, *args, **kwargs) + z * torch.sqrt(2 * epsilon)
+        return x + epsilon * self.sbm.score(t, x, *args, **kwargs) + z * torch.sqrt(2 * epsilon)
 
     def drift(self, t: Tensor, x: Tensor, args: tuple, forward: bool, **kwargs):
         """SDE drift term"""
@@ -118,7 +118,7 @@ class SDESolver(Solver):
         if forward:
             return f
         g = self.sde.diffusion(t, x)
-        s = self.score(t, x, *args, **kwargs)
+        s = self.sbm.score(t, x, *args, **kwargs)
         return f - g**2 * s
 
     def dx(self, t, x, args, dt, forward, dw=None, **kwargs):
