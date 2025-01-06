@@ -3,7 +3,7 @@ import numpy as np
 from torch.distributions import constraints
 from torch import distributions as tfd
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 def swiss_roll(modes=128, size=0.1, width=0.1, spread=0.7, device=DEVICE) -> tfd.Distribution:
     """

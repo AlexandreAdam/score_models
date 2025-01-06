@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 
 DTYPE = torch.float32
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 def get_norm_layer(norm_type='instance'):
     """Return a normalization layer
