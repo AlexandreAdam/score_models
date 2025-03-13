@@ -29,7 +29,7 @@ class MLP(nn.Module):
                 raise ValueError(f"Conditioning must be in ['None', 'Input'], received {c}")
             if c.lower() != "none":
                 self.conditioned = True
-                if conditioning_channels is not None:
+                if conditioning_channels is None:
                     raise ValueError("conditioning_channels must be provided when the network is conditioned")
             elif c.lower() == "none" and self.conditioned:
                 raise ValueError(f"Cannot have a mix of 'None' and other type of conditioning, received the list {conditioning}")
@@ -57,7 +57,13 @@ class MLP(nn.Module):
         for _ in range(time_branch_layers):
             modules.append(nn.Linear(t_dim, t_dim))
         # main branch
-        modules.append(nn.Linear(dimensions+t_dim, units))
+        if self.conditioned:
+            total_cond_channels = 0
+            for chan in conditioning_channels:
+                total_cond_channels+=chan
+            modules.append(nn.Linear(dimensions+t_dim+total_cond_channels, units))
+        else:
+            modules.append(nn.Linear(dimensions+t_dim, units))
         if bottleneck is not None:
             assert isinstance(bottleneck, int)
             self.bottleneck = bottleneck
@@ -79,7 +85,7 @@ class MLP(nn.Module):
         self.act = get_activation(activation)
         self.all_modules = nn.ModuleList(modules)
     
-    def forward(self, t, x):
+    def forward(self, t, x, *args):
         B, D = x.shape
         modules = self.all_modules
         temb = modules[0](t)
@@ -87,7 +93,7 @@ class MLP(nn.Module):
         for _ in range(self.time_branch_layers):
             temb = self.act(modules[i](temb))
             i += 1
-        x = torch.cat([x, temb], dim=1)
+        x = torch.cat([x, temb, *args], dim=1)
         x = modules[i](x)
         i += 1
         for _ in range(self.layers//2):
