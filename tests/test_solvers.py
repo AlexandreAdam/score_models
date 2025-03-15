@@ -15,8 +15,20 @@ import pytest
 def test_solver_constructor():
     with pytest.raises(TypeError):  # abstract class cant be created
         Solver(None)
+    for solver in [
+        "EMSDESolver",
+        "HeunSDESolver",
+        "HeunSDESolverAdaptive",
+        "RK4SDESolver",
+        "EulerODESolver",
+        "HeunODESolver",
+        "RK4ODESolver",
+    ]:
+        assert isinstance(Solver(None, solver=solver), Solver), f"{solver} not created"
     assert isinstance(Solver(None, solver="EMSDESolver"), EMSDESolver), "EMSDESolver not created"
-    assert isinstance(Solver(None, solver="HeunODESolver"), HeunODESolver), "HeunODESolver not created"
+    assert isinstance(
+        Solver(None, solver="HeunODESolver"), HeunODESolver
+    ), "HeunODESolver not created"
     assert isinstance(EMSDESolver(None), Solver), "EMSDESolver not created"
     with pytest.raises(ValueError):  # unknown solver
         Solver(None, solver="random_solver")
@@ -32,7 +44,16 @@ def test_solver_constructor():
     ),
 )
 @pytest.mark.parametrize(
-    "solver", ["EMSDESolver", "HeunSDESolver", "RK4SDESolver", "EulerODESolver", "HeunODESolver", "RK4ODESolver"]
+    "solver",
+    [
+        "EMSDESolver",
+        "HeunSDESolver",
+        "HeunSDESolverAdaptive",
+        "RK4SDESolver",
+        "EulerODESolver",
+        "HeunODESolver",
+        "RK4ODESolver",
+    ],
 )
 def test_solver_sample(solver, mean, cov):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
@@ -43,11 +64,17 @@ def test_solver_sample(solver, mean, cov):
         mean=mean,
         cov=cov,
     )
+    if solver == "HeunSDESolverAdaptive":
+        kwargs = {"dt_init": 1e-2}
+    else:
+        kwargs = {}
     samples = model.sample(
         shape=(100, mean.shape[-1]),
         steps=50,
         solver=solver,
         kill_on_nan=True,
+        progress_bar=True,
+        **kwargs,
     )
     assert torch.all(torch.isfinite(samples))
     assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean not close"
@@ -62,7 +89,16 @@ def test_solver_sample(solver, mean, cov):
     ),
 )
 @pytest.mark.parametrize(
-    "solver", ["EMSDESolver", "HeunSDESolver", "RK4SDESolver", "EulerODESolver", "HeunODESolver", "RK4ODESolver"]
+    "solver",
+    [
+        "EMSDESolver",
+        "HeunSDESolver",
+        "HeunSDESolverAdaptive",
+        "RK4SDESolver",
+        "EulerODESolver",
+        "HeunODESolver",
+        "RK4ODESolver",
+    ],
 )
 def test_solver_forward(solver, mean, cov):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
@@ -76,7 +112,13 @@ def test_solver_forward(solver, mean, cov):
     slvr = Solver(model, solver=solver)
 
     x0 = torch.tensor(np.random.multivariate_normal(mean, cov, 100), dtype=torch.float32)
-    xT = slvr(x0, steps=50, forward=True, return_dlogp="ODE" in solver, progress_bar=False)
+    if solver == "HeunSDESolverAdaptive":
+        kwargs = {"dt_init": 1e-2}
+    else:
+        kwargs = {}
+    xT = slvr(
+        x0, steps=50, forward=True, return_dlogp="ODE" in solver, progress_bar=False, **kwargs
+    )
     if "ODE" in solver:  # check delta_logp calculation for ODE solvers
         xT, dlogp = xT
         assert torch.all(torch.isfinite(dlogp))
@@ -91,7 +133,19 @@ def test_solver_forward(solver, mean, cov):
         (None, torch.cat((torch.logspace(0, -2, 49), torch.zeros(1)))),  # 50 steps with log spacing
     ),
 )
-def test_solver_step(steps, time_steps):
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "EMSDESolver",
+        "HeunSDESolver",
+        "HeunSDESolverAdaptive",
+        "RK4SDESolver",
+        "EulerODESolver",
+        "HeunODESolver",
+        "RK4ODESolver",
+    ],
+)
+def test_solver_step(steps, time_steps, solver):
     sde = VESDE(sigma_min=1e-2, sigma_max=10)
     mean = torch.zeros(2, dtype=torch.float32)
     cov = torch.ones(2, dtype=torch.float32)
@@ -100,7 +154,13 @@ def test_solver_step(steps, time_steps):
         mean=mean,
         cov=cov,
     )
-    samples = model.sample(shape=(100, mean.shape[-1]), steps=steps, time_steps=time_steps)
+    if solver == "HeunSDESolverAdaptive":
+        kwargs = {"dt_init": 1e-2}
+    else:
+        kwargs = {}
+    samples = model.sample(
+        shape=(100, mean.shape[-1]), solver=solver, steps=steps, time_steps=time_steps, **kwargs
+    )
     assert torch.all(torch.isfinite(samples))
     assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean for MVG samples not close"
     assert torch.allclose(samples.std(dim=0), cov.sqrt(), atol=1), "std for MVG samples not close"
@@ -112,7 +172,10 @@ def test_solver_step(steps, time_steps):
     (
         (50, None),  # 50 steps normally
         (None, torch.linspace(1, 0, 50)),  # 50 steps set by user
-        (None, torch.cat((torch.logspace(0, -2, 49), torch.zeros(1))),),  # 50 steps with log spacing
+        (
+            None,
+            torch.cat((torch.logspace(0, -2, 49), torch.zeros(1))),
+        ),  # 50 steps with log spacing
     ),
 )
 def test_solver_logprob(steps, time_steps):
@@ -129,7 +192,7 @@ def test_solver_logprob(steps, time_steps):
     x = torch.rand(100, 2, dtype=torch.float32)
     logp = model.log_prob(x, steps=steps, time_steps=time_steps)
     true_logp = torch.distributions.MultivariateNormal(mean, cov).log_prob(x)
-    
+
     print(logp - true_logp)
     assert torch.all(torch.isfinite(logp))
     assert torch.allclose(logp, true_logp, atol=1e-3), "logp for MVG samples not close"
