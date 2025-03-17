@@ -64,17 +64,12 @@ def test_solver_sample(solver, mean, cov):
         mean=mean,
         cov=cov,
     )
-    if solver == "HeunSDESolverAdaptive":
-        kwargs = {"dt_init": 1e-2}
-    else:
-        kwargs = {}
     samples = model.sample(
         shape=(100, mean.shape[-1]),
         steps=50,
         solver=solver,
         kill_on_nan=True,
         progress_bar=True,
-        **kwargs,
     )
     assert torch.all(torch.isfinite(samples))
     assert torch.allclose(samples.mean(dim=0), mean, atol=1), "mean not close"
@@ -112,13 +107,7 @@ def test_solver_forward(solver, mean, cov):
     slvr = Solver(model, solver=solver)
 
     x0 = torch.tensor(np.random.multivariate_normal(mean, cov, 100), dtype=torch.float32)
-    if solver == "HeunSDESolverAdaptive":
-        kwargs = {"dt_init": 1e-2}
-    else:
-        kwargs = {}
-    xT = slvr(
-        x0, steps=50, forward=True, return_dlogp="ODE" in solver, progress_bar=False, **kwargs
-    )
+    xT = slvr(x0, steps=50, forward=True, return_dlogp="ODE" in solver, progress_bar=False)
     if "ODE" in solver:  # check delta_logp calculation for ODE solvers
         xT, dlogp = xT
         assert torch.all(torch.isfinite(dlogp))
@@ -154,7 +143,7 @@ def test_solver_step(steps, time_steps, solver):
         mean=mean,
         cov=cov,
     )
-    if solver == "HeunSDESolverAdaptive":
+    if solver == "HeunSDESolverAdaptive" and steps is None:
         kwargs = {"dt_init": 1e-2}
     else:
         kwargs = {}

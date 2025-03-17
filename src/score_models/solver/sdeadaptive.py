@@ -19,7 +19,8 @@ class SDESolverAdaptive(Solver):
         x: Tensor,
         *args: tuple,
         forward: bool,
-        dt_init: float,
+        dt_init: Optional[float] = None,
+        steps: Optional[int] = None,
         accuracy: float = 1e-1,
         progress_bar: bool = True,
         trace: bool = False,
@@ -62,6 +63,8 @@ class SDESolverAdaptive(Solver):
         B, *D = x.shape
 
         # Step
+        if dt_init is None and steps is not None:
+            dt_init = 1.0 / steps
         t_min = kwargs.get("t_min", self.sde.t_min)
         t_max = kwargs.get("t_max", self.sde.t_max)
         if forward:
