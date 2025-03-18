@@ -74,6 +74,7 @@ class SDESolverAdaptive(Solver):
             dt = -torch.tensor(dt_init, device=x.device, dtype=x.dtype)
             T = [t_max]
         dt = dt.reshape(1, *[1] * len(D)).repeat(B, *[1] * len(D))
+        user_max_dt = kwargs.pop("max_dt", 1.0)
 
         if trace:
             path = [x]
@@ -91,13 +92,13 @@ class SDESolverAdaptive(Solver):
                 t = torch.tensor(T[-1], device=x.device, dtype=x.dtype).repeat(B)
                 if forward:  # don't pass integration endpoint
                     max_dt = torch.tensor(
-                        min(t_max - T[-1], kwargs.get("max_dt", 1.0)),
+                        min(t_max - T[-1], user_max_dt),
                         device=x.device,
                         dtype=x.dtype,
                     )
                 else:
                     max_dt = -torch.tensor(
-                        min(T[-1] - t_min, kwargs.get("max_dt", 1.0)),
+                        min(T[-1] - t_min, user_max_dt),
                         device=x.device,
                         dtype=x.dtype,
                     )
