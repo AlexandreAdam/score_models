@@ -89,9 +89,18 @@ class SDESolverAdaptive(Solver):
                 not forward and T[-1] > t_min * 1.000001
             ):
                 t = torch.tensor(T[-1], device=x.device, dtype=x.dtype).repeat(B)
-                max_dt = torch.tensor(
-                    t_max - T[-1] if forward else t_min - T[-1], device=x.device, dtype=x.dtype
-                )  # don't pass integration endpoint
+                if forward:  # don't pass integration endpoint
+                    max_dt = torch.tensor(
+                        min(t_max - T[-1], kwargs.get("max_dt", 1.0)),
+                        device=x.device,
+                        dtype=x.dtype,
+                    )
+                else:
+                    max_dt = -torch.tensor(
+                        min(T[-1] - t_min, kwargs.get("max_dt", 1.0)),
+                        device=x.device,
+                        dtype=x.dtype,
+                    )
                 dx, dt = self.step(t, x, args, dt, forward, accuracy, max_dt, **kwargs)
                 x = x + dx
                 T.append(T[-1] + dt.flatten()[0].item())
@@ -175,9 +184,17 @@ class HeunSDESolverAdaptive(SDESolverAdaptive):
         )
         if torch.linalg.norm(k1 - dx).item() / dw_norm > accuracy:
             return self.step(
-                t, x, args, dt / 2, forward, accuracy, max_dt, dw=dw / np.sqrt(2), **kwargs
+                t,
+                x,
+                args,
+                dt * kwargs.get("stepsize_down", 0.5),
+                forward,
+                accuracy,
+                max_dt,
+                dw=dw * np.sqrt(kwargs.get("stepsize_down", 0.5)),
+                **kwargs,
             )
 
         if forward:
-            return dx, torch.min(dt * 1.4, max_dt)
-        return dx, torch.max(dt * 1.4, max_dt)
+            return dx, torch.min(dt * kwargs.get("stepsize_up", 1.4), max_dt)
+        return dx, torch.max(dt * kwargs.get("stepsize_up", 1.4), max_dt)
