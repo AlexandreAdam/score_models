@@ -4,18 +4,15 @@
 
 
 This package started a repository for personal use to avoid code duplication across different projects.
-I used it to store neural network architectures and some useful methods 
-bootlegged from the original implementation of the Score-Based Generative Modeling repository by Yang Song.
-Over time, I added some stuff and cleaned up the codebase, with the goal to collect useful methods in a 
-single package and to provide a simple interface to train and use score models.
+It was used to store score model architectures and some useful methods to train them and sample from them.
+The architecture code is mostly bootlegged from the original implementation by Yang Song.
 
-If you want to contribute or would like to see some functionalities added,
-please feel free to open an issue or a pull request. 
+If you want to contribute or would like to see some functionalities added, please feel free to open an issue or a pull request. 
 You can use the Github Button at the top of the page to access the repository or to open an issue.
 
 ## Scope of the package
 
-The interface of this package is centered around providing basic utilities for score-based models (SBM)
+The interface of this package is centered around providing basic utilities for score models
 ```python
 from score_models import NCSNpp, VPSDE, ScoreModel
 
@@ -26,7 +23,7 @@ net = NCSNpp(channels=C, dimensions=len(D), nf=128, ch_mult=[2, 2, 2, 2])
 model = ScoreModel(net=net, sde=sde)
 ```
 ### It can be used to...
-#### Train SBM
+#### train a model
 ```python
 model.fit(
     dataset, 
@@ -35,14 +32,14 @@ model.fit(
     checkpoint_every=10
     )
 ```
-#### Sample from SBM
+#### sample
 ```python
 B = 10 # batch size
 N = 100 # Euler-Maruyama discretisation steps
 samples = model.sample(shape=(B, C, *D), steps=N)
 ```
 
-#### Save and Load SBM
+#### save and load the model
 ```python
 # Save the model
 model.save("/path/to/checkpoint/directory")
@@ -50,12 +47,7 @@ model.save("/path/to/checkpoint/directory")
 model = ScoreModel(path="/path/to/checkpoint/directory")
 ```
 
-#### Evalute log-likelihood
-```python
-log_likelihood = model.log_likelihood(samples)
-```
-
-### And some more
+### and some more
 See the [Getting Started](getting_started.md) page for more information.
 
 
