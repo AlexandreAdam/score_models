@@ -6,3 +6,4 @@ from .solver import *
 from .trainer import *
 from .ema import *
 from .phema import *
+from .posterior import PosteriorScoreModel
