@@ -5,7 +5,7 @@ Score Models for Pytorch
 .. image:: https://badge.fury.io/py/score_models.svg
    :target: https://badge.fury.io/py/score_models
 .. image:: https://codecov.io/gh/AlexandreAdam/torch_score_models/branch/dev/graph/badge.svg
-   :target: https://codecov.io/gh/AlexandreAdam/torch_score_models
+   :target: https://codecov.io/gh/AlexandreAdam/score_models
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities:
 

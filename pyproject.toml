@@ -1,3 +1,36 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "score_models"
+authors = [
+    {name = "Alexandre Adam", email = "alexandre.adam@umontreal.ca"}
+    ]
+description = "An API for Score-Based Modelling."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.4",
+    "torch_ema",
+    "peft>=0.11",
+    "dill",
+    "numpy",
+    "h5py",
+    "scipy",
+    "tqdm",
+]
+version = "0.6.0"
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov[all]",
+  "pytest-mock",
+]
+lint = [
+  "black",
+  "flake8"
+]
+
+[project.scripts]

@@ -1,7 +1,10 @@
-# Score Models for Pytorch
+# Score Models
 
 [![PyPI version](https://badge.fury.io/py/score_models.svg)](https://badge.fury.io/py/score_models)
-[![codecov](https://codecov.io/gh/AlexandreAdam/torch_score_models/branch/master/graph/badge.svg)](https://codecov.io/gh/AlexandreAdam/torch_score_models)
+[![codecov](https://codecov.io/gh/AlexandreAdam/torch_score_models/branch/master/graph/badge.svg)](https://codecov.io/gh/AlexandreAdam/score_models)
+[![Documentation Status](https://readthedocs.org/projects/score-models/badge/?version=latest)](https://score-models.readthedocs.io/en/latest/?badge=latest)
+
+![](./assets/sbm_logo.png)
 
 A storage for score-based models. The `ScoreModel` interface gives access to the following utilities
 - Simple initialisation of MLP, NCSN++ and DDPM neural network architectures
@@ -20,6 +23,10 @@ To install the package, you can use pip:
 pip install score_models
 ```
 
+## Documentation
+
+The documentation is available at [https://score-models.readthedocs.io/en/latest/](https://score-models.readthedocs.io/en/latest/).
+
 ## Usage
 
 
@@ -28,11 +35,11 @@ pip install score_models
 The `ScoreModel` class is the main interface for training and using score models, defined as
 
 ```math
-\mathbf{s}_\theta(t, \mathbf{x}) \equiv \nabla_\mathbf{x} \log p_t(\mathbf{x}) = \frac{1}{\sigma(t)} f_\theta (t, \mathbf{x})$$
+\mathbf{s}_\theta(t, \mathbf{x}) \equiv \nabla_\mathbf{x} \log p_t(\mathbf{x}) = \frac{1}{\sigma(t)} f_\theta (t, \mathbf{x})
 ```
 
 where $\sigma(t)$ is the standard deviation of the perturbation kernel $`p_t(\mathbf{x} \mid \mathbf{x}_0)`$
-of an SDE and $f_\theta : [0, 1] \times\mathbb{R}^d \to \mathbb{R}^d$ is a neural network for $\mathbf{x} \in \mathbb{R}^d$. 
+of an SDE and $f_\theta : [0, 1] \times\mathbb{R}^d \to \mathbb{R}^d$ is a neural network for $`\mathbf{x} \in \mathbb{R}^d`$. 
 
 The `ScoreModel` class extends the `torch.nn.Module` class. Example usage:
 

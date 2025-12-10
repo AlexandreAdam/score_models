@@ -1,0 +1,6 @@
+bugfix:
+  - "*fix*"
+feature:
+  - "*feature*"
+major:
+  - "*major*"

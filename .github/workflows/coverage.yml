@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'  # Trigger on all branches
+  pull_request:
+    branches:
+      - master
+      - dev
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+        os: [ubuntu-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Record State
+        run: |
+          pwd
+          echo github.ref is: ${{ github.ref }}
+          echo GITHUB_SHA is: $GITHUB_SHA
+          echo github.event_name is: ${{ github.event_name }}
+          echo github workspace: ${{ github.workspace }}
+          pip --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          cd $GITHUB_WORKSPACE
+          pip install -r requirements.txt
+
+      - name: Install package
+        run: |
+          pip install -e .
+          
+      - name: Test
+        run: |
+          pytest --cov=${{ env.PROJECT_NAME }} --cov-report=xml --cov-report=term tests/
+        # Generate coverage report
+        continue-on-error: true  # Allow tests to fail without breaking the workflow
+      
+      - name: Upload coverage reports to Codecov
+        if: matrix.python-version == '3.10'  # Change this to upload coverage only for a specific version
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
