@@ -10,6 +10,7 @@ from ..losses import dsm
 from ..solver import Solver, ODESolver
 from ..utils import DEVICE
 from ..save_load_utils import load_hyperparameters
+
 if TYPE_CHECKING:
     from score_models import HessianDiagonal
 
@@ -22,7 +23,7 @@ class ScoreModel(Base):
         path = kwargs.get("path", None)
         if path is not None:
             try:
-                hyperparameters = load_hyperparameters(path) 
+                hyperparameters = load_hyperparameters(path)
                 formulation = hyperparameters.get("formulation", "original")
             except FileNotFoundError:
                 # Freak case where a new model is created from scratch with a path (so no hyperparameters is present)
@@ -31,6 +32,7 @@ class ScoreModel(Base):
             formulation = kwargs.get("formulation", "original")
         if formulation.lower() == "edm":
             from score_models import EDMScoreModel
+
             return super().__new__(EDMScoreModel)
         else:
             return super().__new__(cls)
@@ -43,7 +45,7 @@ class ScoreModel(Base):
         checkpoint: Optional[int] = None,
         hessian_diagonal_model: Optional["HessianDiagonal"] = None,
         device=DEVICE,
-        **hyperparameters
+        **hyperparameters,
     ):
         super().__init__(net, sde, path, checkpoint=checkpoint, device=device, **hyperparameters)
         if hessian_diagonal_model is not None:
@@ -81,7 +83,7 @@ class ScoreModel(Base):
         steps: int,
         t: float = 0.0,
         solver: Literal["Euler", "Heun", "RK4"] = "Euler",
-        **kwargs
+        **kwargs,
     ) -> Tensor:
         """
         Compute the log likelihood of point x using the probability flow ODE,
@@ -96,7 +98,14 @@ class ScoreModel(Base):
         solver = ODESolver(self, solver=solver, **kwargs)
         # Solve the probability flow ODE up in temperature to time t=1.
         xT, dlogp = solver(
-            x, *args, steps=steps, forward=True, t_min=t, **kwargs, return_dlogp=True, dlogp=self.dlogp
+            x,
+            *args,
+            steps=steps,
+            forward=True,
+            t_min=t,
+            **kwargs,
+            return_dlogp=True,
+            dlogp=self.dlogp,
         )
         # add boundary condition PDF probability
         logp = self.sde.prior(D).log_prob(xT) + dlogp
@@ -109,11 +118,17 @@ class ScoreModel(Base):
         shape: tuple,  # TODO grab dimensions from model hyperparams if available
         steps: int,
         solver: Literal[
-            "EMSDESolver", "HeunSDESolver", "RK4SDESolver", "EulerODESolver", "HeunODESolver", "RK4ODESolver"
+            "EMSDESolver",
+            "HeunSDESolver",
+            "HeunSDESolverAdaptive",
+            "RK4SDESolver",
+            "EulerODESolver",
+            "HeunODESolver",
+            "RK4ODESolver",
         ] = "EMSDESolver",
         progress_bar: bool = True,
         denoise_last_step: bool = True,
-        **kwargs
+        **kwargs,
     ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
@@ -125,14 +140,7 @@ class ScoreModel(Base):
         B, *D = shape
         solver = Solver(self, solver=solver, **kwargs)
         xT = self.sde.prior(D).sample([B])
-        x0 = solver(
-            xT,
-            *args,
-            steps=steps,
-            forward=False,
-            progress_bar=progress_bar,
-            **kwargs
-        )
+        x0 = solver(xT, *args, steps=steps, forward=False, progress_bar=progress_bar, **kwargs)
         if denoise_last_step:
             t = self.sde.t_min * torch.ones(B, device=self.device)
             x0 = self.tweedie(t, x0, *args, **kwargs)
@@ -146,10 +154,15 @@ class ScoreModel(Base):
         *args,
         steps: int,
         solver: Literal[
-            "EMSDESolver", "HeunSDESolver", "RK4SDESolver", "EulerODESolver", "HeunODESolver", "RK4ODESolver"
+            "EMSDESolver",
+            "HeunSDESolver",
+            "RK4SDESolver",
+            "EulerODESolver",
+            "HeunODESolver",
+            "RK4ODESolver",
         ] = "EMSDESolver",
         progress_bar: bool = True,
-        **kwargs
+        **kwargs,
     ) -> Tensor:
         """
         Sample from the score model by solving the reverse-time SDE using the Euler-Maruyama method.
@@ -158,13 +171,7 @@ class ScoreModel(Base):
 
         """
         x0 = Solver(self, solver=solver, **kwargs)(
-            xt,
-            *args,
-            t_max=t,
-            steps=steps,
-            forward=False,
-            progress_bar=progress_bar,
-            **kwargs
+            xt, *args, t_max=t, steps=steps, forward=False, progress_bar=progress_bar, **kwargs
         )
         # Denoise last step with Tweedie
         t = self.sde.t_min * torch.ones(x0.shape[0], device=self.device)
