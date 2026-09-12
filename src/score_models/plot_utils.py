@@ -11,7 +11,7 @@ from scipy.interpolate import interpn
 from scipy.special import logsumexp
 from matplotlib.colors import Normalize
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 # plt.style.use('dark_background')
 plt.style.use('science')
